@@ -126,7 +126,9 @@ so changing either really does rebuild the binary. (Without that, `npm run
 build` silently appears to do nothing.)
 
 Disable the visualizer entirely with `-DENGINE_VIZ=OFF` (also skips the
-dependency fetch, useful offline).
+dependency fetch, useful offline). That tree has no `chess_viz`, no
+`ChessEngine-viz` and no `test_viz`, so the `viz.*` ctest cases are not
+registered rather than reported as not run.
 
 ## Browser build (WebAssembly)
 

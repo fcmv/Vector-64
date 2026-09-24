@@ -352,24 +352,28 @@ endif()
 # Visualizer support library. Kept out of chess_core on purpose: the tournament
 # binaries must gain nothing from it (no extra code, no future third-party
 # link deps). Only the visualizer binary and its tests link this.
+#
+# Everything visualizer -- the library, its binary and its tests -- lives inside
+# the ENGINE_VIZ block. The sources include the headers fetched below, so with
+# the option off there must be no target left that would try to compile them.
 # ---------------------------------------------------------------------------
-add_library(chess_viz STATIC
-        src/viz/probe.cpp
-        src/viz/probe.h
-        src/viz/session.cpp
-        src/viz/session.h
-        src/viz/wire.cpp
-        src/viz/wire.h
-        src/viz/terminal.cpp
-        src/viz/terminal.h
-)
-target_link_libraries(chess_viz PUBLIC chess_core)
-
-# Header-only MIT dependencies, pinned and fetched as single files (no git
-# history, no build system of their own). They are attached to chess_viz only:
-# the tournament binaries never see them.
 option(ENGINE_VIZ "Build the NNUE visualizer binary (needs network on first configure)" ON)
 if(ENGINE_VIZ)
+    add_library(chess_viz STATIC
+            src/viz/probe.cpp
+            src/viz/probe.h
+            src/viz/session.cpp
+            src/viz/session.h
+            src/viz/wire.cpp
+            src/viz/wire.h
+            src/viz/terminal.cpp
+            src/viz/terminal.h
+    )
+    target_link_libraries(chess_viz PUBLIC chess_core)
+
+    # Header-only MIT dependencies, pinned and fetched as single files (no git
+    # history, no build system of their own). They are attached to chess_viz
+    # only: the tournament binaries never see them.
     include(FetchContent)
     FetchContent_Declare(stk_json
             URL https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp
@@ -461,6 +465,14 @@ if(ENGINE_VIZ)
         set_target_properties(ChessEngine-viz PROPERTIES
                 RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
     endif()
+
+    add_executable(test_viz tests/cpp/test_viz.cpp)
+    target_link_libraries(test_viz chess_viz)
+    set_target_properties(test_viz PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+else()
+    message(STATUS "Visualizer: skipped (ENGINE_VIZ=OFF); no viz targets or viz.* tests")
 endif()
 
 add_executable(test_zobrist tests/cpp/test_zobrist.cpp)
@@ -480,12 +492,6 @@ if(ENGINE_VARIANTS)
             RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     )
 endif()
-
-add_executable(test_viz tests/cpp/test_viz.cpp)
-target_link_libraries(test_viz chess_viz)
-set_target_properties(test_viz PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
 
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
@@ -549,26 +555,29 @@ if(ENGINE_VARIANTS)
     add_test(NAME "variants.drops_state_and_perft" COMMAND test_variants)
 endif()
 
-# Visualizer telemetry reports the engine's real arithmetic: the captured eval
-# equals the ordinary eval path, and each layer's attribution sums back to that
-# layer's output.
-add_test(NAME "viz.telemetry_exact" COMMAND test_viz frame)
-# The session driver keeps the board and the reported move list in agreement,
-# and self-play games actually reach terminal states.
-add_test(NAME "viz.session_selfplay" COMMAND test_viz session)
-# A search is deterministic, so without root-move variety self-play replays one
-# identical game from the same position forever -- a silent failure that only
-# shows up as "why is every game the same?". Random openings hide it, so this
-# runs with them off.
-add_test(NAME "viz.selfplay_variety" COMMAND test_viz variety)
-# Rows are written as numbered shards, which is what the training pipeline
-# globs; a resumed run must continue the sequence without a gap and without
-# regenerating the games it resumed past (which would duplicate rows).
-add_test(NAME "viz.datagen_shards" COMMAND test_viz shards)
-# The wire format is binary: a renamed field would fail silently at runtime, so
-# the encoder must keep producing something the UI decoder understands. CI pairs
-# this with the TypeScript side (see the viz-ui job).
-add_test(NAME "viz.wire_fixture" COMMAND test_viz fixture "${CMAKE_BINARY_DIR}/viz_frame.bin")
+# Unguarded, these report as "Not Run" in an ENGINE_VIZ=OFF tree.
+if(ENGINE_VIZ)
+    # Visualizer telemetry reports the engine's real arithmetic: the captured
+    # eval equals the ordinary eval path, and each layer's attribution sums back
+    # to that layer's output.
+    add_test(NAME "viz.telemetry_exact" COMMAND test_viz frame)
+    # The session driver keeps the board and the reported move list in
+    # agreement, and self-play games actually reach terminal states.
+    add_test(NAME "viz.session_selfplay" COMMAND test_viz session)
+    # A search is deterministic, so without root-move variety self-play replays
+    # one identical game from the same position forever -- a silent failure that
+    # only shows up as "why is every game the same?". Random openings hide it,
+    # so this runs with them off.
+    add_test(NAME "viz.selfplay_variety" COMMAND test_viz variety)
+    # Rows are written as numbered shards, which is what the training pipeline
+    # globs; a resumed run must continue the sequence without a gap and without
+    # regenerating the games it resumed past (which would duplicate rows).
+    add_test(NAME "viz.datagen_shards" COMMAND test_viz shards)
+    # The wire format is binary: a renamed field would fail silently at runtime,
+    # so the encoder must keep producing something the UI decoder understands.
+    # CI pairs this with the TypeScript side (see the viz-ui job).
+    add_test(NAME "viz.wire_fixture" COMMAND test_viz fixture "${CMAKE_BINARY_DIR}/viz_frame.bin")
+endif()
 
 # Search regression fingerprint.
 find_program(BASH_EXECUTABLE bash)
