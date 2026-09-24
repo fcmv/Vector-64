@@ -57,28 +57,37 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then EXE=build/bin/Release/ChessEngine.exe; else EXE=build/bin/ChessEngine; fi
           "$EXE" --perft | grep "0 Failed"
 
-      - name: Stage binary
+      - name: Stage binaries
         shell: bash
         run: |
           mkdir -p dist
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            cp build/bin/Release/ChessEngine.exe "dist/${{ matrix.asset }}"
-            NNUE_SRC=build/bin/Release/ChessEngine-nnue.exe
-            VIZ_SRC=build/bin/Release/ChessEngine-viz.exe
-          else
-            cp build/bin/ChessEngine "dist/${{ matrix.asset }}"
-            NNUE_SRC=build/bin/ChessEngine-nnue
-            VIZ_SRC=build/bin/ChessEngine-viz
-          fi
-          # NNUE build (net embedded) is produced on every release platform now
-          # (ELF/Mach-O .incbin, MSVC RCDATA); ship it beside the classical one.
-          if [ -f "$NNUE_SRC" ]; then
-            cp "$NNUE_SRC" "dist/$(echo "${{ matrix.asset }}" | sed 's/\(\.exe\)\?$/-nnue\1/')"
-          fi
-          # Vector Scope: the NNUE visualizer (net + UI embedded, one file).
-          if [ -f "$VIZ_SRC" ]; then
-            cp "$VIZ_SRC" "dist/$(echo "${{ matrix.asset }}" | sed 's/\(\.exe\)\?$/-viz\1/')"
-          fi
+          if [ "${{ runner.os }}" = "Windows" ]; then BIN=build/bin/Release; EXT=.exe
+          else BIN=build/bin; EXT=; fi
+
+          # The classical engine takes the bare asset name; the rest get their
+          # suffix inserted ahead of any .exe.
+          asset="${{ matrix.asset }}"
+          base="${asset%.exe}"
+          [ "$base" = "$asset" ] && dot="" || dot=".exe"
+          cp "$BIN/ChessEngine$EXT" "dist/$asset"
+
+          #   nnue      standard chess, net embedded
+          #   all       the same plus crazyhouse and bughouse -- the one to ship
+          #             for variants; falls back to the classical eval there
+          #   variants  drop variants without a net (SPRT / classical-only)
+          #   validator legality, terminal and FEN queries; no search, no net
+          #   viz       Vector Scope, the NNUE visualizer (net + UI in one file)
+          # A platform that cannot produce one is not fatal: the release ships
+          # whatever that platform actually built.
+          for t in nnue all variants validator viz; do
+            src="$BIN/ChessEngine-$t$EXT"
+            if [ -f "$src" ]; then
+              cp "$src" "dist/${base}-${t}${dot}"
+            else
+              echo "not built on this platform: ChessEngine-$t"
+            fi
+          done
+          ls -l dist
 
       - uses: actions/upload-artifact@v7
         with:
@@ -100,3 +109,18 @@ jobs:
           files: dist/**
           generate_release_notes: true
           fail_on_unmatched_files: true
+          body: |
+            Each platform ships up to six binaries, named `<platform>` plus the
+            suffix below (`.exe` last on Windows).
+
+            | Suffix | What it is |
+            |---|---|
+            | *(none)* | Classical evaluation, no net. Smallest, most portable. |
+            | `-nnue` | Standard chess, net embedded. Strongest at chess. |
+            | `-all` | `-nnue` plus crazyhouse and bughouse. **Use this for variants.** |
+            | `-variants` | Drop variants on the classical evaluation, no net. Used for SPRT. |
+            | `-validator` | Legality, terminal and FEN queries as one-line JSON. No search, no net. |
+            | `-viz` | Vector Scope, the live NNUE visualizer. Net and UI in one file. |
+
+            Pick by CPU: `x86-64-v3` needs AVX2 (2015+), `x86-64-v2` needs SSE4.2
+            (2009+), `arm64-dotprod` needs ARMv8.2 dot-product.
