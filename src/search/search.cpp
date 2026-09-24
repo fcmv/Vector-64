@@ -33,7 +33,12 @@
 
 // In eighths; 0 disables.
 #ifndef ENGINE_KING_DANGER_SCALE
-#define ENGINE_KING_DANGER_SCALE 0
+#define ENGINE_KING_DANGER_SCALE 6
+#endif
+
+// Set equal to PieceValue to disable: the per-type delta is then zero.
+#ifndef ENGINE_PIECE_VALUES
+#define ENGINE_PIECE_VALUES 0, 100, 340, 320, 450, 800, 0
 #endif
 
 #ifndef ENGINE_VARIANT_NULLMOVE
@@ -404,6 +409,27 @@ int EngineSearch::variant_eval(const Core::Position &pos) {
 #if ENGINE_VARIANT_HAND_MATERIAL
   score += pos.hand_material_wb();
 #endif
+
+  // A correction rather than a retune of PieceValue, which also drives
+  // materialWb and see(): moving it would move standard chess inside
+  // ChessEngine-all, whose bench must hold.
+  //
+  // Gated on the position being drop-dynamic. A bughouse board whose captures
+  // feed the absent partner never fills a reserve, so it plays out as ordinary
+  // chess, where these values cost Elo.
+  if (pos.captures_fill_hand() || pos.has_any_in_hand(Core::WHITE) ||
+      pos.has_any_in_hand(Core::BLACK)) {
+    static constexpr int kVariantValue[Core::PIECE_TYPE_NB] = {
+        ENGINE_PIECE_VALUES};
+    for (int pt = Core::PAWN; pt <= Core::QUEEN; ++pt) {
+      const int delta = kVariantValue[pt] - Core::PieceValue[pt];
+      if (delta == 0)
+        continue;
+      const auto type = static_cast<Core::PieceType>(pt);
+      score += delta * (Core::popcount(pos.pieces(type, Core::WHITE)) -
+                        Core::popcount(pos.pieces(type, Core::BLACK)));
+    }
+  }
 
 #if ENGINE_KING_DANGER_SCALE
   for (int ci = Core::WHITE; ci <= Core::BLACK; ++ci) {

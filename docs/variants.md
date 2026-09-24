@@ -1,7 +1,10 @@
 # STK-Vector-64 Variant Support
 
 Status: Crazyhouse and bughouse board mechanics and the host integration
-surface implemented; search and evaluation tuning outstanding (section 13).
+surface implemented. The evaluation now counts reserves and the shipping
+binary no longer runs a net it has disabled -- the two together are worth more
+than everything else on the tuning list combined (section 13). Further search
+and evaluation tuning outstanding (section 13.2).
 
 Selected at runtime with `setoption name UCI_Variant value crazyhouse|bughouse`.
 
@@ -234,7 +237,7 @@ all of which encode assumptions about *chess* that crazyhouse violates.
 |---|---|---|
 | Alpha-beta, TT, iterative deepening | throughout | Valid unchanged |
 | Mate scores | `search.cpp:467` | Valid unchanged |
-| Null-move pruning | `search.cpp:653` | **Disable initially** |
+| Null-move pruning | `search.cpp:653` | Measured: keep it ON |
 | Reverse futility | `search.cpp:637` | Retune margins |
 | LMR | `search.cpp:770` | Retune; do not reduce drop-checks |
 | SEE / MVV-LVA | `move_ordering.cpp` | **Semantically broken** |
@@ -249,28 +252,66 @@ capturer for the material it donates. Until that is modelled, capture ordering
 should fall back to a crazyhouse-specific table rather than reusing MVV-LVA
 unchanged.
 
-**Quiescence determines playing strength here.** Crazyhouse tactics are drop
-sequences, not capture sequences. A captures-only qsearch will hang forced mates
-constantly and no amount of eval quality compensates. Quiescence must generate
-checking drops, which means a bounded, ordered subset -- checking drops adjacent
-to or on lines to the enemy king -- or the qsearch explodes.
+**Quiescence was predicted to determine playing strength here, and it does
+not.** The reasoning was that crazyhouse tactics are drop sequences, not
+capture sequences, so a captures-only qsearch would hang forced mates. The
+generator was built (`generate_drop_checks`, verified exact against brute
+force) and measured twice, and it loses Elo both times -- see section 13.1.
 
-**Null move is the standard crazyhouse footgun.** Attacks develop so fast, and
-tempo is so valuable, that "if I pass and I'm still winning, I'm winning" fails
-routinely. Ship with it off; re-enable behind an SPRT gate, restricted to
-positions where the opponent's hand is empty.
+**Null move was predicted to be the standard crazyhouse footgun, and it is
+not.** The reasoning was that attacks develop so fast, and tempo is so
+valuable, that "if I pass and I'm still winning, I'm winning" fails routinely,
+so the advice was to ship with it off. Measured on top of reserve material,
+turning it off costs **-16.1 Elo +/- 10.9 over 3850 games** (H0 accepted,
+LLR -3.00). It stays on. The zugzwang guard still does not see reserves, so
+the narrower experiment -- null move only when the opponent's hand is empty --
+remains untested and may yet be worth something.
 
-Every one of these is an SPRT question, not an opinion. The existing self-play
-and SPRT tooling applies unchanged, since the game is still scalar and zero-sum.
+Every one of these is an SPRT question, not an opinion, and the two that have
+been measured both came back against the prediction. The existing self-play and
+SPRT tooling applies unchanged, since the game is still scalar and zero-sum;
+`tools/sprt_variant.ps1` flips one compile-time knob per run.
 
 ## 8. Evaluation
 
 ### 8.1 Interim classical
 
-Crazyhouse piece values compress sharply and pawns in hand are strong.
-`PieceValue` (`src/cores/types.h:88`) needs a variant-specific table, plus a
-term for material in hand and king-safety weighting that scales with the
-*opponent's* hand.
+The drop variants evaluate as `material + psqt + variant_eval`, where
+`variant_eval` (`src/search/search.cpp`) holds everything the board-only
+classical score cannot express. All of it is white-minus-black and compiles to
+nothing outside a variant build.
+
+**Reserve material is the term that had to exist.** `materialWb` is maintained
+by `put_piece`/`remove_piece`, so before this a piece in hand was worth
+literally nothing while the same piece on the board was worth `PieceValue`.
+Every drop therefore appeared to win a full piece out of nowhere -- eval went
++9 to +912 on a single `Q@e4`, and from a stocked reserve the engine's PV was
+`Q@b3 R@g3 N@d3`, the whole hand dumped in the first three moves and preferred
+to any developing move. `Position` now keeps `handMaterialWb` incrementally
+beside `materialWb`, valued by a `HandValue` table (`src/cores/types.h`).
+
+The default `HandValue` *is* `PieceValue`, which makes a drop exactly
+material-neutral and leaves the piece-square table to judge the destination.
+That is deliberate: any departure from neutrality is a tuning claim and belongs
+to an SPRT, not to a default. Crazyhouse convention says a pawn in hand is
+worth well over a pawn on the board; `-DENGINE_HAND_VALUES=...` tests it.
+
+It is kept separate from `materialWb` rather than folded into it so that the
+NNUE lazy-eval and small-net gates, which read `material_wb()` as "material on
+the board", keep their existing meaning and the standard bench signature.
+
+**King danger scales with the opponent's reserve**, not with the pieces on the
+board: a hand turns every empty square beside a king into a potential attacker
+with no approach march. The term is deliberately O(1) -- empty king-ring
+squares times a capped weighted count of the opponent's hand -- because it runs
+at every evaluated node. `-DENGINE_KING_DANGER_SCALE=N` weights it in eighths.
+
+**Board piece values** compress in a drop variant, since nothing is ever traded
+off the board for good and the endgame scaling that sets the chess values never
+arrives. `-DENGINE_PIECE_VALUES=...` applies a correction inside
+`variant_eval` rather than retuning `PieceValue`, which also drives
+`materialWb`'s incremental update and `see()` -- retuning it directly would
+move standard chess inside `ChessEngine-all`, which must hold bench 2704705.
 
 ### 8.2 NNUE
 
@@ -469,55 +510,137 @@ deterministic only at `Threads 1`; lazy SMP is non-deterministic by design.
 
 ## 13. Remaining Work
 
-The board mechanics are correct and the engine plays legal crazyhouse and
-bughouse. It does not yet play them *well*. In rough priority order:
+The board mechanics were already correct; what follows is what changed once the
+*evaluation* was measured rather than assumed. Two bugs dominated everything on
+the original list.
 
-1. ~~**Drop-checks in quiescence.**~~ **Built, measured, and turned off.**
-   `generate_drop_checks` (`src/cores/movegen.cpp`) emits exactly the legal
-   drops that give check, verified against brute force at every ply of the 300
-   randomised games. It is correct -- and it loses Elo.
+### 13.0 The two fixed bugs
 
-   Crazyhouse SPRT at 25k nodes, H0 elo<=0 / H1 elo>=5:
+**The shipping binary was running a net it had disabled.**
+`set_nnue_enabled(false)` gated `EngineSearch::evaluate()`, which the UCI `eval`
+command calls and nothing else does. The search's own path, `eval_pos()`, fell
+through to `eval_->evaluate(pos)`, and with a net loaded that rebuilds both
+accumulator perspectives from scratch on every call. So `ChessEngine-all` in a
+drop variant paid a full accumulator refresh *per node* in order to score
+reserves with a net that cannot see them, while printing `info string ... using
+the classical evaluation`. Crazyhouse startpos, 1 thread, 3s: **0.61M -> 3.32M
+nps, depth 13 -> 16**. The two binaries now produce bit-identical variant
+searches at fixed nodes, which is what section 2 always claimed.
 
-   | Comparison | Result | Games | Verdict |
-   |---|---|---|---|
-   | qdepth 2 vs 0 (off) | -20.8 Elo +/- 12.4 | 3014 | H0 accepted |
-   | qdepth 4 vs 2 | -146.6 Elo +/- 36.0 | 429 | H0 accepted |
+**A piece in hand was worth nothing.** Covered in section 8.1. Measured **+502
+Elo over 57 games** (+54 =0 -3, H1 accepted, LLR +3.65). The error bar is
+unbounded at that score -- read the verdict, not the point estimate -- but the
+direction is not in question.
 
-   So `ENGINE_DROP_CHECK_QDEPTH` now defaults to **0**. The loss is monotonic
-   in depth, which points at node cost rather than bad tactics: every checking
-   drop hands the opponent a full set of evasions, the qsearch tree grows
-   fast, and at a fixed node budget the lost depth outweighs the tactics
-   gained. This was predicted to be "the single largest strength gap" -- the
-   prediction was wrong, and the measurement is what settles it.
+### 13.1 Measured, and settled
 
-   Two honest caveats. The test is fixed-node, which penalises anything that
-   costs nodes per move; fixed-time might read differently, though the -147 at
-   qdepth 4 makes a rescue unlikely. And drop variants currently run the
-   classical evaluation, which may undervalue the attacking positions these
-   drops reach. Worth re-running after item 4 lands. The code stays, one
-   constant away from being re-enabled.
-2. **Drop-aware SEE.** Partly done. The *correctness* half is fixed: `see()`
-   is never called on a drop (its `from_sq` holds a piece type, so it would
-   read a nonsense attacker), drops are excluded from the `[from][to]` history
-   table they would otherwise alias into, and every site that needs a moving
-   piece type goes through `moved_piece()`. The *modelling* half is still
-   open: a capture donates the captured piece to a reserve, and the exchange
-   evaluation does not account for that. Fixing it means putting a value on
-   material-in-hand, which is a tuning question that needs SPRT rather than a
-   guess.
-3. **Pruning retune.** Null move, reverse futility and LMR margins all encode
-   chess assumptions that drop variants violate. Each is an SPRT question.
-4. **Evaluation.** `PieceValue` needs a variant table plus terms for material
-   in hand and for king safety scaled by the *opponent's* reserve.
-5. **NNUE.** No net is trained for drops. A net without the hand-feature block
-   would evaluate reserves as invisible, and the accumulator update has no
-   drop path, so drop variants run the classical evaluation
-   (`set_nnue_enabled(false)`) even in a binary that embeds a net. Out of
-   scope for now by decision, not oversight (section 8.2).
-6. **Bughouse partner layer.** Protocol, incoming-material model, sitting
-   (section 10). Until this exists, bughouse mode is crazyhouse with the repetition
-   and fifty-move draws switched off.
+All crazyhouse, 25k nodes, H0 elo<=0 / H1 elo>=5, via `tools/sprt_variant.ps1`.
+
+| Change | Result | Games | Verdict |
+|---|---|---|---|
+| reserve material ON vs OFF | +502 Elo | 57 | H1 accepted |
+| drop history ON vs OFF | +51.3 +/- 18.2 | 1406 | H1 accepted |
+| null move OFF vs ON | -16.1 +/- 10.9 | 3850 | H0 accepted |
+| drop-checks qdepth 2 vs 0 | -21.4 +/- 12.5 | 2960 | H0 accepted |
+
+**Drop history** is new and on by default. Drops cannot use the main history
+table, which is keyed `[from][to]` -- a drop's `from_sq` field carries a piece
+type, so it would alias with real moves out of b1..f1 -- and they are often the
+majority of the quiet moves at a node, so they had been ordered by continuation
+history alone. A dedicated `[color][droppedPiece][to]` table costs ~3 KB.
+
+**Null move stays on**, against the prediction in section 7.
+
+**Drop-checks in quiescence stay off, and the original explanation survives.**
+The obvious suspicion was that the first measurement had been confounded by the
+hand-material bug: with a piece in hand worth nothing, every checking drop also
+looked like it won a piece, so quiescence could manufacture material and the
+corruption would grow with qdepth exactly as the original numbers did. It was
+re-run on top of the fixed evaluation and came back **-21.4 +/- 12.5**, against
+the original -20.8 +/- 12.4. Statistically the same number. The confounding
+hypothesis was wrong and the node-cost explanation stands.
+
+### 13.1b Evaluation terms, and a bughouse trap
+
+Two evaluation terms were added on top of reserve material and measured
+against the term switched off:
+
+| Change | Result | Games | Verdict |
+|---|---|---|---|
+| crazyhouse piece values | +30.6 +/- 13.6 | 2512 | H1 accepted |
+| king danger, scale 6 | + 9.5 +/-  8.7 | 6000 | cap, positive |
+| king danger, scale 14 | +10.3 +/-  8.7 | 6000 | cap, positive |
+| both together vs neither | +25.2 +/- 12.3 | 3061 | H1 accepted |
+
+King danger is consistently positive and essentially weight-insensitive
+between 6 and 14, but reached the SPRT bound at neither weight on its own.
+Scale 6 is the default because that is the combination validated jointly with
+the piece values in the last row.
+
+**The bughouse trap.** The piece values were measured in crazyhouse and,
+applied unconditionally, cost **-66 Elo in bughouse**. The cause is that a
+`--variant bughouse` match from the start position is degenerate: a bughouse
+capture feeds the *partner* board, which a single-board match does not have,
+so no reserve ever fills and **not one drop occurs from beginning to end**.
+Such a game is ordinary chess with the repetition and fifty-move draws
+switched off, and crazyhouse piece values are simply wrong for it.
+
+The correction is therefore gated on the position being drop-dynamic --
+crazyhouse always is, bughouse only once the host has injected something:
+
+```cpp
+if (pos.captures_fill_hand() || pos.has_any_in_hand(WHITE)
+                             || pos.has_any_in_hand(BLACK))
+```
+
+Crazyhouse behaviour is bit-identical to what was measured, and a bughouse
+board with no partner feed is now bit-identical to the pre-change engine
+(same node count, score and PV at fixed nodes) rather than 66 Elo worse.
+
+The general lesson is worth keeping: **a single-board bughouse match tests
+almost nothing about drop play.** Bughouse strength is crazyhouse strength
+plus the partner layer, so crazyhouse is where variant tuning must be
+measured, and a bughouse-specific number should be treated as a regression
+check on the no-reserve path rather than as evidence about drops.
+
+### 13.1c Total
+
+`ChessEngine-variants`, this branch versus the previous tip, 25k nodes:
+
+- **crazyhouse: +676 Elo over 50 games (+49 =0 -1), H1 accepted, LLR +8.74.**
+- bughouse with no partner feed: bit-identical, by construction.
+
+On a dead-symmetric bughouse position -- identical boards, identical reserves
+for both sides -- the old engine scored **+337 for White** and answered with
+`Q@d4 Q@f6 B@e5 R@a4`, both sides emptying their reserves. White only looked
+winning because it drops first and so cashes more phantom material inside the
+horizon. The same position now scores **+20** and the engine develops.
+
+### 13.2 Open, in priority order
+
+1. **Drop-aware SEE.** The *correctness* half is done: `see()` is never called
+   on a drop, drops stay out of the `[from][to]` history, and every site that
+   needs a moving piece type goes through `moved_piece()`. The *modelling* half
+   is still open -- a capture donates the victim to a reserve and the exchange
+   evaluation does not account for it. This is now unblocked, because
+   `HandValue` puts a number on material in hand.
+2. **Remaining pruning retune.** Reverse futility (`80 * depth`), quiet
+   futility (`100 + 120 * depth`), movecount (`3 + depth*depth`) and the
+   qsearch delta margin (975) are all chess-tuned against a game where one drop
+   swings hundreds of centipawns. Each is an SPRT question and none has been
+   asked yet.
+3. **Evaluation depth.** The variant evaluation is still only material, psqt,
+   reserve material and a king-danger term. No mobility, no pawn structure, no
+   defended-square test in the king ring (the term counts empty ring squares
+   without asking whether we defend them, which is the obvious next refinement
+   and was left out because it costs an `attackers_to` per square).
+4. **NNUE.** No net is trained for drops. A net without the hand-feature block
+   would evaluate reserves as invisible, and the accumulator update has no drop
+   path, so drop variants run the classical evaluation even in a binary that
+   embeds a net. Out of scope by decision, not oversight (section 8.2).
+5. **Bughouse partner layer.** Protocol, incoming-material model, sitting
+   (section 10). Until this exists, bughouse mode is crazyhouse with the
+   repetition and fifty-move draws switched off.
 
 ## 14. Open Questions
 

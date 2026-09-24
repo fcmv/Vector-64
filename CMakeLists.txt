@@ -149,11 +149,16 @@ option(ENGINE_VARIANTS "Build ChessEngine-variants (crazyhouse + bughouse)" ON)
 # Monotonic in depth, which points at node cost rather than bad tactics: every
 # checking drop hands the opponent a full set of evasions, so the qsearch tree
 # grows fast and a fixed node budget buys less real depth than the extra
-# tactics are worth. BUT the measurement predates reserve material entering the
-# evaluation: with a piece in hand worth nothing, every checking drop also
-# looked like it won a piece, so quiescence could manufacture material and the
-# corruption grew with qdepth exactly as those numbers did. Re-measured on top
-# of ENGINE_VARIANT_HAND_MATERIAL -- see tools/sprt_variant.ps1 -Test dropcheck.
+# tactics are worth.
+#
+# That explanation was challenged and survived. The suspicion was that the
+# measurement had been confounded by reserve material being worth nothing: a
+# checking drop would then also look like it won a piece, letting quiescence
+# manufacture material with a corruption growing in qdepth exactly as the
+# numbers above do. Re-run on top of ENGINE_VARIANT_HAND_MATERIAL:
+#   qdepth 2 vs 0: -21.4 Elo +/- 12.5 over 2960 games, H0 accepted, LLR -2.96
+# Statistically the same as the original -20.8 +/- 12.4. The confounding
+# hypothesis was wrong; node cost it is.
 set(ENGINE_DROP_CHECK_QDEPTH "0" CACHE STRING
         "Quiescence plies that generate checking drops (0 = off)")
 
@@ -177,8 +182,28 @@ set(ENGINE_HAND_VALUES "" CACHE STRING
 
 # Scale of the drop king-danger term, in eighths of (empty king-ring squares x
 # opponent reserve power). 0 disables it.
-set(ENGINE_KING_DANGER_SCALE "0" CACHE STRING
+#
+# Crazyhouse SPRT at 25k nodes, each against the term off:
+#   scale  6: + 9.5 Elo +/- 8.7 over 6000 games, LLR +1.76, cap reached
+#   scale 14: +10.5 Elo +/- 8.9 over 5830 games, LLR +1.96, cap reached
+# Consistently positive and weight-insensitive in that range, but neither
+# reached the SPRT bound alone. 6 is the value validated jointly with the
+# piece values below (+25.2 Elo +/- 12.3 over 3061 games, H1 accepted).
+set(ENGINE_KING_DANGER_SCALE "6" CACHE STRING
         "Drop king-danger weight in eighths (0 = off)")
+
+# Board piece values used by the drop-variant evaluation, as a C initialiser
+# list indexed by PieceType. Empty means "same as PieceValue". Applied as a
+# correction inside the variant evaluation, not by retuning PieceValue, which
+# also drives materialWb and see() and would move standard chess inside
+# ChessEngine-all.
+#
+# Crazyhouse SPRT at 25k nodes, 0,100,340,320,450,800,0 vs the chess values:
+#   +30.6 Elo +/- 13.6 over 2512 games, H1 accepted, LLR +2.98
+# Knights outrank bishops and the majors lose ground against minors, which is
+# the usual crazyhouse ordering. Set equal to PieceValue to disable.
+set(ENGINE_PIECE_VALUES "0,100,340,320,450,800,0" CACHE STRING
+        "Variant board piece values (set equal to PieceValue to disable)")
 
 # Allow null-move pruning in a drop variant. Tempo is worth much more here than
 # in chess and the zugzwang guard does not see reserves, so this is a real
@@ -215,6 +240,10 @@ if(ENGINE_VARIANTS)
         if(ENGINE_HAND_VALUES)
                 target_compile_definitions(chess_core_variants PUBLIC
                         ENGINE_HAND_VALUES=${ENGINE_HAND_VALUES})
+        endif()
+        if(ENGINE_PIECE_VALUES)
+                target_compile_definitions(chess_core_variants PUBLIC
+                        ENGINE_PIECE_VALUES=${ENGINE_PIECE_VALUES})
         endif()
         target_include_directories(chess_core_variants PUBLIC src)
         target_include_directories(chess_core_variants PRIVATE src/syzygy)
