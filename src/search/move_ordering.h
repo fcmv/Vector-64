@@ -3,6 +3,8 @@
 
 #include "../cores/movegen.h"
 
+#include <algorithm>
+
 namespace Search {
 
 class MoveOrdering {
@@ -50,6 +52,22 @@ public:
     return history_[side][move.from_sq()][move.to_sq()];
   }
 
+#if defined(ENGINE_VARIANTS)
+  // Drops cannot use history_: a drop's from_sq holds a piece type, so it
+  // would alias onto real moves out of b1..f1.
+  void update_drop_history(Core::Color side, Core::Move move, int depth) {
+    int &score = dropHist_[side][move.dropped_piece()][move.to_sq()];
+    score = std::min(32767, score + depth * depth);
+  }
+  void update_drop_history_malus(Core::Color side, Core::Move move, int depth) {
+    int &score = dropHist_[side][move.dropped_piece()][move.to_sq()];
+    score = std::max(-32767, score - depth * depth);
+  }
+  int drop_history_score(Core::Color side, Core::Move move) const {
+    return dropHist_[side][move.dropped_piece()][move.to_sq()];
+  }
+#endif
+
   int capture_score(Core::Color side, Core::PieceType attacker, Core::Square to,
                     Core::PieceType victim) const {
     return captureHist_[side][attacker][to][victim];
@@ -71,6 +89,10 @@ private:
   // [prevPieceType][prevTo][pieceType][to]  (~800 KB; colour-agnostic)
   int contHist_[Core::PIECE_TYPE_NB][Core::SQUARE_NB][Core::PIECE_TYPE_NB]
                [Core::SQUARE_NB]{};
+#if defined(ENGINE_VARIANTS)
+  // [color][droppedPieceType][to]  (~3 KB)
+  int dropHist_[Core::COLOR_NB][Core::PIECE_TYPE_NB][Core::SQUARE_NB]{};
+#endif
 };
 
 } // namespace Search

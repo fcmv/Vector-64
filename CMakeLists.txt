@@ -149,14 +149,55 @@ option(ENGINE_VARIANTS "Build ChessEngine-variants (crazyhouse + bughouse)" ON)
 # Monotonic in depth, which points at node cost rather than bad tactics: every
 # checking drop hands the opponent a full set of evasions, so the qsearch tree
 # grows fast and a fixed node budget buys less real depth than the extra
-# tactics are worth. Worth revisiting once a variant-tuned evaluation exists.
+# tactics are worth. BUT the measurement predates reserve material entering the
+# evaluation: with a piece in hand worth nothing, every checking drop also
+# looked like it won a piece, so quiescence could manufacture material and the
+# corruption grew with qdepth exactly as those numbers did. Re-measured on top
+# of ENGINE_VARIANT_HAND_MATERIAL -- see tools/sprt_variant.ps1 -Test dropcheck.
 set(ENGINE_DROP_CHECK_QDEPTH "0" CACHE STRING
         "Quiescence plies that generate checking drops (0 = off)")
+
+# Count reserve material in the evaluation. 0 reproduces the original
+# behaviour, in which a piece in hand was worth nothing while the same piece on
+# the board was worth PieceValue, so a drop appeared to win a full piece out of
+# nowhere. Only ever set to 0 to re-measure the fix.
+set(ENGINE_VARIANT_HAND_MATERIAL "1" CACHE STRING
+        "Count reserve material in the evaluation (0 = off, pre-fix behaviour)")
+
+# Per-piece centipawn values of a reserve, as a C initialiser list indexed by
+# PieceType. Empty means "same as PieceValue", which makes a drop exactly
+# material-neutral and leaves the piece-square table to judge the destination.
+set(ENGINE_HAND_VALUES "" CACHE STRING
+        "Reserve piece values, e.g. 0,110,330,330,480,860,0 (empty = PieceValue)")
+
+# Scale of the drop king-danger term, in eighths of (empty king-ring squares x
+# opponent reserve power). 0 disables it.
+set(ENGINE_KING_DANGER_SCALE "0" CACHE STRING
+        "Drop king-danger weight in eighths (0 = off)")
+
+# Allow null-move pruning in a drop variant. Tempo is worth much more here than
+# in chess and the zugzwang guard does not see reserves, so this is a real
+# question rather than a formality.
+set(ENGINE_VARIANT_NULLMOVE "1" CACHE STRING
+        "Allow null-move pruning in drop variants (0 = off)")
+
+# Dedicated [color][droppedPiece][to] history for drops.
+set(ENGINE_VARIANT_DROP_HISTORY "0" CACHE STRING
+        "Keep a drop-specific history table (0 = off)")
+
 if(ENGINE_VARIANTS)
         add_library(chess_core_variants STATIC ${CORE_SOURCES} ${CORE_HEADERS})
         set_source_files_properties(src/syzygy/tbprobe.c PROPERTIES LANGUAGE CXX)
         target_compile_definitions(chess_core_variants PUBLIC ENGINE_VARIANTS
-                ENGINE_DROP_CHECK_QDEPTH=${ENGINE_DROP_CHECK_QDEPTH})
+                ENGINE_DROP_CHECK_QDEPTH=${ENGINE_DROP_CHECK_QDEPTH}
+                ENGINE_VARIANT_HAND_MATERIAL=${ENGINE_VARIANT_HAND_MATERIAL}
+                ENGINE_KING_DANGER_SCALE=${ENGINE_KING_DANGER_SCALE}
+                ENGINE_VARIANT_NULLMOVE=${ENGINE_VARIANT_NULLMOVE}
+                ENGINE_VARIANT_DROP_HISTORY=${ENGINE_VARIANT_DROP_HISTORY})
+        if(ENGINE_HAND_VALUES)
+                target_compile_definitions(chess_core_variants PUBLIC
+                        ENGINE_HAND_VALUES=${ENGINE_HAND_VALUES})
+        endif()
         target_include_directories(chess_core_variants PUBLIC src)
         target_include_directories(chess_core_variants PRIVATE src/syzygy)
 

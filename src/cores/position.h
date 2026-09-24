@@ -98,6 +98,10 @@ public:
 
   int in_hand(Color c, PieceType pt) const { return hand[c][pt]; }
   bool has_any_in_hand(Color c) const { return handCount[c] != 0; }
+  // Deliberately not folded into materialWb: the NNUE lazy-eval and small-net
+  // gates read material_wb() as material *on the board*.
+  int hand_material_wb() const { return handMaterialWb; }
+  int hand_size(Color c) const { return handCount[c]; }
   // Squares holding a piece that reached its type by promotion; captured,
   // such a piece returns to the capturer's hand as a pawn.
   Bitboard promoted_pieces() const { return promoted; }
@@ -105,6 +109,8 @@ public:
   static constexpr bool has_drops() { return false; }
   static constexpr int in_hand(Color, PieceType) { return 0; }
   static constexpr bool has_any_in_hand(Color) { return false; }
+  static constexpr int hand_material_wb() { return 0; }
+  static constexpr int hand_size(Color) { return 0; }
   // Standard chess always uses the standard draw rules, so the search's
   // fifty-move test folds to a constant in the tournament build.
   static constexpr bool standard_draws() { return true; }
@@ -180,6 +186,7 @@ private:
   bool handFromCaptures;
   uint8_t hand[COLOR_NB][PIECE_TYPE_NB];
   uint8_t handCount[COLOR_NB];
+  int handMaterialWb;
   Bitboard promoted;
 #endif
 

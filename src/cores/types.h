@@ -98,6 +98,18 @@ enum GenRank {
 // Centipawn piece values, indexed by PieceType (king = 0).
 constexpr int PieceValue[PIECE_TYPE_NB] = {0, 100, 320, 330, 500, 900, 0};
 
+#if defined(ENGINE_VARIANTS)
+// Centipawn value of a piece in a reserve. Defaults to PieceValue, which makes
+// a drop material-neutral and leaves the psq table to judge the destination;
+// any departure from that is a tuning claim and wants an SPRT.
+#ifdef ENGINE_HAND_VALUES
+constexpr int HandValue[PIECE_TYPE_NB] = {ENGINE_HAND_VALUES};
+static_assert(HandValue[KING] == 0, "a king is never in hand");
+#else
+constexpr int HandValue[PIECE_TYPE_NB] = {0, 100, 320, 330, 500, 900, 0};
+#endif
+#endif
+
 constexpr inline Color operator~(Color c) { return static_cast<Color>(c ^ 1); }
 
 constexpr inline Square make_square(GenFile f, GenRank r) {

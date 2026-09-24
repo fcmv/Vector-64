@@ -60,6 +60,12 @@ void MoveOrdering::clear() {
             &contHist_[0][0][0][0] + static_cast<size_t>(Core::PIECE_TYPE_NB) *
                                          64 * Core::PIECE_TYPE_NB * 64,
             0);
+#if defined(ENGINE_VARIANTS)
+  std::fill(&dropHist_[0][0][0],
+            &dropHist_[0][0][0] +
+                static_cast<size_t>(Core::COLOR_NB) * Core::PIECE_TYPE_NB * 64,
+            0);
+#endif
 }
 
 void MoveOrdering::age_history() {

@@ -117,6 +117,7 @@ Position::Position() {
   handFromCaptures = false;
   std::memset(hand, 0, sizeof(hand));
   std::memset(handCount, 0, sizeof(handCount));
+  handMaterialWb = 0;
   promoted = 0;
 #endif
 }
@@ -128,6 +129,7 @@ void Position::add_to_hand(Color c, PieceType pt) {
     zobristHash ^= Zobrist::hand[c][pt][n] ^ Zobrist::hand[c][pt][n + 1];
   ++n;
   ++handCount[c];
+  handMaterialWb += (c == WHITE ? 1 : -1) * HandValue[pt];
 }
 
 void Position::remove_from_hand(Color c, PieceType pt) {
@@ -136,6 +138,7 @@ void Position::remove_from_hand(Color c, PieceType pt) {
     zobristHash ^= Zobrist::hand[c][pt][n] ^ Zobrist::hand[c][pt][n - 1];
   --n;
   --handCount[c];
+  handMaterialWb -= (c == WHITE ? 1 : -1) * HandValue[pt];
 }
 #endif
 
@@ -224,6 +227,7 @@ bool Position::setFromFEN(std::string_view fen) {
 #if defined(ENGINE_VARIANTS)
   std::memset(hand, 0, sizeof(hand));
   std::memset(handCount, 0, sizeof(handCount));
+  handMaterialWb = 0;
   promoted = 0;
 #endif
 

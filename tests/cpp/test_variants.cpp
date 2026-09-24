@@ -64,6 +64,10 @@ bool check_against_rebuild(const Position &pos, Variant v) {
     fail("incremental material/psqt drifted", fen);
     return false;
   }
+  if (rebuilt.hand_material_wb() != pos.hand_material_wb()) {
+    fail("incremental reserve material drifted", fen);
+    return false;
+  }
   if (rebuilt.promoted_pieces() != pos.promoted_pieces()) {
     fail("promoted-piece mask drifted", fen);
     return false;
@@ -263,6 +267,7 @@ bool run_games(Variant v, const char *label, const char *startFen, int games,
       const std::string fenBefore = pos.toFEN();
       const int matBefore = pos.material_wb();
       const int psqtBefore = pos.psqt_wb();
+      const int handMatBefore = pos.hand_material_wb();
       const int handBefore = total_in_hand(pos);
 
       // key_after drives the search's pre-make TT prefetch, so it must equal
@@ -302,7 +307,8 @@ bool run_games(Variant v, const char *label, const char *startFen, int games,
 
       pos.unmake_move(move, undo);
       if (pos.hash() != hashBefore || pos.material_wb() != matBefore ||
-          pos.psqt_wb() != psqtBefore || pos.toFEN() != fenBefore) {
+          pos.psqt_wb() != psqtBefore ||
+          pos.hand_material_wb() != handMatBefore || pos.toFEN() != fenBefore) {
         fail("unmake did not restore state exactly", fenBefore);
         return false;
       }

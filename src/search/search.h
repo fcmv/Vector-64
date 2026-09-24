@@ -129,6 +129,12 @@ private:
               const Limits &limits, const Callbacks &callbacks,
               Core::Move excludedMove = Core::Move::none());
 
+#if defined(ENGINE_VARIANTS)
+  // Drop-variant evaluation terms (reserve material, king danger), white minus
+  // black. Zero unless a drop variant is active.
+  static int variant_eval(const Core::Position &pos);
+#endif
+
   // `qDepth` counts plies inside quiescence itself (0 at entry from
   // negamax). Drop variants use it to bound checking-drop generation to the
   // shallowest qsearch plies; the standard build ignores it entirely.

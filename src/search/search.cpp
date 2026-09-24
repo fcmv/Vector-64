@@ -1,5 +1,6 @@
 #include "search.h"
 
+#include "../cores/attacks.h"
 #include "../cores/bitboard.h"
 #include "syzygy.h"
 
@@ -19,16 +20,42 @@
 #endif
 
 #if defined(ENGINE_VARIANTS)
-// Plies of quiescence that generate checking drops; 0 disables them. Override
-// with -DENGINE_DROP_CHECK_QDEPTH=N (see tools/sprt_dropchecks.ps1 and the
-// CMake cache entry, which records the SPRT that set this default to 0).
+// Drop-variant knobs. CMakeLists.txt carries the SPRT behind each default.
 #ifndef ENGINE_DROP_CHECK_QDEPTH
 #define ENGINE_DROP_CHECK_QDEPTH 0
+#endif
+
+// 0 restores the pre-fix behaviour, where a reserve was worth nothing and a
+// drop therefore looked like a free piece. Only useful to re-measure the fix.
+#ifndef ENGINE_VARIANT_HAND_MATERIAL
+#define ENGINE_VARIANT_HAND_MATERIAL 1
+#endif
+
+// In eighths; 0 disables.
+#ifndef ENGINE_KING_DANGER_SCALE
+#define ENGINE_KING_DANGER_SCALE 0
+#endif
+
+#ifndef ENGINE_VARIANT_NULLMOVE
+#define ENGINE_VARIANT_NULLMOVE 1
+#endif
+
+#ifndef ENGINE_VARIANT_DROP_HISTORY
+#define ENGINE_VARIANT_DROP_HISTORY 0
 #endif
 #endif
 
 namespace Search {
 namespace {
+
+inline bool
+variant_allows_null_move([[maybe_unused]] const Core::Position &pos) {
+#if defined(ENGINE_VARIANTS) && !ENGINE_VARIANT_NULLMOVE
+  return !pos.has_drops();
+#else
+  return true;
+#endif
+}
 
 // The piece type a move places on its destination. A drop carries the type in
 // its from_sq field, so piece_on() must never be used for one. Folds to plain
@@ -226,13 +253,14 @@ public:
       for (int i = 0; i < list_.size(); ++i) {
         const Core::Move q = list_[i];
 #if defined(ENGINE_VARIANTS)
-        // Drops keep out of history_ (see the update site): score them from
-        // continuation history alone, biased toward spending the cheapest
-        // piece. Untuned.
+        // history_ is keyed [from][to]; a drop has no from square.
         if (q.is_drop()) {
           scores_[i] = ordering_.cont_score(prevPt_, prevTo_, q.dropped_piece(),
                                             q.to_sq()) -
                        64 * static_cast<int>(q.dropped_piece());
+#if ENGINE_VARIANT_DROP_HISTORY
+          scores_[i] += ordering_.drop_history_score(pos_.side_to_move(), q);
+#endif
           continue;
         }
 #endif
@@ -364,12 +392,61 @@ uint64_t EngineSearch::total_tb_hits() const {
   return sum;
 }
 
+#if defined(ENGINE_VARIANTS)
+// Variant-only evaluation terms, white minus black. Every term here has to
+// stay O(1): this runs at each evaluated node.
+int EngineSearch::variant_eval(const Core::Position &pos) {
+  if (!pos.has_drops())
+    return 0;
+
+  int score = 0;
+
+#if ENGINE_VARIANT_HAND_MATERIAL
+  score += pos.hand_material_wb();
+#endif
+
+#if ENGINE_KING_DANGER_SCALE
+  for (int ci = Core::WHITE; ci <= Core::BLACK; ++ci) {
+    const Core::Color us = static_cast<Core::Color>(ci);
+    const Core::Color them = ~us;
+    if (!pos.has_any_in_hand(them))
+      continue;
+
+    // How much attacking force the opponent can drop. Capped per type: the
+    // third queen in hand does not triple the threat, it just queues.
+    int power = 0;
+    for (int pt = Core::PAWN; pt <= Core::QUEEN; ++pt) {
+      static constexpr int kWeight[Core::PIECE_TYPE_NB] = {0, 1, 3, 3, 4, 6, 0};
+      const int n = pos.in_hand(them, static_cast<Core::PieceType>(pt));
+      power += kWeight[pt] * (n < 2 ? n : 2);
+    }
+    if (power == 0)
+      continue;
+
+    const Core::Square ksq = Core::lsb(pos.pieces(Core::KING, us));
+    const Core::Bitboard ring = Core::Attacks::king_attacks(ksq);
+    const int holes = Core::popcount(ring & ~pos.occupancy());
+
+    const int penalty = (holes * power * ENGINE_KING_DANGER_SCALE) / 8;
+    score += (us == Core::WHITE) ? -penalty : penalty;
+  }
+#endif
+
+  return score;
+}
+#endif
+
+// The only accumulator-free eval entry point. Never call eval_->evaluate()
+// directly instead: with a net loaded it refreshes both accumulator
+// perspectives from scratch, so a variant that suppressed the net would still
+// pay a full refresh per node, and score reserves with a net that cannot see
+// them.
 int EngineSearch::evaluate(const Core::Position &pos) {
 #if defined(ENGINE_VARIANTS)
   if (!nnueEnabled_) {
     // Same classical material+psqt the evaluator falls back to with no net.
     const int sign = pos.side_to_move() == Core::WHITE ? 1 : -1;
-    return sign * (pos.material_wb() + pos.psqt_wb());
+    return sign * (pos.material_wb() + pos.psqt_wb() + variant_eval(pos));
   }
 #endif
   return eval_->evaluate(pos);
@@ -415,7 +492,7 @@ int EngineSearch::eval_pos(const Core::Position &pos, int ply) {
     PROF_ADD(profEvalCyc_, profEvals_);
     return v;
   }
-  return eval_->evaluate(pos);
+  return evaluate(pos);
 }
 
 bool EngineSearch::check_stop(const Limits &limits,
@@ -454,7 +531,7 @@ HOT_FN int EngineSearch::quiescence(Core::Position &pos, int alpha, int beta,
   if (ply > seldepth_)
     seldepth_ = ply;
   if (ply >= MAX_PLY)
-    return eval_->evaluate(pos);
+    return evaluate(pos);
 
   const uint64_t key = pos.hash();
   const TTEntry *tte = tt_->probe(key);
@@ -617,7 +694,7 @@ HOT_FN int EngineSearch::negamax(Core::Position &pos, int depth, int alpha,
       (pos.standard_draws() && pos.halfmove_clock() >= 100))
     return 0;
   if (ply >= MAX_PLY)
-    return eval_->evaluate(pos);
+    return evaluate(pos);
 
   const bool isPVNode = (beta - alpha) > 1;
 
@@ -706,8 +783,11 @@ HOT_FN int EngineSearch::negamax(Core::Position &pos, int depth, int alpha,
   // still beats beta, trust the fail-high. Skipped without non-pawn
   // material where zugzwang would make it unsound, and during a singular
   // verification search.
+  // The zugzwang guard below does not see reserves, which is why drop
+  // variants get their own switch.
   if (!isPVNode && !inCheck && !excludedMove.is_ok() && depth >= 3 &&
-      evalForPruning >= beta && pos.has_non_pawn_material(pos.side_to_move())) {
+      evalForPruning >= beta && pos.has_non_pawn_material(pos.side_to_move()) &&
+      variant_allows_null_move(pos)) {
     const int R = 3 + depth / 6;
 
     Core::UndoInfo undo;
@@ -880,18 +960,24 @@ HOT_FN int EngineSearch::negamax(Core::Position &pos, int depth, int alpha,
       if (!excludedMove.is_ok()) {
         if (isQuiet) {
           ordering_.update_killers(ply, move);
-          // history_ is keyed [from][to]; a drop has no from square, so
-          // writing it there would corrupt the entry for real moves out of
-          // b1..f1. Killers and continuation history are safe: killers
-          // compare whole moves, and cont uses the piece type, which
-          // moved_piece supplies correctly for drops.
+          // A drop's from_sq holds a piece type, so history_ would alias it
+          // onto real moves out of b1..f1; dropHist_ keys it properly.
+          // Killers and cont history are safe either way.
           if (!move.is_drop())
             ordering_.update_history(us, move, depth);
+#if defined(ENGINE_VARIANTS) && ENGINE_VARIANT_DROP_HISTORY
+          else
+            ordering_.update_drop_history(us, move, depth);
+#endif
           ordering_.update_cont(prevPt, prevTo, movedPt, move.to_sq(), depth);
           for (int q = 0; q < quietsCount; ++q) {
             const Core::Move qm = quietsTried[q];
             if (!qm.is_drop())
               ordering_.update_history_malus(us, qm, depth);
+#if defined(ENGINE_VARIANTS) && ENGINE_VARIANT_DROP_HISTORY
+            else
+              ordering_.update_drop_history_malus(us, qm, depth);
+#endif
             ordering_.update_cont_malus(prevPt, prevTo, moved_piece(pos, qm),
                                         qm.to_sq(), depth);
           }
