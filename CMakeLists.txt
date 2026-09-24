@@ -161,6 +161,11 @@ set(ENGINE_DROP_CHECK_QDEPTH "0" CACHE STRING
 # behaviour, in which a piece in hand was worth nothing while the same piece on
 # the board was worth PieceValue, so a drop appeared to win a full piece out of
 # nowhere. Only ever set to 0 to re-measure the fix.
+#
+# Crazyhouse SPRT at 25k nodes, H0 elo<=0 / H1 elo>=5:
+#   ON vs OFF: +502 Elo over 57 games (+54 =0 -3), H1 accepted, LLR +3.65
+# The error bar is unbounded at that score, so read the verdict rather than
+# the point estimate -- but the direction is not in doubt.
 set(ENGINE_VARIANT_HAND_MATERIAL "1" CACHE STRING
         "Count reserve material in the evaluation (0 = off, pre-fix behaviour)")
 
@@ -178,11 +183,24 @@ set(ENGINE_KING_DANGER_SCALE "0" CACHE STRING
 # Allow null-move pruning in a drop variant. Tempo is worth much more here than
 # in chess and the zugzwang guard does not see reserves, so this is a real
 # question rather than a formality.
+#
+# Default 1 (on), and that is a measured result that contradicts the received
+# wisdom. Crazyhouse SPRT at 25k nodes on top of reserve material:
+#   OFF vs ON: -16.1 Elo +/- 10.9 over 3850 games, H0 accepted, LLR -3.00
+# Turning null move off costs Elo here, so the "null move is the crazyhouse
+# footgun" advice does not hold for this search. Worth re-testing at longer
+# time control and once a variant-tuned evaluation exists.
 set(ENGINE_VARIANT_NULLMOVE "1" CACHE STRING
         "Allow null-move pruning in drop variants (0 = off)")
 
-# Dedicated [color][droppedPiece][to] history for drops.
-set(ENGINE_VARIANT_DROP_HISTORY "0" CACHE STRING
+# Dedicated [color][droppedPiece][to] history for drops. The main history
+# table is keyed [from][to], which a drop has no valid key for, so without this
+# the largest class of quiet moves in the position is ordered by continuation
+# history alone.
+#
+# Crazyhouse SPRT at 25k nodes on top of reserve material:
+#   ON vs OFF: +51.3 Elo +/- 18.2 over 1406 games, H1 accepted, LLR +2.94
+set(ENGINE_VARIANT_DROP_HISTORY "1" CACHE STRING
         "Keep a drop-specific history table (0 = off)")
 
 if(ENGINE_VARIANTS)

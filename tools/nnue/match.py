@@ -249,7 +249,11 @@ class Tally:
                self.losses * p**2) / n
         se = math.sqrt(var / n)
         lo, hi = p - 1.96 * se, p + 1.96 * se
-        half = 0.0
+        # An interval that runs past a 0% or 100% score has no finite Elo
+        # bound -- Elo diverges at the ends of the scale. Report that as
+        # infinite: 0.0 reads as perfect precision when it means the exact
+        # opposite, which is how a lopsided early result can look certain.
+        half = math.inf
         if 0 < lo and hi < 1:
             e_lo = -400.0 * math.log10(1.0 / lo - 1.0)
             e_hi = -400.0 * math.log10(1.0 / hi - 1.0)

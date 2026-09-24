@@ -41,7 +41,7 @@
 #endif
 
 #ifndef ENGINE_VARIANT_DROP_HISTORY
-#define ENGINE_VARIANT_DROP_HISTORY 0
+#define ENGINE_VARIANT_DROP_HISTORY 1
 #endif
 #endif
 
