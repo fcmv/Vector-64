@@ -74,3 +74,8 @@ ui/dist-wasm/
 ui/dist/*
 !ui/dist/index.html
 sprt/
+
+# ---- personal working agreement ----
+# Local to each checkout and deliberately never committed. CLAUDE.md points at
+# it; see there for what it is.
+/HOUSE_RULES.md
