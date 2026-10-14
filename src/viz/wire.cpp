@@ -107,7 +107,6 @@ std::string encode_state(const Snapshot &s) {
 
   h["legalMoves"] = s.legalMoves;
 
-  // Ship the engine's own defaults so the UI never invents its own.
   {
     const DatagenConfig dd;
     h["datagenDefaults"] = {{"out", dd.out},
@@ -154,8 +153,6 @@ std::string encode_state(const Snapshot &s) {
                             {"bucket", s.compareFrame.bucket}}
                      : json{{"active", false}};
 
-  // Architecture constants, so the UI lays out the network from the engine's
-  // own numbers instead of hard-coding them.
   h["arch"] = {{"hidden", NNUE::Network::HIDDEN},
                {"pair", NNUE::Network::PAIR},
                {"l1", NNUE::Arch::L1},
@@ -260,12 +257,8 @@ std::string handle_control(Session &session, const std::string &body,
 
   const std::string cmd = j["cmd"].get<std::string>();
 
-  // A dataset built from shifting settings is not one dataset. While a run is
-  // going, refuse everything that would change how the rows are produced or
-  // throw away the game being recorded -- only pausing, resuming and stopping
-  // stay live. The UI greys these out, but the rule belongs here: a stale tab,
-  // a second browser or a stray curl must not be able to corrupt a run that has
-  // been going for days.
+  // Enforce row-shaping locks here as well as in the UI; another client must
+  // not change settings or discard the recorded game during datagen.
   if (cmd != "pause" && cmd != "datagen" && session.snapshot().datagen.running)
     return reject("locked while generating data: stop the run first");
 
@@ -300,8 +293,7 @@ std::string handle_control(Session &session, const std::string &body,
     if (!session.load_compare_net(path))
       return reject("could not load that net");
   } else if (cmd == "datagen") {
-    // start / stop / probe. Everything else about the run is fixed once it is
-    // going, so a dataset cannot be built from shifting settings.
+    // Row-shaping settings remain fixed while datagen is running.
     const std::string action = j.contains("action") && j["action"].is_string()
                                    ? j["action"].get<std::string>()
                                    : std::string("start");
@@ -345,7 +337,6 @@ std::string handle_control(Session &session, const std::string &body,
         return j.contains(k) && j[k].is_number() ? j[k].get<decltype(def)>()
                                                  : def;
       };
-      // Anything the client omits falls back to the engine's own default.
       const DatagenConfig dd;
       dg.targetPositions = num("targetPositions", dd.targetPositions);
       dg.targetGames = num("targetGames", dd.targetGames);
@@ -435,13 +426,11 @@ std::string encode_net_info(const NNUE::Network &net, bool loaded) {
   if (!loaded)
     return j.dump();
 
-  // Per-bucket dense-layer weight statistics.
   json buckets = json::array();
   for (int b = 0; b < NNUE::Arch::PSQT_BUCKETS; ++b) {
     const NNUE::Network::Bucket &bk = net.bucket_weights(b);
-    // Accumulate in double: the weights are genuinely signed int8, and going
-    // straight to a floating-point accumulator keeps the sign semantics
-    // unambiguous (a signed-char -> int conversion here reads as a bug).
+    // Convert signed int8 weights to double before accumulating their
+    // statistics.
     const auto stats = [](const int8_t *w, size_t n) {
       double sum = 0, sq = 0;
       double lo = 127.0, hi = -128.0;

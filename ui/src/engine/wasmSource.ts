@@ -2,14 +2,7 @@ import { decodeState } from "./decode";
 import type { EngineSource } from "./source";
 import type { ControlCommand, EngineState } from "./types";
 
-/**
- * Browser transport: the engine itself, compiled to WebAssembly, running in
- * this tab. No server, no network round-trip.
- *
- * It implements exactly the same EngineSource interface as the native HTTP
- * transport, and the frames it decodes come from the same C++ encoder
- * (Viz::encode_state), so every component above this file is unchanged.
- */
+/* Use the native C++ encoder in WASM so both transports share the wire contract. */
 
 interface StkModule {
   ccall: (
@@ -27,9 +20,7 @@ interface StkModule {
 }
 
 export interface WasmBootOptions {
-  /** URL of the emscripten glue script (loads the .wasm beside it). */
   moduleUrl: string;
-  /** URL of the real H=1024 net. */
   netUrl: string;
   nodes?: number;
   threads?: number;
@@ -40,11 +31,7 @@ export interface WasmBootOptions {
 
 const NET_CACHE = "stk-vector-64-net-v1";
 
-/**
- * Fetch the net, caching it in the Cache API. It is the real 46 MB network, so
- * it is downloaded once and reused on every later visit rather than trimmed
- * down to something smaller and less honest.
- */
+/* Cache the 46 MB net across visits. */
 async function loadNet(
   url: string,
   onProgress?: WasmBootOptions["onProgress"],
@@ -82,7 +69,6 @@ export class WasmEngineSource implements EngineSource {
   private mod: StkModule | null = null;
   private stopped = false;
 
-  /** Load the module and the net, then start the session. */
   async boot(opts: WasmBootOptions): Promise<void> {
     opts.onProgress?.("engine", 0, 1);
     const factory = (await import(/* @vite-ignore */ opts.moduleUrl)).default;

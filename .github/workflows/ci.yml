@@ -8,8 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  # Build once on Linux; the granular correctness checks below reuse the
-  # binaries so each check is a single, fast, clearly-named goal.
+  # Reuse one build so correctness checks run the same binaries.
   build:
     name: build · linux release
     runs-on: ubuntu-latest
@@ -30,7 +29,6 @@ jobs:
             build/bin/ChessEngine-nnue
             build/bin/test_zobrist
 
-  # ---- perft: one check per reference position (all depths) ----
   perft-startpos:
     name: perft · startpos
     needs: build
@@ -102,7 +100,6 @@ jobs:
           chmod +x ChessEngine
           ./ChessEngine --perft-one "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10" 4 3894594
 
-  # ---- state / evaluation invariants ----
   nnue-bitexact:
     name: nnue · simd == scalar
     needs: build
@@ -144,9 +141,7 @@ jobs:
       # build-independent, like the classical signature.
       - run: chmod +x ChessEngine-nnue && bash tools/bench_signature.sh ./ChessEngine-nnue nnue
 
-  # ---- ARM/NEON: the x86 jobs above never exercise the NEON kernels; this one
-  # builds on real ARM with the dot-product extension (SDOT path) and proves the
-  # NEON eval is bit-exact with scalar, plus both node-count signatures match. ----
+  # Real ARM runners exercise SDOT; x86 jobs cannot cover the NEON kernels.
   arm-neon-nnue:
     name: arm · neon nnue (simd==scalar) + bench
     runs-on: ubuntu-24.04-arm
@@ -162,7 +157,6 @@ jobs:
       - name: nnue bench signature (build-independent)
         run: bash tools/bench_signature.sh ./build/bin/ChessEngine-nnue nnue
 
-  # ---- UCI behaviour: one check per behaviour group ----
   uci-protocol:
     name: uci · protocol
     needs: build
@@ -223,7 +217,6 @@ jobs:
           python -m pip install pytest
           ENGINE_BIN=$PWD/ChessEngine python -m pytest tests/python/test_uci_behavior.py -v -k "nodes_limit or bench_signature"
 
-  # ---- portability: full ctest on other compilers / OSes ----
   portability:
     name: portability · ${{ matrix.id }}
     strategy:
@@ -254,9 +247,7 @@ jobs:
         if: runner.os == 'Windows'
         run: ctest --test-dir build -C Release --output-on-failure
 
-  # ---- visualizer ----
-  # The visualizer must (a) report the engine's real numbers and (b) never leak
-  # its dependencies into the binaries people actually play with.
+  # Visualizer dependencies must stay out of the tournament binaries.
   viz:
     name: viz · stream + dependency boundary
     runs-on: ubuntu-latest
@@ -270,10 +261,7 @@ jobs:
         run: |
           $GITHUB_WORKSPACE/build/bin/test_viz frame
           $GITHUB_WORKSPACE/build/bin/test_viz session
-      # Both of these guard failures that are silent by nature: identical
-      # self-play games look like the engine working, and a resumed datagen run
-      # that regenerates its own games looks like a dataset. The portability
-      # matrix runs them via ctest, but a viz regression should fail here.
+      # Fixed openings expose missing move variety; resuming must not duplicate dataset rows.
       - name: Self-play varies and datagen shards resume cleanly
         run: |
           $GITHUB_WORKSPACE/build/bin/test_viz variety
@@ -291,7 +279,6 @@ jobs:
           done
           echo "ChessEngine and ChessEngine-nnue link chess_core only"
 
-  # UI-side gates: types, the C++/TypeScript wire contract, and bundle freshness.
   viz-ui:
     name: viz · ui types, wire contract, bundle
     runs-on: ubuntu-latest
@@ -307,9 +294,7 @@ jobs:
       - run: npm run typecheck
         working-directory: ui
 
-      # The wire format is binary, so a renamed field would otherwise fail
-      # silently at runtime. Generate a frame with the REAL encoder and make the
-      # TypeScript decoder prove it still understands it.
+      # Generate the wire fixture with the C++ encoder so decoder drift fails here.
       - name: Build the fixture generator
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF
@@ -333,15 +318,12 @@ jobs:
           fi
           echo "bundle matches the sources"
 
-  # The browser build is a shipping target, so it has to keep compiling.
   viz-wasm:
     name: viz · wasm build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # 'latest' rather than a pin: the build was validated against the version
-      # emsdk currently resolves latest to, and an unvalidated pin would be a
-      # worse guarantee than none. Pin once a specific version is verified here.
+      # Pin emsdk after validating a specific version; this build currently tracks latest.
       - uses: emscripten-core/setup-emsdk@v16
         with:
           version: latest
@@ -358,11 +340,9 @@ jobs:
           # The page must load the cross-origin-isolation shim before the engine,
           # or SharedArrayBuffer (and so pthreads) is unavailable.
           grep -q 'coi-serviceworker.js' index.html
-          # The real net ships, not a reduced one.
           [ "$(stat -c%s stk-vector-64.nnue)" = "$(stat -c%s ../../nets/stk-vector-64.nnue)" ]
           ls -la
 
-  # ---- safety & style ----
   clang-format:
     name: lint · clang-format
     runs-on: ubuntu-latest

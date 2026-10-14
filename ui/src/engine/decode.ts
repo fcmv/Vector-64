@@ -45,7 +45,6 @@ export function decodeState(buf: ArrayBuffer): EngineState {
   let off = 4 + headerLen;
   for (const spec of specs) {
     const bytes = spec.len * ELEM_BYTES[spec.type];
-    // Slice (copy) so the decoded frame does not alias the network buffer.
     const slice = buf.slice(off, off + bytes);
     raw[spec.name] =
       spec.type === "i16"
@@ -99,7 +98,6 @@ export function decodeState(buf: ArrayBuffer): EngineState {
     // offering a slider that runs to a made-up maximum.
     hardwareThreads: header.hardwareThreads ?? header.threads ?? 1,
     maxDepth: header.maxDepth ?? 64,
-    // Falls back only if talking to an engine that predates the field.
     datagenDefaults: header.datagenDefaults ?? {
       out: "data/selfplay", targetPositions: 500000000, targetGames: 0, nodes: 5000,
       depth: 9, emit: "raw", lam: 0.5, skipPlies: 12, maxPlies: 200,

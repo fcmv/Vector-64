@@ -2,20 +2,13 @@ import { useState } from "react";
 import { Chess } from "chess.js";
 import type { ControlCommand, EngineState, Mode } from "../engine/types";
 
-/**
- * Turn pasted PGN or a FEN into something the engine accepts.
- *
- * chess.js only parses the notation into a move list; every move is still
- * validated by the engine when the position is applied, so the UI cannot talk
- * the engine into an illegal position.
- */
+/* chess.js parses notation; the engine validates the resulting moves. */
 function parsePosition(
   text: string,
 ): { fen: string; moves: string[] } | { error: string } {
   const t = text.trim();
   if (!t) return { error: "empty" };
 
-  // A bare FEN: 6 space-separated fields with a side-to-move letter.
   if (/^[1-8pnbrqkPNBRQK/]+\s+[wb]\s/.test(t)) {
     const chess = new Chess();
     try {
@@ -46,12 +39,8 @@ interface Props {
   send: (c: ControlCommand) => void;
 }
 
-/**
- * Node budgets span five orders of magnitude, so the slider is logarithmic and
- * its top position means "no cap" -- the engine takes uint64 nodes, so there is
- * no ceiling to impose. Research runs need the extremes; watching needs the
- * low end.
- */
+/* The logarithmic slider ends at 0 (no node cap). Typed values are JavaScript
+   Numbers, so they cannot exactly represent every uint64 accepted by the engine. */
 const NODE_STEPS = [
   1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5, 1e6, 2e6, 5e6, 1e7, 2e7, 5e7,
   1e8, 2e8, 5e8, 0,
@@ -87,9 +76,8 @@ export function Controls({ s, send }: Props) {
   // effect rather than a guess.
   const [variety, setVariety] = useState(s.varietyCp);
 
-  // Typed entry: anything the engine accepts is allowed (nodes are uint64 on
-  // the engine side, so there is no ceiling to enforce here); depth is clamped
-  // to the engine's real maximum. Garbage input reverts rather than being sent.
+  // Typed node values use Number; exact integers above 2^53-1 are not guaranteed.
+  // Depth is bounded by the engine's reported maximum.
   const commitNodes = () => {
     const v = Math.floor(Number(nodeText.replace(/[_,\s]/g, "")));
     if (!Number.isFinite(v) || v < 0) {

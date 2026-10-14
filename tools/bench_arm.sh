@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # STK-Vector-64 — ARM (aarch64) native build benchmark.
 # Run this ON an ARM host (Apple Silicon, Raspberry Pi 5, Ampere, Graviton, …).
-# The engine is portable: PEXT falls back to magic bitboards and the NNUE AVX2
-# path falls back to scalar automatically, so no source changes are needed —
-# this script just selects the right ARM tuning flag and reports.
+# ARM uses magic bitboards and NEON NNUE where available, with scalar fallback.
+# The script selects an accepted native tuning flag.
 #
 #   bash tools/bench_arm.sh
 #
@@ -27,7 +26,6 @@ title "STK-Vector-64  —  ARM ($ARCH) build benchmark"
 kv "CPU"   "$(cpu_name)  ($(cpu_threads) threads)"
 kv "OS"    "$OSNAME"
 
-# Select the best-accepted ARM tuning flag with graceful fallback.
 step "Configuring & building (Release, ARM tuning, LTO)…"
 ARCHFLAG=""
 if try_cmake_build "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF -DCMAKE_CXX_FLAGS="-mcpu=native"; then

@@ -1,13 +1,8 @@
 #ifndef STK_PROF_H
 #define STK_PROF_H
 
-// Hot-path cycle attribution for the NNUE eval. Compiled in only under
-// -DENGINE_PROF (a dedicated profiling build); a normal build sees empty
-// macros and no globals, so bench node counts and speed are unaffected.
-//
-// Easiest entry point is tools/profile_nnue.sh (configures the build, runs a
-// bench, aggregates the PROF lines). Manually: configure with
-// -DCMAKE_CXX_FLAGS=-DENGINE_PROF, then `bench 13` -- PROF lines go to stderr.
+// ENGINE_PROF adds per-thread counters; normal builds compile these macros
+// away. Use tools/profile_nnue.sh for a dedicated profiling build.
 #ifdef ENGINE_PROF
 
 #include <chrono>
@@ -48,7 +43,6 @@ inline uint64_t now() {
 // thread_local so a multi-threaded datagen run does not race; a 1-thread
 // `bench` (the profiling target) puts every eval on the reporting thread.
 struct Counters {
-  // forward() sub-stages
   uint64_t pairwiseCyc = 0, l1Cyc = 0, l2Cyc = 0, outCyc = 0;
   uint64_t forwards = 0;
   // update() branches: incremental (acc_fused2) vs king-move refresh (the
@@ -64,27 +58,24 @@ inline thread_local Counters fwd;
 
 } // namespace prof
 
-// Start a timing window (declares a local tick stamp).
 #define STK_PROF_T0() uint64_t _pt0 = ::prof::now()
-// Attribute the elapsed ticks to `field` and restart the window.
 #define STK_PROF_LAP(field)                                                    \
   do {                                                                         \
     uint64_t _n = ::prof::now();                                               \
     ::prof::fwd.field += _n - _pt0;                                            \
     _pt0 = _n;                                                                 \
   } while (0)
-// Attribute the elapsed ticks to `cycfield` and bump the call count `cntfield`.
 #define STK_PROF_END(cycfield, cntfield)                                       \
   do {                                                                         \
     ::prof::fwd.cycfield += ::prof::now() - _pt0;                              \
     ++::prof::fwd.cntfield;                                                    \
   } while (0)
 
-#else // !ENGINE_PROF
+#else
 
 #define STK_PROF_T0() ((void)0)
 #define STK_PROF_LAP(field) ((void)0)
 #define STK_PROF_END(cycfield, cntfield) ((void)0)
 
-#endif // ENGINE_PROF
-#endif // STK_PROF_H
+#endif
+#endif

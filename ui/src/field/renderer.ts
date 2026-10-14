@@ -9,23 +9,8 @@ import {
 } from "pixi.js";
 import type { Arch, Frame } from "../engine/types";
 
-/**
- * The neuron field.
- *
- * Renders the actual forward pass, left to right:
- *
- *   active features -> accumulator (White / Black) -> pairwise clipped ReLU
- *   -> L1 (16) -> L2 (32) -> output
- *
- * Nothing here is decorative. Every cell's colour is a real activation, and
- * every edge is drawn from the engine's own weight x activation attribution,
- * so the lines you see are the ones that actually moved the evaluation.
- *
- * Perspectives are pinned to White and Black rather than the engine's
- * side-to-move-relative "us/them". The raw arrays swap meaning every ply, which
- * made the two blocks trade places on every move during self-play; pinning them
- * keeps each side's accumulator in one place so changes read as changes.
- */
+/* Pin accumulator blocks to White/Black; raw us/them arrays swap every ply.
+   Edges carry the engine's weight-times-activation attribution. */
 
 // Mirrors the CSS custom properties in theme.css so canvas and DOM chrome stay
 // one visual system.
@@ -56,7 +41,6 @@ export type Perspective = "white" | "black" | "both";
 export interface HoverTarget {
   layer: HoverLayer;
   index: number;
-  /** Screen position of the hovered node, for tooltip placement. */
   x: number;
   y: number;
 }
@@ -85,7 +69,6 @@ function diverging(t: number): number {
   return c < 0 ? mixHex(COL.zero, COL.neg, -c) : mixHex(COL.zero, COL.pos, c);
 }
 
-/** Soft round sprite texture, reused by every cell. */
 function cellTexture(size: number): Texture {
   const c = document.createElement("canvas");
   c.width = c.height = size;
@@ -180,15 +163,11 @@ export class FieldRenderer {
     this.ready = true;
   }
 
-  /**
-   * Show one side's accumulator full-height, or both stacked. Forces a
-   * re-layout and repaints from the last frame, so switching while paused
-   * shows the paused position rather than waiting for the next one.
-   */
+  /* Repaint the last frame after changing perspective so paused sessions update too. */
   setPerspective(p: Perspective): void {
     if (p === this.persp) return;
     this.persp = p;
-    this.w = 0; // invalidate the cached size so layout() rebuilds
+    this.w = 0;
     if (this.arch) {
       this.layout(this.arch);
       if (this.frame) this.update(this.frame);
@@ -228,11 +207,7 @@ export class FieldRenderer {
     if (this.frame) this.drawEdges(this.frame);
   };
 
-  /**
-   * Click to pin a node so its path stays put while you read the card, and to
-   * keep inspecting without holding the cursor perfectly still. Clicking the
-   * same node again, or empty space, releases it.
-   */
+  /* Pinned inspection survives pointer movement; click again or empty space to release. */
   private pointerDown = (ev: PointerEvent) => {
     const rect = (this.app.canvas as HTMLCanvasElement).getBoundingClientRect();
     const hit = this.hitTest(ev.clientX - rect.left, ev.clientY - rect.top);
@@ -246,7 +221,6 @@ export class FieldRenderer {
     if (this.frame) this.drawEdges(this.frame);
   };
 
-  /** Release any pinned node (Esc, or a mode change). */
   clearSelection(): void {
     if (!this.selected) return;
     this.selected = null;
@@ -254,7 +228,6 @@ export class FieldRenderer {
     if (this.frame) this.drawEdges(this.frame);
   }
 
-  /** Grids are regular, so hit testing is arithmetic rather than a scan. */
   private hitTest(x: number, y: number): HoverTarget | null {
     const inBlock = (b: Block | undefined, layer: HoverLayer) => {
       if (!b) return null;
@@ -344,7 +317,6 @@ export class FieldRenderer {
     const padY = 46;
     const usable = h - padY - 38;
 
-    // --- input: a small board, so the position stays recognisable ----------
     const boardSize = Math.min(usable * 0.34, w * 0.105);
     const sq = boardSize / 8;
     const bx = w * 0.07 - boardSize / 2;
@@ -429,7 +401,6 @@ export class FieldRenderer {
     if (this.frame) this.update(this.frame);
   }
 
-  /** Faint panels behind each stage: structure without competing for attention. */
   private drawBackdrop(
     acc: { x: number; bw: number; bh: number; top: number; gap: number },
     pair: { x: number; bw: number; bh: number; top: number; gap: number },
@@ -519,7 +490,6 @@ export class FieldRenderer {
       s.tint = COL.zero;
       s.alpha = 0.2;
     }
-    // Light every occupied square; white and black pieces read differently.
     for (const feat of f.whiteFeatures) {
       const d = this.squares[feat.square];
       if (!d) continue;
@@ -530,16 +500,8 @@ export class FieldRenderer {
     this.drawEdges(f);
   }
 
-  /**
-   * Edges come from attribution, not topology: every edge's width and opacity
-   * scale with |weight x activation|.
-   *
-   * Hovering traces the signal FORWARD to the evaluation. Selecting a node
-   * builds the set of everything downstream of it -- a pairwise cell reaches
-   * the L1 neurons it actually drives, an L1 neuron reaches every L2 neuron and
-   * then the output -- and that whole chain is drawn bright, with chevrons
-   * showing the direction of flow, while the rest of the field recedes.
-   */
+  /* Edge width and opacity use abs(weight * activation). Highlight only the
+     selected node's downstream contribution path. */
   private drawEdges(f: Frame): void {
     const g = this.edges;
     const hi = this.highlight;
@@ -567,7 +529,6 @@ export class FieldRenderer {
     const k = f.l1TopK;
     const hasTop = k > 0 && f.l1Top.length >= arch.l1 * k * 2;
 
-    // --- everything downstream of the hovered node ------------------------
     const fPair = new Set<number>();
     const fL1 = new Set<number>();
     const fL2 = new Set<number>();
@@ -581,7 +542,6 @@ export class FieldRenderer {
           break;
         case "accW":
         case "accB": {
-          // acc[i] pairs with acc[i + PAIR] to form one pairwise activation.
           const local = hov.index % arch.pair;
           const white = hov.layer === "accW";
           fPair.add(local + (white === whiteIsUs ? 0 : arch.pair));
@@ -603,17 +563,15 @@ export class FieldRenderer {
           fOut = true;
           break;
       }
-      // Propagate forward, layer by layer.
       if (fPair.size && hasTop) {
         for (let o = 0; o < arch.l1; o++)
           for (let j = 0; j < k; j++)
             if (fPair.has(f.l1Top[(o * k + j) * 2])) fL1.add(o);
       }
-      if (fL1.size) for (let o = 0; o < arch.l2; o++) fL2.add(o); // dense layer
+      if (fL1.size) for (let o = 0; o < arch.l2; o++) fL2.add(o);
       if (fL2.size) fOut = true;
     }
 
-    /** A chevron 60% along the edge, pointing downstream. */
     const arrow = (
       ax: number,
       ay: number,
@@ -634,7 +592,6 @@ export class FieldRenderer {
       hi.stroke({ width: 1.1, color, alpha });
     };
 
-    // --- l1in -> L1 -------------------------------------------------------
     if (hasTop) {
       let maxTop = 1;
       for (let i = 1; i < f.l1Top.length; i += 2)
@@ -671,7 +628,6 @@ export class FieldRenderer {
       }
     }
 
-    // --- L1 -> L2 ---------------------------------------------------------
     if (f.l2Contrib.length >= arch.l2 * arch.l1) {
       let maxC = 1;
       for (let i = 0; i < f.l2Contrib.length; i++)
@@ -710,7 +666,6 @@ export class FieldRenderer {
       }
     }
 
-    // --- L2 -> output -----------------------------------------------------
     if (this.out && f.outContrib.length >= arch.l2) {
       let maxC = 1;
       for (let i = 0; i < f.outContrib.length; i++)
@@ -740,9 +695,7 @@ export class FieldRenderer {
       }
     }
 
-    // --- feature rays -----------------------------------------------------
     {
-      // Draw rays into whichever accumulator blocks are visible.
       const accBlocks = [this.accW, this.accB].filter(Boolean) as Block[];
       for (const feat of f.whiteFeatures) {
         const d = this.squares[feat.square];

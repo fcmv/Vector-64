@@ -214,10 +214,8 @@ void generate_pseudos(const Position &pos, MoveList &moves) {
   if constexpr (Gt != GEN_CAPTURES) {
     generate_castling_pseudos(pos, moves);
 #if defined(ENGINE_VARIANTS)
-    // Drops are quiet moves -- they can never capture. Quiescence therefore
-    // does not see them today, which is a known strength gap in drop
-    // variants (checking drops are the main tactical motif) and is tracked
-    // separately from correctness.
+    // Drops belong to quiet generation. Optional checking-drop quiescence uses
+    // its own generator and is disabled by the measured default.
     if (pos.has_drops() && pos.has_any_in_hand(pos.side_to_move())) {
       generate_drop_pseudos(pos, moves);
     }
@@ -267,8 +265,8 @@ NodeLegality make_node_legality(const Position &pos) {
   nl.pinsReady = false;
 
 #if defined(ENGINE_KING_DANGER)
-  // Candidate #7: enemy attack map computed with our king removed from
-  // occupancy, so a king move along a slider ray is scored correctly.
+  // Remove our king from occupancy so slider rays cover its possible
+  // destinations.
   {
     const Bitboard occNoKing = nl.occ ^ square_bb(nl.kingSq);
     Bitboard danger = 0;
@@ -332,7 +330,6 @@ bool is_move_legal_full(const NodeLegality &nl, Move m) {
 
   if (m.is_capture()) {
 
-    // handle ep like a real capture from the pawn's file
     Square capSq = to;
     if (m.is_en_passant()) {
       capSq = make_square(static_cast<GenFile>(file_of(to)),
@@ -353,7 +350,6 @@ bool is_move_legal_full(const NodeLegality &nl, Move m) {
 
   if (m.is_castling()) {
 
-    // castle path check: start and mid cant be attacked
     if (is_square_attacked_by_enemy(from, nl.us, nl.occ, enemyPawns,
                                     enemyKnights, enemyBishops, enemyRooks,
                                     enemyQueens, enemyKing)) {
@@ -496,7 +492,6 @@ bool is_pseudo_legal(const Position &pos, Move m) {
     return !(occ & toBB);
   }
 
-  // Non-pawn moves carry no special flags.
   if (m.is_promotion() || m.is_en_passant() || m.is_double_push())
     return false;
 

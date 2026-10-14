@@ -15,13 +15,12 @@ namespace Search {
 // search thread.
 class Evaluator {
 public:
-  bool load_nnue(const std::string &path);       // big net
-  bool load_nnue_small(const std::string &path); // small net
-  // Load the big net from an in-memory image (the embedded default net).
+  bool load_nnue(const std::string &path);
+  bool load_nnue_small(const std::string &path);
   bool load_nnue_buffer(const unsigned char *data, size_t size);
 
-  // Side-to-move centipawn score, rebuilding an accumulator (UCI `eval`,
-  // fallbacks). Pure big-net NNUE when loaded, else classical material+psqt.
+  // Side-to-move centipawns, rebuilding an accumulator. Uses big NNUE, then
+  // small NNUE if only that net is loaded, then classical material+psqt.
   int evaluate(const Core::Position &pos) const;
   // Search path: caller-maintained accumulator.
   int evaluate(const Core::Position &pos, const NNUE::Accumulator &acc) const;

@@ -23,10 +23,8 @@ struct Limits {
   Core::MoveList searchMoves{}; // empty = search all root moves
 };
 
-// One root move and what the search concluded about it. Only the first line of
-// a MultiPV search carries an exact score; the rest are searched with a full
-// window too, so they are exact as well -- but a single-PV search reports
-// nothing here, because its non-best root moves only ever get bounds.
+// MultiPV lines use full windows and carry exact scores. Single-PV leaves
+// this list empty because non-best root moves have only bounds.
 struct RootLine {
   Core::Move move = Core::Move::none();
   int scoreCp = 0;
@@ -75,10 +73,7 @@ public:
   void set_nnue_enabled(bool v);
 #endif
   void set_lazy_eval_margin(int cp);
-  // Keep move-ordering history warm across the searches of one game instead of
-  // zeroing ~857 KB of tables every call. ON by default: SPRT measured
-  // +37.6 Elo +/- 15.4 over 1521 games at 25k nodes. Callers reset per game via
-  // clear(), so history never crosses a game boundary.
+  // History persists within a game; callers must clear() at game boundaries.
   void set_persist_ordering(bool v);
   // Search the best N root moves with a full window each, so every reported
   // line has an exact score. N == 1 (the default) leaves the search exactly as
@@ -87,9 +82,7 @@ public:
   void clear();
   bool load_nnue(const std::string &path);
   bool load_nnue_small(const std::string &path);
-  // Load the big net from an in-memory image (the embedded default net).
   bool load_nnue_buffer(const unsigned char *data, size_t size);
-  // Load Syzygy tablebases from a directory list; true if any were found.
   bool load_syzygy(const std::string &path);
   int evaluate(const Core::Position &pos);
 
@@ -194,8 +187,7 @@ private:
 #endif
   // Dual-net gate: |material+psqt| above this (cp) takes the small-net eval.
   int smallNetThreshold_ = 950;
-  // Lazy eval: |PSQT side-output| above this (cp) skips the big net's dense
-  // layers. 0 = off (always full forward). Tuned via UCI / SPRT.
+  // abs(material+psqt) above this skips NNUE; 0 disables the shortcut.
   int lazyEvalMargin_ = 0;
   // See set_persist_ordering. Default on since the SPRT gate passed.
   bool persistOrdering_ = true;

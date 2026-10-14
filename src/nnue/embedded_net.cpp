@@ -1,8 +1,7 @@
 #include "embedded_net.h"
 
-// Platform accessors for the embedded default net. On MSVC the net is a Windows
-// RCDATA resource (embedded_net.rc); elsewhere it is bracketed by two labels in
-// embedded_net.S (.incbin). This file is compiled only into ChessEngine-nnue.
+// MSVC uses an RCDATA resource; other toolchains bracket .incbin bytes with
+// assembler labels. NNUE, all and viz targets share these accessors.
 
 #if defined(_MSC_VER)
 

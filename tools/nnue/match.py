@@ -1,34 +1,9 @@
 #!/usr/bin/env python3
-"""Fixed-node engine-vs-engine testing: fixed matches and SPRT.
+"""Fixed-node paired matches and SPRT, adjudicated by ChessEngine-validator.
 
-    # fixed-length match (Elo estimate):
-    python tools/nnue/match.py --engine <exe> --net <big.nnue> --games 200
-
-    # SPRT (the gate for search/eval changes):
-    python tools/nnue/match.py --engine <exe> --net <big.nnue> \
-        --base-engine <base-exe> --sprt 0 5 --concurrency 6
-
-    # crazyhouse SPRT between two builds:
-    python tools/nnue/match.py --variant crazyhouse \
-        --engine <new-exe> --base-engine <base-exe> \
-        --arbiter <ChessEngine-validator> --sprt 0 5
-
-Both sides play color-swapped pairs on generated openings (seeded random
-walks, material-balanced, unlimited variety -- essential because fixed-node
-games are deterministic, so every (opening, color) yields exactly one
-outcome and repeats add no information). Games run on parallel workers;
-fixed nodes make results load-independent.
-
-Adjudication comes from the engine's own validator binary, not a chess
-library: house rule is that nothing outside the engine encodes chess rules,
-so legality, move application and terminal detection all come from
-ChessEngine-validator over its JSON surface. That is also what makes variant
-testing possible at all -- the arbiter speaks crazyhouse and bughouse because
-the engine does.
-
-SPRT uses the trinomial GSPRT approximation with H0: elo <= elo0 and
-H1: elo >= elo1, alpha = beta = 0.05; the run stops when the LLR crosses
-+/- ln((1-beta)/alpha) ~= 2.944.
+Generated openings and swapped colours provide paired comparisons. Repeating the
+same deterministic opening adds no independent information. The trinomial GSPRT
+uses alpha=beta=0.05 and stops at LLR +/-ln((1-beta)/alpha), approximately 2.944.
 """
 
 from __future__ import annotations
@@ -50,7 +25,6 @@ LLR_BOUND = math.log((1 - 0.05) / 0.05)  # ~2.944 for alpha = beta = 0.05
 # board field is string handling, not chess logic, so this stays local.
 PIECE_VALUES = {"p": 100, "n": 320, "b": 330, "r": 500, "q": 900}
 
-
 def material_imbalance(fen: str) -> int:
     """White-minus-black material, read straight off a FEN board field."""
     board = fen.split()[0].split("[")[0]
@@ -60,7 +34,6 @@ def material_imbalance(fen: str) -> int:
         if value is not None:
             total += value if ch.isupper() else -value
     return total
-
 
 class Arbiter:
     """Game rules, supplied by the engine's validator binary.
@@ -96,7 +69,6 @@ class Arbiter:
                 return
 
     def _query(self, command: str) -> dict:
-        """Send one command and read back its single JSON reply line."""
         assert self.proc.stdout is not None
         self._send(command)
         while True:
@@ -130,7 +102,6 @@ class Arbiter:
         return self._query(f"getfen {self._clause(moves)}")["fen"]
 
     def apply(self, moves: list[str], move: str) -> dict:
-        """Validate `move` in the position after `moves`; returns the reply."""
         return self._query(f"apply {move} {self._clause(moves)}")
 
     def quit(self) -> None:
@@ -139,7 +110,6 @@ class Arbiter:
             self.proc.wait(timeout=10)
         except Exception:
             self.proc.kill()
-
 
 def generate_openings(arbiter: Arbiter, count: int, seed: int,
                       plies: int = 8) -> list[str]:
@@ -164,7 +134,6 @@ def generate_openings(arbiter: Arbiter, count: int, seed: int,
             continue
         out.append(" ".join(moves))
     return out
-
 
 class Engine:
     def __init__(self, binary: str, net: str | None, small: str | None = None,
@@ -226,7 +195,6 @@ class Engine:
         except Exception:
             self.proc.kill()
 
-
 @dataclass
 class Tally:
     wins: int = 0
@@ -274,7 +242,6 @@ class Tally:
         s1 = 1.0 / (1.0 + 10.0 ** (-elo1 / 400.0))
         return (s1 - s0) * (2 * s - s0 - s1) / (2 * var / n)
 
-
 def play_game(white: Engine, black: Engine, arbiter: Arbiter, opening: str,
               nodes: int, max_plies: int) -> str:
     """Returns "1-0", "0-1" or "1/2-1/2". The arbiter decides everything."""
@@ -286,7 +253,6 @@ def play_game(white: Engine, black: Engine, arbiter: Arbiter, opening: str,
     while True:
         terminal = state["terminal"]
         if terminal == "checkmate":
-            # The side to move is the one that got mated.
             return "0-1" if state["sideToMove"] == "w" else "1-0"
         if terminal != "none":
             return "1/2-1/2"
@@ -304,7 +270,6 @@ def play_game(white: Engine, black: Engine, arbiter: Arbiter, opening: str,
             return "0-1" if to_move == "w" else "1-0"
         moves.append(move)
         state = reply
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Fixed-node match / SPRT runner.")
@@ -444,7 +409,6 @@ def main() -> int:
         print("SPRT: inconclusive at game cap", flush=True)
         return 2
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

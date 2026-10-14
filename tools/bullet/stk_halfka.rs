@@ -8,7 +8,7 @@ use bullet_lib::game::inputs::SparseInputType;
 const KING_BUCKETS: usize = 32;
 const KINDS: usize = 11; // own {P,N,B,R,Q}=0..4, enemy {P,N,B,R,Q,K}=5..10
 const SQUARES: usize = 64;
-const NUM: usize = KING_BUCKETS * KINDS * SQUARES; // 22528
+const NUM: usize = KING_BUCKETS * KINDS * SQUARES;
 const DEAD: usize = NUM; // throwaway slot for the own king
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -23,7 +23,6 @@ fn flip_rank(sq: usize) -> usize {
     sq ^ 56
 }
 
-// bucket + mirror flag for a king already oriented to its perspective's bottom
 #[inline]
 fn king_orient(ksq: usize) -> (usize, bool) {
     let mirror = (ksq & 7) >= 4;

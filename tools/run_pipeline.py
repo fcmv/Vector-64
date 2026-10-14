@@ -25,10 +25,8 @@ DEFAULT_HF_DATASET = "Lichess/chess-position-evaluations"
 ROLLING_DEDUP_CLEAR = 10_000_000
 MAX_FEATURES_PER_SIDE = 30
 
-
 class PipelineError(RuntimeError):
     pass
-
 
 class Colors:
     def __init__(self, enabled: bool) -> None:
@@ -61,11 +59,9 @@ class Colors:
     def reset(self) -> str:
         return self.code("\033[0m")
 
-
 def stage_header(title: str, colors: Colors) -> None:
     line = "═" * max(8, 54 - len(title))
     print(f"\n{colors.cyan}══ {title} {line}{colors.reset}")
-
 
 def boxed(lines: list[str], colors: Colors) -> None:
     width = max(len(line) for line in lines)
@@ -76,13 +72,11 @@ def boxed(lines: list[str], colors: Colors) -> None:
         print(colors.cyan + "║ " + colors.reset + line.ljust(width) + colors.cyan + " ║" + colors.reset)
     print(colors.cyan + bottom + colors.reset)
 
-
 def is_hf_source(source: str | None) -> bool:
     if source is None:
         return True
     lowered = source.strip().lower()
     return lowered in {"hf", "huggingface", "huggingface://default"} or lowered.startswith("hf://")
-
 
 def hf_dataset_id(source: str | None) -> str:
     if source is None:
@@ -92,12 +86,10 @@ def hf_dataset_id(source: str | None) -> str:
         return dataset_id or DEFAULT_HF_DATASET
     return DEFAULT_HF_DATASET
 
-
 def source_label(source: str | None) -> str:
     if is_hf_source(source):
         return f"hf://{hf_dataset_id(source)}"
     return str(source)
-
 
 def open_jsonl_lines(path: Path) -> Iterator[str]:
     if path.suffix.lower() == ".zst":
@@ -113,7 +105,6 @@ def open_jsonl_lines(path: Path) -> Iterator[str]:
     else:
         with path.open("r", encoding="utf-8") as fh:
             yield from fh
-
 
 def iter_source_rows(source: str | None) -> Iterator[dict[str, Any]]:
     if is_hf_source(source):
@@ -140,7 +131,6 @@ def iter_source_rows(source: str | None) -> Iterator[dict[str, Any]]:
         if isinstance(obj, dict):
             yield obj
 
-
 def row_eval_cp_depth(row: dict[str, Any]) -> tuple[float | None, int | None, str]:
     if "evals" in row:
         return nnue.best_lichess_eval(row)
@@ -164,10 +154,8 @@ def row_eval_cp_depth(row: dict[str, Any]) -> tuple[float | None, int | None, st
         return None, depth, "mate_only"
     return None, depth, "no_cp"
 
-
 def fen_digest(fen: str) -> bytes:
     return hashlib.blake2b(fen.encode("utf-8"), digest_size=12).digest()
-
 
 def extract_positions(
     *,
@@ -279,14 +267,12 @@ def extract_positions(
     print("rejection summary: " + ", ".join(f"{k}={v:,}" for k, v in stats.most_common()))
     return {"accepted": accepted, "scanned": scanned, "rejected": scanned - accepted, "seconds": elapsed}
 
-
 def count_lines(path: Path) -> int:
     count = 0
     with path.open("rb") as fh:
         for _ in fh:
             count += 1
     return count
-
 
 def flush_shard(
     *,
@@ -316,7 +302,6 @@ def flush_shard(
     np.savez_compressed(out_path, white_indices=white, black_indices=black, stm=stm, cp=cp)
     return out_path, out_path.stat().st_size
 
-
 def build_shards(
     *,
     extracted_path: Path,
@@ -332,7 +317,6 @@ def build_shards(
     if total_positions == 0:
         raise PipelineError(f"{extracted_path} is empty")
 
-    # Resume: detect already-written shards and skip their positions
     existing_shards = sorted(out_dir.glob("shard_*.npz"))
     start_shard_index = len(existing_shards)
     skip_positions = start_shard_index * shard_size
@@ -354,7 +338,6 @@ def build_shards(
     started = time.time()
 
     with extracted_path.open("r", encoding="utf-8") as fh:
-        # Skip lines already covered by existing shards
         for _ in range(skip_positions):
             if not fh.readline():
                 break
@@ -406,11 +389,9 @@ def build_shards(
     )
     return {"positions": total_positions, "shards": shard_index, "seconds": elapsed, "bytes": written_bytes}
 
-
 def ensure_file(path: Path, message: str) -> None:
     if not path.exists():
         raise PipelineError(f"{message}: {path}")
-
 
 def ensure_shards(path: Path) -> None:
     manifest = path / "manifest.json"
@@ -418,7 +399,6 @@ def ensure_shards(path: Path) -> None:
         raise PipelineError(f"Missing shard manifest for --skip-batching: {manifest}")
     if not list(path.glob("*.npz")):
         raise PipelineError(f"No .npz shards found in {path}")
-
 
 def latest_checkpoint_for_export() -> Path:
     best = Path("checkpoints") / "best.pt"
@@ -428,7 +408,6 @@ def latest_checkpoint_for_export() -> Path:
     if latest is None:
         raise PipelineError("No checkpoint found for --skip-training. Expected checkpoints/best.pt or nnue_step_*.pt.")
     return latest
-
 
 def run_training_or_export(
     *,
@@ -470,7 +449,6 @@ def run_training_or_export(
     )
     return nnue.train_model(cfg)
 
-
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the full VECTOR64_NNUE training pipeline.")
     parser.add_argument(
@@ -490,7 +468,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--no-color", action="store_true", help="Disable ANSI color output")
     parser.add_argument("--device", default="cuda", help="cuda or cuda:N. cpu is rejected by pipeline policy.")
     return parser.parse_args(argv)
-
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
@@ -601,7 +578,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"export={args.output} verification={verification}"
     )
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

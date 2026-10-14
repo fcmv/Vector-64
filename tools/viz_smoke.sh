@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
-# End-to-end smoke test for the NNUE visualizer.
-#
-# The important assertion is the last one: the eval the visualizer streams must
-# equal what the engine's own `eval` command reports for the same position. That
-# is what makes "the UI shows the real engine" a checked property rather than an
-# intention. The rest covers the wire format, control surface and the loopback /
-# no-filesystem security posture.
-#
-#   bash tools/viz_smoke.sh <path-to-ChessEngine-viz> [<path-to-ChessEngine-nnue>]
+# Usage: bash tools/viz_smoke.sh <viz-engine> [nnue-engine]
+# The independent engine eval must agree with the streamed frame for the same FEN.
 set -euo pipefail
 
 VIZ="${1:?usage: viz_smoke.sh <ChessEngine-viz> [ChessEngine-nnue]}"
@@ -27,7 +20,6 @@ echo "[viz-smoke] starting $VIZ on :$PORT"
 "$VIZ" --port "$PORT" --headless --nodes 4000 --delay 0 >"$TMP/server.log" 2>&1 &
 PID=$!
 
-# Wait for the port to answer rather than sleeping a fixed amount.
 for _ in $(seq 1 60); do
   if curl -fsS --max-time 2 "$BASE/api/health" >/dev/null 2>&1; then break; fi
   sleep 0.5
@@ -35,7 +27,6 @@ done
 curl -fsS --max-time 5 "$BASE/api/health" | grep -q '"ok":true'
 echo "[viz-smoke] health ok"
 
-# --- wire format ----------------------------------------------------------
 curl -fsS --max-time 15 "$BASE/api/state?since=0" -o "$TMP/state.bin"
 python3 - "$TMP/state.bin" <<'PY'
 import json, struct, sys
@@ -61,7 +52,6 @@ open(sys.argv[1] + '.eval', 'w').write(str(f["eval"]))
 open(sys.argv[1] + '.nnue', 'w').write('1' if h["nnueActive"] else '0')
 PY
 
-# --- control surface ------------------------------------------------------
 curl -fsS --max-time 5 -X POST -d '{"cmd":"pause","value":true}' "$BASE/api/control" | grep -q '"ok":true'
 curl -fsS --max-time 5 -X POST -d '{"cmd":"nodes","value":5000}' "$BASE/api/control" | grep -q '"ok":true'
 code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' -X POST -d '{"cmd":"bogus"}' "$BASE/api/control")
@@ -72,14 +62,12 @@ code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' -X POST -d 'not json'
 [ "$code" = "400" ] || { echo "malformed body should be 400, got $code"; exit 1; }
 echo "[viz-smoke] control ok (valid accepted, invalid rejected)"
 
-# --- only embedded assets are served --------------------------------------
 code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "$BASE/../../etc/passwd")
 [ "$code" = "404" ] || { echo "path traversal should 404, got $code"; exit 1; }
 code=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "$BASE/etc/passwd")
 [ "$code" = "404" ] || { echo "arbitrary path should 404, got $code"; exit 1; }
 echo "[viz-smoke] serves embedded assets only"
 
-# --- net inspector --------------------------------------------------------
 curl -fsS --max-time 60 "$BASE/api/net" -o "$TMP/net.json"
 python3 - "$TMP/net.json" <<'PY'
 import json, sys
@@ -93,7 +81,6 @@ if d["loaded"]:
 print("[viz-smoke] net inspector ok")
 PY
 
-# --- the truth check ------------------------------------------------------
 if [ -n "$ENGINE" ] && [ "$(cat "$TMP/state.bin.nnue")" = "1" ]; then
   fen="$(cat "$TMP/state.bin.fen")"
   want="$(cat "$TMP/state.bin.eval")"

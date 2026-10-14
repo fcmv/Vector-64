@@ -4,33 +4,21 @@
 #include "../cores/bitboard.h"
 #include "../cores/position.h"
 
-// STK-HalfKA: a HalfKAv2_hm-equivalent feature set, implemented from scratch.
-//
-// For a given perspective (WHITE or BLACK) the board is oriented so that the
-// perspective side's king sits on ranks 1-4 and files a-d:
-//   - vertical flip (sq ^ 56) when the perspective is BLACK, so "our" back rank
-//     is always rank 1;
-//   - horizontal flip (sq ^ 7) when the oriented king is on files e-h, so the
-//     king is always on the queenside half.
-// The perspective's own king is the anchor (it selects the king bucket) and is
-// not itself a feature. Every other piece contributes one feature indexed by
-//   (king_bucket, piece_kind, oriented_square).
-// Piece kinds are colour-relative (friendly vs enemy), giving 11 kinds:
-//   friendly pawn..queen -> 0..4, enemy pawn..king -> 5..10.
-// Totals: 32 king buckets * 11 kinds * 64 squares = 22528 features /
-// perspective.
+// Orient black vertically, then mirror files when the oriented king is on e-h.
+// The king can occupy all eight ranks and files a-d: 32 buckets. It selects
+// the bucket but is not itself a feature. Colour-relative kinds are friendly
+// P..Q (0..4) and enemy P..K (5..10), giving 32 * 11 * 64 = 22528 features.
 
 namespace NNUE::HalfKA {
 
 constexpr int KING_BUCKETS = 32;
 constexpr int PIECE_KINDS = 11;
 constexpr int SQUARES = 64;
-constexpr int FEATURES = KING_BUCKETS * PIECE_KINDS * SQUARES; // 22528
+constexpr int FEATURES = KING_BUCKETS * PIECE_KINDS * SQUARES;
 
 inline int flip_rank(int sq) { return sq ^ 56; }
 inline int flip_file(int sq) { return sq ^ 7; }
 
-// Orientation context for one perspective, computed once per accumulator build.
 struct Orient {
   Core::Color side;
   bool mirror;    // horizontal flip active (perspective king on files e-h)
@@ -56,12 +44,11 @@ inline int piece_kind(Core::Color side, Core::Color pieceColor,
   if (pieceColor == side) {
     if (pt == Core::KING)
       return -1;
-    return int(pt) - 1; // PAWN..QUEEN -> 0..4
+    return int(pt) - 1;
   }
-  return 4 + int(pt); // enemy PAWN..KING -> 5..10
+  return 4 + int(pt);
 }
 
-// Feature index for one piece, or -1 if it is the perspective's own king.
 inline int feature_index(const Orient &o, Core::Color pieceColor,
                          Core::PieceType pt, Core::Square s) {
   const int kind = piece_kind(o.side, pieceColor, pt);
@@ -71,7 +58,6 @@ inline int feature_index(const Orient &o, Core::Color pieceColor,
   return (o.kingBucket * PIECE_KINDS + kind) * SQUARES + ts;
 }
 
-// Invoke push(featureIndex) for every active feature of `perspective`.
 template <class Push>
 inline void for_each_feature(const Core::Position &pos, Core::Color perspective,
                              Push push) {

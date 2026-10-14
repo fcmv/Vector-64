@@ -30,11 +30,11 @@ from pathlib import Path
 import numpy as np
 
 PIECE_BUCKET = {
-    1: 0,  # pawn
-    2: 1,  # knight
-    3: 2,  # bishop
-    4: 3,  # rook
-    5: 4,  # queen
+    1: 0,
+    2: 1,
+    3: 2,
+    4: 3,
+    5: 4,
 }
 
 PIECE_TYPE = {
@@ -45,7 +45,6 @@ PIECE_TYPE = {
     "q": 5,
     "k": 6,
 }
-
 
 @dataclass
 class Stats:
@@ -63,13 +62,11 @@ class Stats:
     samples_kept: int = 0
     shards_written: int = 0
 
-
 @dataclass
 class ShardInfo:
     file: str
     meta: str
     samples: int
-
 
 @dataclass
 class ParsedFen:
@@ -79,7 +76,6 @@ class ParsedFen:
     # tuples: (square, piece_type 1..6, color 0=white/1=black)
     pieces: list[tuple[int, int, int]]
 
-
 @dataclass
 class CpSummary:
     min: float | None = None
@@ -88,7 +84,6 @@ class CpSummary:
     std: float = 0.0
     bins: list[float] = None  # type: ignore[assignment]
     counts: list[int] = None  # type: ignore[assignment]
-
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Build HalfKP NPZ shards from eval JSONL.")
@@ -122,20 +117,17 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--uncompressed", action="store_true", help="Write with np.savez instead of np.savez_compressed")
     return p.parse_args()
 
-
 def _to_int(x, default: int = 0) -> int:
     try:
         return int(x)
     except Exception:
         return default
 
-
 def _to_float(x) -> float | None:
     try:
         return float(x)
     except Exception:
         return None
-
 
 def _canonical_fen_key(fen: str) -> str:
     # Dedup key intentionally ignores castling/ep/clocks and keeps only:
@@ -145,7 +137,6 @@ def _canonical_fen_key(fen: str) -> str:
     if len(parts) >= 2:
         return " ".join(parts[:2])
     return fen.strip()
-
 
 class Deduper:
     def __init__(self, scope: str, db_path: Path | None = None):
@@ -201,7 +192,6 @@ class Deduper:
             self._conn.close()
             self._conn = None
 
-
 def _iter_lines(path: Path) -> Iterator[str]:
     if path.suffix.lower() == ".zst":
         try:
@@ -223,7 +213,6 @@ def _iter_lines(path: Path) -> Iterator[str]:
         for line in fh:
             yield line
 
-
 def _extract_cp(record: dict, min_depth: int, min_knodes: int) -> tuple[float | None, str, int, int]:
     # Returns: (cp_or_none, reason, depth, knodes)
     # reason in {"ok","mate","depth","knodes","no_eval"}
@@ -235,7 +224,7 @@ def _extract_cp(record: dict, min_depth: int, min_knodes: int) -> tuple[float | 
     evals = record.get("evals")
     has_evals_array = isinstance(evals, list)
     if has_evals_array:
-        assert isinstance(evals, list)  # narrow for type checkers; guarded by has_evals_array
+        assert isinstance(evals, list)
         for e in evals:
             if not isinstance(e, dict):
                 continue
@@ -256,7 +245,6 @@ def _extract_cp(record: dict, min_depth: int, min_knodes: int) -> tuple[float | 
                     if isinstance(pv, dict):
                         score_candidates.append(pv)
 
-            # Fallback to direct eval-entry score fields.
             if not score_candidates:
                 score_candidates.append(e)
 
@@ -309,7 +297,6 @@ def _extract_cp(record: dict, min_depth: int, min_knodes: int) -> tuple[float | 
     if had_knodes:
         return None, "knodes", 0, 0
     return None, "no_eval", 0, 0
-
 
 def _parse_fen_minimal(fen: str) -> ParsedFen:
     parts = fen.strip().split()
@@ -375,11 +362,9 @@ def _parse_fen_minimal(fen: str) -> ParsedFen:
         pieces=pieces,
     )
 
-
 def _encode_halfkp(fen: str, max_features: int):
     parsed = _parse_fen_minimal(fen)
     return _encode_halfkp_from_parsed(parsed, max_features)
-
 
 def _encode_halfkp_from_parsed(parsed: ParsedFen, max_features: int):
 
@@ -403,10 +388,7 @@ def _encode_halfkp_from_parsed(parsed: ParsedFen, max_features: int):
 
     return white_idx, black_idx, parsed.stm
 
-
 def _phase_bucket_from_parsed(parsed: ParsedFen) -> str:
-    # Simple non-pawn-material phase estimate over both sides:
-    # knight/bishop=1, rook=2, queen=4; max=24 at initial position.
     units = 0
     for _, piece_type, _ in parsed.pieces:
         if piece_type == 2 or piece_type == 3:
@@ -421,7 +403,6 @@ def _phase_bucket_from_parsed(parsed: ParsedFen) -> str:
     if units >= 9:
         return "middlegame"
     return "endgame"
-
 
 def _finalize_cp_summary(
     cp_min: float | None,
@@ -452,7 +433,6 @@ def _finalize_cp_summary(
         bins=edges,
         counts=counts,
     )
-
 
 def _write_shard(
     out_dir: Path,
@@ -502,7 +482,6 @@ def _write_shard(
 
     return ShardInfo(file=shard_name, meta=meta_path.name, samples=int(cp.shape[0]))
 
-
 def _print_progress(stats: Stats, shards: int) -> None:
     print(
         "[progress] "
@@ -515,7 +494,6 @@ def _print_progress(stats: Stats, shards: int) -> None:
         f"invalid_fen={stats.lines_invalid_fen:,}",
         file=sys.stderr,
     )
-
 
 def main() -> int:
     args = parse_args()
@@ -656,7 +634,6 @@ def main() -> int:
             cp_sum += cp_white
             cp_sum_sq += cp_white * cp_white
 
-            # Map cp into fixed histogram bins over [-max_abs_cp, max_abs_cp].
             span = float(args.max_abs_cp) * 2.0
             idx = int(((cp_white + float(args.max_abs_cp)) / span) * cp_bins)
             if idx < 0:
@@ -717,7 +694,6 @@ def main() -> int:
     print(f"Manifest: {manifest_path}")
     _print_progress(stats, len(shards))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

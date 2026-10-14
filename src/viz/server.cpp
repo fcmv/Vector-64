@@ -60,7 +60,7 @@ void try_open_browser(const std::string &url) {
       close(devnull);
     }
     execlp(opener, opener, url.c_str(), static_cast<char *>(nullptr));
-    _exit(127); // exec failed
+    _exit(127);
   }
   ok = pid > 0;
 #endif
@@ -85,7 +85,6 @@ int run_server(Session &session, const ServerOptions &opts) {
     return 2;
   }
 
-  // Bound the work a single request can cause.
   svr.set_payload_max_length(64 * 1024);
   svr.set_read_timeout(10, 0);
   svr.set_write_timeout(10, 0);

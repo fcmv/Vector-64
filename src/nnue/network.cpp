@@ -11,7 +11,6 @@ template <int H> bool NetworkT<H>::self_test() {
   auto net = std::make_unique<NetworkT<H>>();
   net->randomize(0x1234567ULL);
 
-  // 1) SIMD forward == pure-scalar forward, over random accumulators.
   uint64_t s = 0x9E3779B97F4A7C15ULL;
   auto next = [&s]() {
     s ^= s << 13;
@@ -75,7 +74,6 @@ template <int H> bool NetworkT<H>::self_test() {
     }
   }
 
-  // 2) Incremental delta == direct build, over random feature sets.
   auto build = [&](Core::Color p, const int *feats, int n, AccumulatorT<H> &a) {
     a.acc[p] = net->ftBias_;
     a.psqt[p].fill(0);
@@ -92,7 +90,7 @@ template <int H> bool NetworkT<H>::self_test() {
     AccumulatorT<H> direct{}, delta{};
     build(p, s2, n, direct);
     build(p, s1, n, delta);
-    net->apply_delta(p, s2, n, s1, n, delta); // add s2, remove s1
+    net->apply_delta(p, s2, n, s1, n, delta);
     if (delta.acc[p] != direct.acc[p] || delta.psqt[p] != direct.psqt[p]) {
       std::fprintf(stderr, "[nnue H=%d] incremental != rebuild, trial %d\n", H,
                    trial);
@@ -100,7 +98,6 @@ template <int H> bool NetworkT<H>::self_test() {
     }
   }
 
-  // 3) SIMD accumulator add == scalar reference.
   {
     int feats[10];
     for (int &f : feats)

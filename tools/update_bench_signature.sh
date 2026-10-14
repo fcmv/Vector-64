@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Regenerate the committed search fingerprint after an INTENTIONAL search change.
-# Run this, review the one-line diff in tools/bench_signature.txt, and commit it
-# together with the search change so the two never drift.
-#
-#   bash tools/update_bench_signature.sh <path-to-ChessEngine>
+# Usage: bash tools/update_bench_signature.sh <classical-engine> [nnue-engine]
+# Commit regenerated counts with the intentional search or embedded-net change.
 
 set -euo pipefail
 

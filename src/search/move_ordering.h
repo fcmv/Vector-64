@@ -23,7 +23,6 @@ public:
 
   void update_killers(int ply, Core::Move move);
   void update_history(Core::Color side, Core::Move move, int depth);
-  // Penalty for quiet moves that were searched but did not cause the cutoff.
   void update_history_malus(Core::Color side, Core::Move move, int depth);
   // Capture history, keyed by (mover, attacker type, target, victim type).
   void update_capture(Core::Color side, Core::PieceType attacker,

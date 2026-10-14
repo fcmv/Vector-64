@@ -1,4 +1,3 @@
-# ---- build directories ----
 /build/
 /build-*/
 /cmake-build-*/
@@ -10,7 +9,6 @@ CMakeUserPresets.json
 compile_commands.json
 Makefile
 
-# ---- compiled objects / binaries / libs ----
 *.o
 *.obj
 *.a
@@ -23,13 +21,11 @@ Makefile
 *.ilk
 *.exp
 
-# ---- profile-guided optimization artifacts ----
 *.gcda
 *.gcno
 *.gcov
 gmon.out
 
-# ---- python ----
 __pycache__/
 *.pyc
 *.pyo
@@ -37,7 +33,6 @@ __pycache__/
 venv/
 env/
 
-# ---- training data, checkpoints, networks (loaded at runtime, never tracked) ----
 /artifacts/
 /tools/data/
 *.nnue
@@ -48,16 +43,13 @@ env/
 *.ckpt
 *.meta.json
 
-# ---- editors / IDEs ----
 /.idea/
 /.vscode/
 *.swp
 
-# ---- OS cruft ----
 .DS_Store
 Thumbs.db
 
-# ---- logs / temp ----
 *.log
 *.tmp
 *.cache
@@ -75,7 +67,6 @@ ui/dist/*
 !ui/dist/index.html
 sprt/
 
-# ---- personal working agreement ----
 # Local to each checkout and deliberately never committed. CLAUDE.md points at
 # it; see there for what it is.
 /HOUSE_RULES.md

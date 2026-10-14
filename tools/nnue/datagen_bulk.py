@@ -1,33 +1,8 @@
 #!/usr/bin/env python3
-"""DEPRECATED -- superseded by the engine's native data generator.
+"""Deprecated: use native ChessEngine datagen or ChessEngine-viz datagen mode.
 
-Use one of these instead; both write byte-identical rows because they share the
-helpers in src/datagen/selfplay.h:
-
-    ChessEngine datagen --net <net> --out <file> --games N --nodes N --threads N
-    ChessEngine-viz             # datagen mode: live games, crash-safe resume
-
-Driving the engine over UCI from Python is slower, and this path has drifted
-from the native one (it predates the native generator, the warm-history default
-and the current label handling). Kept so older commands in notes still run; not
-maintained, and not for new datasets.
-
-Original documentation follows.
-
-Bulk self-play datagen: build a large dataset over many crash-safe chunks.
-
-Runs the engine's native datagen repeatedly (a fresh seed each chunk) into a shard
-directory until --target-positions is reached. Resumable: every completed shard
-is recorded in <out-dir>/bulk_state.json and skipped on restart, so a multi-day
-run survives Ctrl-C / crashes / reboots. A chunk that died mid-write leaves a
-partial shard that is simply regenerated (same seed -> same games) and
-overwritten, so no positions are ever double-counted.
-
-Point make_net.py --input at the shard directory to train on the whole set:
-
-    python tools/nnue/datagen_bulk.py --engine build-bench/bin/ChessEngine.exe \
-        --net runs/v2/stk_halfka_1024.nnue --out-dir runs/bulk/data \
-        --target-positions 500000000 --nodes 5000 --concurrency 10
+Both share src/datagen/selfplay.h. This compatibility wrapper remains for old
+commands and is not maintained for new datasets.
 """
 
 from __future__ import annotations
@@ -41,14 +16,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-
 def count_lines(path: Path) -> int:
     n = 0
     with path.open("rb") as fh:
         for _ in fh:
             n += 1
     return n
-
 
 def run_chunk(cmd: list[str], log) -> None:
     log.write("\n$ " + " ".join(cmd) + "\n")
@@ -64,7 +37,6 @@ def run_chunk(cmd: list[str], log) -> None:
     proc.wait()
     if proc.returncode != 0:
         raise SystemExit(f"datagen chunk failed ({proc.returncode})")
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Bulk resumable self-play datagen.")
@@ -105,7 +77,6 @@ def main() -> int:
         idx = len(state["chunks"])
         shard = out / f"shard_{idx:04d}.txt"
         seed = args.seed_base + idx
-        # The engine's native datagen subcommand: it reuses the real search and
         # NNUE, and the chess rules live only in the engine.
         cmd = [str(Path(args.engine).resolve()), "datagen", "--net", args.net,
                "--games", str(args.chunk_games), "--nodes", str(args.nodes),
@@ -132,7 +103,6 @@ def main() -> int:
           f"shards -> {out}")
     log.close()
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

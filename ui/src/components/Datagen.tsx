@@ -5,15 +5,7 @@ import type {
   EngineState,
 } from "../engine/types";
 
-/**
- * Data generation, driven by the engine's OWN native generator -- the same
- * self-play loop, opening distribution and row format as `ChessEngine datagen`,
- * so a dataset built here is interchangeable with one built from the CLI.
- *
- * While a run is going the settings lock. A dataset assembled from shifting
- * node counts or labelling rules is not one dataset, so the only controls left
- * live are pause, resume and stop.
- */
+/* Uses native datagen row rules. Row-shaping controls stay locked while a run is live. */
 export function DatagenPanel({
   s,
   send,
@@ -92,11 +84,8 @@ export function DatagenPanel({
   const pct = d.target > 0 ? Math.min(100, (d.positions / d.target) * 100) : 0;
   const n = (x: number) => x.toLocaleString("en-US");
 
-  // A finished run keeps its summary on screen -- that is the result, and
-  // throwing it away the instant the run ends is worse than showing it. But it
-  // is a summary, not a mode: asking for a new run has to bring the form back.
-  // Gating purely on `positions > 0` stranded the panel in the progress view
-  // for the rest of the session, so a second run meant restarting the binary.
+  // Keep a finished summary until a new run is requested; completed positions
+  // alone must not prevent the form from returning.
   const [configuring, setConfiguring] = useState(false);
   useEffect(() => {
     if (d.running) setConfiguring(false);
@@ -170,14 +159,10 @@ export function DatagenPanel({
               </button>
             </>
           ) : (
-            // Pause and stop are meaningless once the run has ended; offering
-            // them made the panel look live when nothing was happening.
             <button
               className="btn"
               onClick={() => {
-                // Carry the finished run's path back into the form. Dropping
-                // back to the default meant the resume offer for the dataset
-                // you were just building never appeared.
+                // Retain the completed dataset path so its resume state can be probed.
                 if (d.out) setOut(d.out);
                 setConfiguring(true);
               }}

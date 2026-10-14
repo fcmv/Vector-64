@@ -115,7 +115,6 @@ int probe_root_moves(Core::Position &pos, Core::MoveList &out) {
   if (!ok || results->size == 0)
     return 0;
 
-  // Keep every move that ties the best rank -- all equally-optimal outcomes.
   int32_t bestRank = results->moves[0].tbRank;
   for (unsigned i = 1; i < results->size; ++i)
     bestRank = std::max(bestRank, results->moves[i].tbRank);

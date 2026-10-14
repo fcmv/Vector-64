@@ -1,11 +1,4 @@
-/* Vector Scope design system — dark technical.
-   One accent, a signed diverging ramp for activations, mono tabular figures on
-   every number. Restraint is the point: the network is the only thing that
-   should glow.
-
-   Layout rule: every panel has a FIXED height. Lists scroll inside themselves
-   and optional rows are always reserved, so nothing reflows as a game grows and
-   nothing snaps back when a new game starts. */
+/* Panels keep fixed heights; lists scroll internally so accumulating moves cannot reflow the layout. */
 
 :root {
   --bg: #05070b;
@@ -15,8 +8,7 @@
   --line: #1a2333;
   --line-soft: #131b27;
 
-  /* Contrast targets on --panel (#0b1018): fg ~15:1, dim ~9:1, faint ~5.5:1.
-     The previous dim/faint pair sat near 3:1 and was genuinely hard to read. */
+  /* Contrast targets on --panel (#0b1018): fg ~15:1, dim ~9:1, faint ~5.5:1. */
   --fg: #f3f7fc;
   --fg-dim: #bccbdd;
   --fg-faint: #8b9db5;
@@ -31,21 +23,12 @@
   --good: #4ade80;
   --bad: #f87171;
 
-  /* Board. Chessground ships brown, which fights a near-black panel and reads
-     as a different application bolted on. These are the same cool blues the
-     rest of the surface uses.
-
-     The squares are lifted deliberately: every move marker is drawn in
-     --board-ink, and these two values are chosen so that ink clears 5.17:1
-     against BOTH of them (WCAG 1.4.11 asks 3:1 for non-text indicators). A
-     mid-tone accent cannot do that -- cyan on a light square measures 1.07:1,
-     which is invisible -- so the ink carries the contrast and the accent rides
-     on top of it, where it reads at 9.88:1. */
+  /* --board-ink clears 5.17:1 against both squares. Bare cyan on a light square
+     is only 1.07:1, so ink outlines carry non-text indicator contrast. */
   --board-light: #c6d2e2;
   --board-dark: #7d92ad;
   --board-ink: #04222e;
-  /* Outline under the drawn shapes. Neutral near-black on purpose: --board-ink
-     is a teal and, spread under an amber arrow, it rimmed it in blue. */
+  /* Use a neutral outline to avoid a blue rim around amber shapes. */
   --mark-shadow: rgba(7, 11, 16, 0.95);
   --board-edge: #24304a;
 
@@ -87,7 +70,6 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
-/* --- app shell --------------------------------------------------------- */
 .app {
   position: relative;
   display: grid;
@@ -145,7 +127,6 @@ body {
   background: var(--accent-glow);
 }
 
-/* Columns are fixed-height grids: no panel may resize at runtime. */
 .col {
   display: grid;
   gap: 12px;
@@ -288,7 +269,6 @@ body {
   box-shadow: 0 0 8px var(--bad);
 }
 
-/* --- controls ---------------------------------------------------------- */
 .controls {
   display: flex;
   flex-wrap: wrap;
@@ -394,7 +374,6 @@ input[type="text"]:focus {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-/* --- eval -------------------------------------------------------------- */
 .eval-big {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
@@ -442,7 +421,6 @@ input[type="text"]:focus {
   background: var(--line);
 }
 
-/* --- lists: fixed height, scroll inside -------------------------------- */
 .moves {
   font-family: var(--mono);
   font-size: 11px;
@@ -476,7 +454,6 @@ input[type="text"]:focus {
   scrollbar-width: thin;
 }
 
-/* --- board ------------------------------------------------------------- */
 .board-wrap {
   width: 100%;
   aspect-ratio: 1;
@@ -486,11 +463,7 @@ input[type="text"]:focus {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
-/* --- chess board -------------------------------------------------------- */
-/* The squares are one repeating gradient rather than chessground's embedded
-   SVG: the pattern is 8x8 on a square element, so it scales exactly and costs
-   no asset. Highlights are the interface accent instead of chessground's
-   greens, so a last move reads as part of this UI rather than beside it. */
+/* An 8x8 repeating gradient scales with the square board without an SVG asset. */
 .cg-wrap cg-board {
   background-color: var(--board-light);
   background-image: repeating-conic-gradient(
@@ -500,15 +473,8 @@ input[type="text"]:focus {
   background-size: 25% 25%;
 }
 
-/* Move affordances are drawn as instrument marks rather than chessground's
-   filled blobs: a reticle for an empty destination, corner brackets framing a
-   capture.
-
-   State (last move, selection) is a tint plus a soft inset vignette. The tint
-   alone will not do it -- cyan over a light square shifts its lightness by
-   1.05, which is nothing -- but the obvious fix, a crisp dark rule around the
-   square, puts a hard black box on the board every single move. The vignette
-   gives the same delimiting edge without ever reading as a border. */
+/* Use a reticle for empty destinations and corner brackets for captures.
+   Selection/last-move tints need an inset edge to stay visible on light squares. */
 .cg-wrap cg-board square.last-move {
   background: rgba(77, 216, 255, 0.34);
   box-shadow: inset 0 0 7px rgba(4, 34, 46, 0.45);
@@ -518,8 +484,7 @@ input[type="text"]:focus {
   box-shadow: inset 0 0 9px rgba(4, 34, 46, 0.5);
 }
 
-/* Empty destination: an accent core ringed in ink. The ink ring is what makes
-   it visible; the cyan is what makes it ours. */
+/* The ink ring makes an accent mark visible against either square colour. */
 .cg-wrap cg-board square.move-dest {
   background: radial-gradient(
     circle,
@@ -529,10 +494,8 @@ input[type="text"]:focus {
   );
 }
 
-/* Capture: four corner brackets framing the piece, so the piece stays visible
-   and the mark says "this one" instead of covering it. Each bracket is an L of
-   two hairlines, hence eight layers; the ink halo under them is what clears
-   3:1 on a light square, where bare cyan would not. */
+/* Eight gradient layers form four L-shaped capture brackets without covering the piece.
+   The ink halo supplies contrast on light squares. */
 .cg-wrap cg-board square.oc.move-dest {
   --b: #4dd8ff;
   background-image: linear-gradient(var(--b), var(--b)),
@@ -586,9 +549,8 @@ input[type="text"]:focus {
   box-shadow: inset 0 0 7px rgba(4, 34, 46, 0.45);
 }
 
-/* The engine's intent arrow is an SVG chessground draws with a flat brush
-   colour -- no stroke of its own. This halo gives it one, so a cyan arrow
-   stays delimited as it crosses a light square. */
+/* Chessground gives intent arrows an amber fill but no stroke;
+   this halo keeps their edges visible against light squares. */
 .cg-wrap svg.cg-shapes,
 .cg-wrap svg.cg-custom-svgs {
   filter: drop-shadow(0 0 1px var(--mark-shadow))
@@ -614,7 +576,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   color: rgba(243, 247, 252, 0.82);
 }
 
-/* --- neuron field ------------------------------------------------------ */
 .field-host {
   position: absolute;
   inset: 0;
@@ -725,7 +686,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   color: var(--fg-faint);
 }
 
-/* The engine's current choice, parked beside the output node. */
 .decision {
   position: absolute;
   z-index: 6;
@@ -796,7 +756,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   white-space: normal;
   line-height: 1.45;
 }
-/* The move the neuron is feeding: never abbreviated, it is the whole point. */
 .decision .feeds {
   margin-top: 7px;
   padding-top: 7px;
@@ -822,7 +781,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   padding: 24px;
 }
 
-/* --- inspector --------------------------------------------------------- */
 .hist {
   display: flex;
   align-items: flex-end;
@@ -858,9 +816,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   font-size: 9.5px;
   border-radius: 3px;
   font-family: var(--mono);
-  /* Light text on a dark teal ramp at every step. The old ramp ran to bright
-     cyan and flipped the text colour mid-way, so the middle buckets had almost
-     no contrast either way. */
+  /* Keep labels light on a dark ramp at every bucket. */
   color: var(--fg);
   transition: all 0.3s var(--ease);
 }
@@ -896,7 +852,6 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   color: var(--accent);
 }
 
-/* --- candidate moves --------------------------------------------------- */
 .cand {
   display: grid;
   grid-template-columns: 14px 46px 1fr 52px;
@@ -965,11 +920,7 @@ textarea.pos-input:focus {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
-/* --- resizable tiles ---------------------------------------------------- */
-/* Only panels with a flexible region are resizable, and the region absorbs the
-   change: dragging a panel taller gives you MORE LIST, not more padding. Those
-   panels carry an explicit height, which is also what stops them reflowing as
-   the game grows. */
+/* Explicit panel heights prevent reflow; the flexible list absorbs resize changes. */
 .panel.rz {
   resize: vertical;
   overflow: hidden;
@@ -978,7 +929,6 @@ textarea.pos-input:focus {
   background: transparent;
 }
 
-/* Draggable dividers so the three columns can be rebalanced. */
 .gutter {
   position: absolute;
   top: 0;
@@ -1001,7 +951,6 @@ textarea.pos-input:focus {
   background: var(--accent-deep);
 }
 
-/* --- perspective switch (over the field) -------------------------------- */
 .persp-switch {
   position: absolute;
   right: 14px;
@@ -1037,7 +986,6 @@ textarea.pos-input:focus {
   box-shadow: inset 0 0 0 1px var(--accent-deep);
 }
 
-/* --- clickable chip ----------------------------------------------------- */
 .chip.act {
   cursor: pointer;
   font-family: var(--mono);
@@ -1047,7 +995,6 @@ textarea.pos-input:focus {
   color: var(--accent);
 }
 
-/* --- board slot / overlays ---------------------------------------------- */
 .board-slot {
   cursor: zoom-in;
   position: relative;
@@ -1121,7 +1068,6 @@ textarea.pos-input:focus {
   overflow-y: auto;
 }
 
-/* --- clocks ------------------------------------------------------------- */
 .clocks {
   display: grid;
   gap: 6px;
@@ -1159,7 +1105,6 @@ textarea.pos-input:focus {
   color: var(--bad);
 }
 
-/* --- exact numeric entry beside a slider -------------------------------- */
 input.numbox {
   width: 100%;
   margin-top: 4px;
@@ -1194,7 +1139,6 @@ input.numbox:focus {
   font-weight: 500;
 }
 
-/* --- evaluation graph --------------------------------------------------- */
 .evalgraph {
   width: 100%;
   height: 74px;
@@ -1223,7 +1167,6 @@ input.numbox:focus {
   fill: var(--accent);
 }
 
-/* --- search shape ------------------------------------------------------- */
 .tree {
   display: flex;
   align-items: flex-end;
@@ -1264,7 +1207,6 @@ input.numbox:focus {
   margin-left: 8px;
 }
 
-/* --- ablation ----------------------------------------------------------- */
 .ablate-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);

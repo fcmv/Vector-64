@@ -1,9 +1,5 @@
-// Verifies the visualizer telemetry layer (src/viz/probe).
-//
-// The bar is that a frame reports the engine's real arithmetic, not a
-// decorative approximation: the captured eval must equal the ordinary eval
-// path, and the reported per-layer attributions must reproduce the exact layer
-// outputs when summed back up.
+// Attribution sums must reproduce the same inference arithmetic as ordinary
+// evaluation.
 #include "cores/attacks.h"
 #include "cores/movegen.h"
 #include "cores/position.h"
@@ -39,7 +35,6 @@ bool fail(const char *what, const std::string &fen) {
   return false;
 }
 
-// Every active feature must re-derive from its own reported parts, and the
 // perspective's own king must be excluded (it is the bucket anchor).
 bool check_features(const Viz::VizFrame &f, const Core::Position &pos,
                     const Viz::PerspectiveInput &p, Core::Color persp) {
@@ -59,7 +54,6 @@ bool check_features(const Viz::VizFrame &f, const Core::Position &pos,
                                        Core::Square(af.square));
     if (want != af.featureIndex)
       return fail("feature index does not match its (piece, square)", f.fen);
-    // The same index must fall out of the reported bucket/kind/oriented square.
     const int rebuilt =
         (p.kingBucket * HK::PIECE_KINDS + af.pieceKind) * HK::SQUARES +
         af.orientedSquare;
@@ -70,21 +64,18 @@ bool check_features(const Viz::VizFrame &f, const Core::Position &pos,
   return true;
 }
 
-// Sum the reported contributions back into the layer outputs the engine
 // produced. If attribution were cosmetic, these would not reconcile.
 bool check_attribution(const Viz::VizFrame &f, const NNUE::Network &net) {
   constexpr int L1 = NNUE::Arch::L1;
   constexpr int L2 = NNUE::Arch::L2;
   const NNUE::Network::Bucket &b = net.bucket_weights(f.bucket);
 
-  // positional = (outb + sum_j outw[j]*l2out[j]) >> OUT_SHIFT
   int32_t raw = b.outb;
   for (int j = 0; j < L2; ++j)
     raw += f.outContrib[j];
   if ((raw >> NNUE::Arch::OUT_SHIFT) != f.positional)
     return fail("outContrib does not reproduce the positional term", f.fen);
 
-  // l2out[o] = clip((l2b[o] + sum_j l2w[o][j]*l1out[j]) >> L2_SHIFT)
   for (int o = 0; o < L2; ++o) {
     int32_t sum = b.l2b[o];
     for (int j = 0; j < L1; ++j)
@@ -96,7 +87,6 @@ bool check_attribution(const Viz::VizFrame &f, const NNUE::Network &net) {
       return fail("l2Contrib does not reproduce l2out", f.fen);
   }
 
-  // l1Top must be ordered by descending |contribution|.
   for (int o = 0; o < L1 && f.l1TopK > 0; ++o) {
     for (int j = 1; j < f.l1TopK; ++j) {
       const auto &prev = f.l1Top[static_cast<size_t>(o) * f.l1TopK + j - 1];
@@ -118,16 +108,14 @@ bool same_frame(const Viz::VizFrame &a, const Viz::VizFrame &b) {
          a.outContrib == b.outContrib && a.l2Contrib == b.l2Contrib;
 }
 
-// Drive a live self-play session and check the driver keeps the board and the
-// reported move list in agreement: replaying `moves` from `startFen` must
-// reproduce `fen` exactly, and every move must have been legal when played.
+// Replaying the reported moves independently checks the session's board state.
 bool session_test() {
   Viz::Config cfg;
   cfg.nodes = 500;
   cfg.moveDelayMs = 0;
   cfg.hashMb = 8;
   cfg.threads = 1;
-  cfg.maxPlies = 40; // keep games short so several finish quickly
+  cfg.maxPlies = 40;
   cfg.openingPlies = 6;
   cfg.seed = 7;
 
@@ -213,28 +201,21 @@ bool session_test() {
   return true;
 }
 
-// Self-play from the fixed starting position must not replay one identical
-// game forever.
-//
-// A search is deterministic, so with nothing varying the move choice the engine
-// plays the same game from the same position every time -- which is exactly the
-// bug this guards. Random openings hide it; here they are deliberately OFF so
-// only the root-move variety can make the games differ.
+// Disable random openings so only root-move variety can make games differ.
 bool variety_test() {
   Viz::Config cfg;
   cfg.nodes = 400;
   cfg.moveDelayMs = 0;
   cfg.hashMb = 8;
   cfg.threads = 1;
-  cfg.maxPlies = 24; // short games so several finish inside the time budget
+  cfg.maxPlies = 24;
   cfg.openingPlies = 0;
   cfg.seed = 11;
 
   Viz::Session session(cfg);
-  session.set_random_opening(false); // every game from the same position
+  session.set_random_opening(false);
   session.start();
 
-  // gameIndex -> the longest move list seen for it.
   std::map<int, std::vector<std::string>> games;
   std::set<std::string> starts;
   const auto t0 = std::chrono::steady_clock::now();
@@ -283,12 +264,8 @@ bool variety_test() {
   return true;
 }
 
-// A dataset is written as numbered shards, and a resumed run continues the last
-// one instead of restarting the sequence or regenerating games it already has.
-//
-// The regeneration part is the subtle half: openings and root-move variety are
-// drawn from one stream, so a resume that restarts that stream replays the very
-// games it resumed past and quietly fills the dataset with duplicate rows.
+// A resumed RNG stream must skip earlier games or it duplicates their training
+// rows.
 bool datagen_shard_test() {
   namespace fs = std::filesystem;
   const fs::path dir = fs::temp_directory_path() / "stk_viz_shard_test";
@@ -304,7 +281,6 @@ bool datagen_shard_test() {
   dg.shardPositions = 120;
   dg.targetPositions = 700;
 
-  // Run, stop, then resume into the same directory with a bigger target.
   const auto drive = [&](bool resume, int64_t target) {
     Viz::Config cfg;
     cfg.nodes = 250;
@@ -332,18 +308,15 @@ bool datagen_shard_test() {
   if (!drive(false, 400))
     return fail_start();
 
-  // Resume asking for DIFFERENT row-shaping settings. They have to be ignored:
-  // one dataset must be produced one way, and resume is the only place those
-  // settings could otherwise change without anyone noticing. Shard size is the
-  // one that shows up directly on disk -- if the caller's 999 won here, the
-  // shards after the boundary would be a different length.
+  // Resume must retain stored row settings, even when the caller requests
+  // different ones.
   dg.shardPositions = 999;
   dg.nodes = 900;
   dg.depth = 6;
   dg.raw = false;
   if (!drive(true, 700))
     return fail_start();
-  dg.shardPositions = 120; // what the run was actually built with
+  dg.shardPositions = 120;
 
   {
     const Viz::DatagenState st = Viz::Session::probe_datagen(dir.string());
@@ -376,7 +349,6 @@ bool datagen_shard_test() {
   std::set<std::string> fens;
   int64_t rows = 0;
   for (size_t i = 0; i < shards.size(); ++i) {
-    // The numbering must have no gaps, or the training pipeline silently
     // trains on a subset of what was generated.
     char want[32];
     std::snprintf(want, sizeof(want), "shard_%04zu.txt", i);
@@ -394,7 +366,6 @@ bool datagen_shard_test() {
       ++rows;
       fens.insert(line.substr(0, line.find('|')));
     }
-    // Every shard but the last holds exactly the requested number of rows.
     if (i + 1 < shards.size() && n != dg.shardPositions) {
       std::printf("FAIL: %s has %lld rows, expected %lld\n",
                   shards[i].filename().string().c_str(),
@@ -418,10 +389,8 @@ bool datagen_shard_test() {
 
 } // namespace
 
-// Emit one encoded state message so the TypeScript decoder can be checked
-// against the real C++ encoder. The fixture is generated from this binary at
-// test time rather than committed, so the two sides cannot drift: if a field is
-// renamed here, the UI's test fails on the next run.
+// Generate this fixture at test time so the TypeScript decoder is checked
+// against the current C++ encoder.
 bool write_fixture(const char *path) {
   auto net = std::make_unique<NNUE::Network>();
   net->randomize(0x9E3779B97F4A7C15ULL);
@@ -483,7 +452,6 @@ int main(int argc, char **argv) {
   Core::Attacks::init();
   Core::Zobrist::init();
 
-  // Selector so ctest can register each check separately:
   //   test_viz [all|frame|session|fixture <path>]
   const std::string which = argc > 1 ? argv[1] : "all";
   if (which == "fixture") {
@@ -500,7 +468,6 @@ int main(int argc, char **argv) {
   if (which == "shards")
     return datagen_shard_test() ? 0 : 1;
 
-  // Deterministic synthetic weights: exercises the full pipeline without
   // depending on a 46 MB net file being present.
   auto net = std::make_unique<NNUE::Network>();
   net->randomize(0x9E3779B97F4A7C15ULL);
@@ -514,7 +481,6 @@ int main(int argc, char **argv) {
 
     const Viz::VizFrame f = Viz::capture(pos, *net);
 
-    // The captured eval must be exactly what the ordinary eval path returns --
     // this is what makes the visualizer show the real engine.
     NNUE::Accumulator acc;
     net->refresh(pos, acc);
@@ -532,7 +498,6 @@ int main(int argc, char **argv) {
         check_features(f, pos, f.white, Core::WHITE) &&
         check_features(f, pos, f.black, Core::BLACK) &&
         check_attribution(f, *net) &&
-        // Capture is a pure function of (position, net).
         (same_frame(f, Viz::capture(pos, *net)) ||
          fail("capture is not deterministic", f.fen));
     if (!ok)

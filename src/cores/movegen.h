@@ -38,10 +38,8 @@ NodeLegality make_node_legality(const Position &pos);
 // castling, any move while in check).
 bool is_move_legal_full(const NodeLegality &nl, Move m);
 
-// Computes and caches the pinned-piece bitboard on first demand.
 void ensure_pins(const NodeLegality &nl);
 
-// Exact legality for pseudo-legal moves of the side to move.
 inline bool is_legal(const NodeLegality &nl, Move m) {
 #if defined(ENGINE_VARIANTS)
   // A drop only ever adds a blocker, so it can never expose our own king --
@@ -53,7 +51,7 @@ inline bool is_legal(const NodeLegality &nl, Move m) {
     if (!nl.checkers)
       return true;
     if (nl.checkers & (nl.checkers - 1))
-      return false; // double check: only a king move can answer
+      return false;
     return (Attacks::between_bb(nl.kingSq, lsb(nl.checkers)) &
             square_bb(m.to_sq())) != 0;
   }
@@ -75,7 +73,6 @@ inline bool is_legal(const NodeLegality &nl, Move m) {
   if (!nl.pinsReady)
     ensure_pins(nl);
   if (nl.pinned & square_bb(from)) {
-    // A pinned piece may only move along the king-pinner line.
     return (Attacks::line_bb(nl.kingSq, from) & square_bb(m.to_sq())) != 0;
   }
   return true;
@@ -88,23 +85,16 @@ inline bool is_legal(const NodeLegality &nl, Move m) {
 bool is_pseudo_legal(const Position &pos, Move m);
 
 void generate_pseudo_legal_moves(const Position &pos, MoveList &moves);
-void generate_pseudo_captures(const Position &pos,
-                              MoveList &moves); // captures, promotions, ep
-void generate_pseudo_quiets(const Position &pos,
-                            MoveList &moves); // the rest, incl. castling
+void generate_pseudo_captures(const Position &pos, MoveList &moves);
+void generate_pseudo_quiets(const Position &pos, MoveList &moves);
 
 void generate_legal_moves(Position &pos, MoveList &moves);
 
-// Captures, en passant and promotions only (for quiescence search).
 void generate_legal_captures(Position &pos, MoveList &moves);
 
 #if defined(ENGINE_VARIANTS)
-// Drops that give check, and nothing else. Quiescence needs these because in
-// a drop variant the dominant tactical motif is a checking drop, not a
-// capture sequence -- without them the search walks past forced mates. The
-// set is naturally bounded: only squares on a ray to the enemy king (or a
-// knight/pawn hop from it) can check, so this adds at most a few dozen moves
-// rather than every empty square.
+// Checking drops originate on rays or knight/pawn hops from the enemy king,
+// so generation is bounded without enumerating every empty square.
 void generate_drop_checks(const Position &pos, MoveList &moves);
 #endif
 

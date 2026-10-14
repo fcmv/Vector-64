@@ -17,15 +17,7 @@ interface NetInfo {
   ftWeights?: { min: number; max: number; count: number; bins: number[] };
 }
 
-/**
- * The net itself.
- *
- * The weight data is static — it is the loaded network — so on its own this
- * panel would never change. What makes it an *inspector* is overlaying the live
- * position on top of it: which PSQT bucket is in use right now, which king
- * buckets the two kings currently select, and how much of the network is
- * actually firing. Static structure, live read-out.
- */
+/* Weights are static; position-dependent buckets and activations remain live. */
 export function NetInspector({
   source,
   state,
@@ -67,7 +59,6 @@ export function NetInspector({
   const peak = ft ? Math.max(...ft.bins) : 1;
   const nBuckets = info.arch.psqtBuckets ?? 8;
 
-  // Live: how much of each layer is actually firing right now.
   const active = (a: Uint8Array | undefined) =>
     a && a.length ? a.reduce((c, v) => c + (v > 0 ? 1 : 0), 0) : 0;
 
@@ -117,7 +108,7 @@ export function NetInspector({
         </h3>
         <div className="kb-grid">
           {Array.from({ length: 64 }, (_, i) => {
-            const sq = (7 - Math.floor(i / 8)) * 8 + (i % 8); // rank 8 on top
+            const sq = (7 - Math.floor(i / 8)) * 8 + (i % 8);
             const e = info.kingBucketMap[sq];
             const t = e ? e.bucket / (info.arch.kingBuckets - 1 || 1) : 0;
             const isWhiteKing = f?.white.kingSquare === sq;
@@ -132,10 +123,7 @@ export function NetInspector({
                   e?.mirror ? " (mirrored)" : ""
                 }`}
                 style={{
-                  // Ramp toward a DARK teal, never toward bright cyan, so the
-                  // label stays light-on-dark at every step. The old ramp went
-                  // pale in the middle and flipped the text colour, leaving the
-                  // mid buckets nearly unreadable either way.
+                  // Keep the whole ramp dark so labels retain light-on-dark contrast.
                   background: `color-mix(in srgb, var(--accent-deep) ${18 + t * 82}%, var(--panel-2))`,
                 }}
               >

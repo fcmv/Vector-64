@@ -9,7 +9,7 @@
 #include "cores/types.h"
 #include "cores/zobrist.h"
 #include "search/search.h"
-#include "search/transposition_table.h" // is_mate_score
+#include "search/transposition_table.h"
 
 #include <algorithm>
 #include <atomic>
@@ -54,9 +54,7 @@ struct Params {
   double logInterval = 30.0;
 };
 
-// START_FEN, MATE_CP, clamp_score, blend_cp, emit_row, insufficient_material
-// and make_opening all live in selfplay.h now, shared verbatim with the
-// visualizer's datagen mode so the two write identical rows.
+// Shared selfplay helpers keep CLI and visualizer labels byte-compatible.
 
 struct Shared {
   ShardWriter out;
@@ -68,8 +66,7 @@ struct Shared {
 void worker(const Params &p, Shared &sh) {
   Search::EngineSearch search(size_t(p.hashMb));
   search.set_threads(1);
-  search.set_persist_ordering(
-      true); // warm history across a game's short searches
+  search.set_persist_ordering(true);
   if (!p.net.empty())
     search.load_nnue(p.net);
 
@@ -102,13 +99,12 @@ void worker(const Params &p, Shared &sh) {
     if (tries >= 64)
       continue;
 
-    search.clear(); // fresh TT + ordering: games are independent
+    search.clear();
     std::unordered_map<uint64_t, int> seen;
     std::vector<std::pair<std::string, int>> rec;
     double wdl = 0.5;
     int plies = 0;
     while (true) {
-      // Cheap draw checks first -- no move generation.
       if (++seen[pos.hash()] >= 3 || pos.halfmove_clock() >= 100 ||
           insufficient_material(pos) || plies >= p.maxPlies) {
         wdl = 0.5;

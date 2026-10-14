@@ -8,19 +8,8 @@
 #include <string>
 #include <vector>
 
-// Telemetry extraction for the NNUE visualizer.
-//
-// This layer is pure data: it reads a position and a loaded net and produces a
-// VizFrame describing exactly what the network computed. It performs no I/O and
-// holds no state, so it is trivially testable and safe to call from any thread.
-//
-// It reports the engine's real numbers -- every field is an exact value taken
-// from the same forward pass the search would run, never an approximation.
-//
-// IMPORTANT: capture() rebuilds an accumulator from scratch and runs a full
-// forward pass. It is strictly out-of-band tooling and must never be called
-// from negamax/quiescence, which would change node counts and the bench
-// signature.
+// capture() rebuilds accumulators and runs full inference without I/O or state.
+// Call it out of band; using it in negamax/quiescence would alter bench counts.
 namespace Viz {
 
 // One active input feature: which piece, where it sits, and which feature
@@ -43,7 +32,6 @@ struct PerspectiveInput {
   std::vector<ActiveFeature> features;
 };
 
-// A weighted edge: how strongly source neuron `index` drove its target.
 struct Contribution {
   int index = 0;
   int32_t value = 0; // weight * activation, exact integer
@@ -61,7 +49,6 @@ struct VizFrame {
   PerspectiveInput white;
   PerspectiveInput black;
 
-  // Exact network internals.
   std::vector<int16_t> accUs;   // HIDDEN (1024)
   std::vector<int16_t> accThem; // HIDDEN (1024)
   std::vector<uint8_t> l1in;    // HIDDEN (1024), post-pairwise activations

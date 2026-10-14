@@ -23,11 +23,8 @@ using Bitboard = uint64_t;
 
 enum Color { WHITE, BLACK, COLOR_NB };
 
-// Drop variants. CRAZYHOUSE and BUGHOUSE share every board mechanic --
-// hands, drops, and promoted pieces reverting to pawns when captured -- and
-// differ only in where the reserve comes from and in the draw rules:
-// crazyhouse keeps repetition and the fifty-move rule, bughouse has neither,
-// because the partner board keeps the game state moving.
+// Reserve ownership and draw policy differ between drop variants; board
+// mechanics agree.
 enum Variant : uint8_t {
   VARIANT_STANDARD,
   VARIANT_CRAZYHOUSE,
@@ -95,7 +92,6 @@ enum GenRank {
   RANK_NB
 };
 
-// Centipawn piece values, indexed by PieceType (king = 0).
 constexpr int PieceValue[PIECE_TYPE_NB] = {0, 100, 320, 330, 500, 900, 0};
 
 #if defined(ENGINE_VARIANTS)

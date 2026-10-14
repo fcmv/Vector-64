@@ -88,9 +88,7 @@ int main(int argc, char **argv) {
       return run_epd_test_suite(epdPath, 5);
     }
 
-    // Lean validator worker: legality, move application and terminal queries
-    // only, with no search and no net. Selected either by the build (the
-    // ChessEngine-validator target) or per run with --validator.
+    // Validator mode can be selected by the target or by --validator.
     const bool validatorOnly =
 #ifdef STK_VALIDATOR_ONLY
         true;

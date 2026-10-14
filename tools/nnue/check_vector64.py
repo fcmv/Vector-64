@@ -20,17 +20,15 @@ L2 = 32
 
 HEADER_SIZE = struct.calcsize("<13sII")
 SECTION_SIZES = {
-    "FeatureTransformWeights": TOTAL_FEATURES * HIDDEN * 2,  # int16
-    "HiddenLayer1Weights": L1 * HIDDEN,  # int8
-    "HiddenLayer2Weights": L2 * L1,  # int8
-    "OutputWeights": L2,  # int8
-    "Biases": (HIDDEN * 2) + (L1 * 4) + (L2 * 4) + 4,  # int16 + int32 + int32 + int32
+    "FeatureTransformWeights": TOTAL_FEATURES * HIDDEN * 2,
+    "HiddenLayer1Weights": L1 * HIDDEN,
+    "HiddenLayer2Weights": L2 * L1,
+    "OutputWeights": L2,
+    "Biases": (HIDDEN * 2) + (L1 * 4) + (L2 * 4) + 4,
 }
-
 
 def align64(offset: int) -> int:
     return (offset + (ALIGNMENT - 1)) & ~(ALIGNMENT - 1)
-
 
 def expected_layout() -> tuple[dict[str, dict[str, int]], int]:
     sections: dict[str, dict[str, int]] = {}
@@ -50,7 +48,6 @@ def expected_layout() -> tuple[dict[str, dict[str, int]], int]:
 
     return sections, pos
 
-
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Check VECTOR64_NNUE binary file.")
     p.add_argument("path", help="Path to .nnue file")
@@ -60,7 +57,6 @@ def parse_args() -> argparse.Namespace:
         help="Allow extra bytes after the final expected section",
     )
     return p.parse_args()
-
 
 def main() -> int:
     args = parse_args()
@@ -120,7 +116,6 @@ def main() -> int:
         return 0
     print("[FAIL] VECTOR64_NNUE file layout is invalid.")
     return 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

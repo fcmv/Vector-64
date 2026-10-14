@@ -5,13 +5,7 @@ import type { ControlCommand, EngineState } from "../engine/types";
 
 const FILES = "abcdefgh";
 
-/**
- * The evaluation across the game so far, and a way back into it.
- *
- * Watching the number drift forward tells you little; seeing the whole curve
- * shows you the move where it turned. Clicking a point seeks the engine to that
- * position, so "where did this go wrong" becomes one click rather than a replay.
- */
+/* Seeking must update both the engine position and the displayed evaluation. */
 export function EvalGraph({
   plies,
   onSeek,
@@ -99,13 +93,7 @@ export function EvalGraph({
   );
 }
 
-/**
- * How the search grew: nominal depth against selective depth, per iteration.
- *
- * The gap between the two is the point -- extensions and quiescence push lines
- * far past the nominal depth, which is exactly why the ply ceiling has to bound
- * the selective figure rather than the one you asked for.
- */
+/* Selective depth includes extensions/quiescence and can exceed nominal depth. */
 export function SearchTree({ iters }: { iters: IterRecord[] }) {
   if (iters.length === 0)
     return (
@@ -141,13 +129,7 @@ export function SearchTree({ iters }: { iters: IterRecord[] }) {
   );
 }
 
-/**
- * Remove a piece and see what the network says.
- *
- * The most direct question you can ask a chess evaluator -- "how much is this
- * piece worth, here?" -- and the answer comes from the real net on the real
- * position, not from a piece-value table.
- */
+/* Ablation is evaluated by the loaded net after the engine applies the position. */
 export function Ablation({
   s,
   send,

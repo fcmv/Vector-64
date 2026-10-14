@@ -264,7 +264,6 @@ bool Position::setFromFEN(std::string_view fen) {
       file += (c - '0');
 #if defined(ENGINE_VARIANTS)
     } else if (c == '~') {
-      // Marks the piece just placed as promoted.
       if (!drops || lastSquare == SQ_NONE)
         return false;
       promoted |= square_bb(lastSquare);
@@ -326,7 +325,7 @@ bool Position::setFromFEN(std::string_view fen) {
       pt = QUEEN;
       break;
     default:
-      return false; // kings are never in hand
+      return false;
     }
     add_to_hand(color, pt);
   }
@@ -635,15 +634,14 @@ uint64_t Position::key_after(Move m) const {
 #endif
   }
 
-  // Moving piece leaves `from` and lands on `to`; a promotion changes
-  // which piece lands (the intermediate pawn-on-`to` term cancels out).
+  // For promotion, the intermediate pawn-on-to hash term cancels out.
   k ^= Zobrist::psq[us][movingPiece][from];
   k ^=
       Zobrist::psq[us][m.is_promotion() ? m.promotion_type() : movingPiece][to];
 
 #if defined(ENGINE_VARIANTS)
   if (drops) {
-    // Promotion marks `to`; an already-promoted piece carries its mark along.
+    // Promoted-piece marks travel with moves, including hash-only key_after.
     if (m.is_promotion())
       k ^= Zobrist::promotedSq[to];
     else if (promoted & square_bb(from))
@@ -854,7 +852,7 @@ bool Position::in_check() const {
 bool Position::opponent_in_check() const {
   Bitboard k = pieces(KING, ~sideToMove);
   if (k == 0)
-    return true; // no enemy king == not a legal position
+    return true;
   return is_square_attacked(lsb(k), sideToMove);
 }
 

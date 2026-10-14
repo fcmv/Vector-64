@@ -31,14 +31,10 @@ export default function App() {
   const [boot, setBoot] = useState<BootProgress | null>(null);
   const [state, setState] = useState<EngineState | null>(null);
   const [conn, setConn] = useState<ConnectionState>("connecting");
-  // Hovering a candidate previews it on the board.
   const [hoverMove, setHoverMove] = useState<string | null>(null);
-  // Click the board to enlarge it; click the speed chip for the full counters.
   const [boardBig, setBoardBig] = useState(false);
   const [showPerf, setShowPerf] = useState(false);
-  // Right column: live telemetry, the net itself, or the analysis tools.
   const [rightTab, setRightTab] = useState<"live" | "net" | "tools">("live");
-  // Column widths are user-adjustable; the centre takes whatever is left.
   const [cols, setCols] = useState({ left: 332, right: 300 });
   const drag = useRef<{ side: "left" | "right"; x0: number; w0: number } | null>(
     null,
@@ -50,7 +46,6 @@ export default function App() {
       if (!d) return;
       const delta = e.clientX - d.x0;
       const raw = d.side === "left" ? d.w0 + delta : d.w0 - delta;
-      // Keep both side columns usable and always leave room for the field.
       const max = Math.max(240, window.innerWidth * 0.34);
       const w = Math.min(max, Math.max(240, raw));
       setCols((c) => ({ ...c, [d.side]: w }));
@@ -116,7 +111,6 @@ export default function App() {
   const send = (c: ControlCommand): Promise<boolean> =>
     source ? source.send(c) : Promise.resolve(false);
 
-  // Seek: replay the game up to that ply in analysis mode, so the board AND the
   // network show the position as it was, not just the board.
   const seekTo = (ply: number) => {
     // Seeking switches to analysis mode, which would abandon the game being
@@ -130,7 +124,6 @@ export default function App() {
     });
   };
 
-  // Ask the engine whether an output file has a recoverable run behind it, so
   // a crashed session is offered back instead of silently overwritten.
   const probeDatagen = async (out: string) => {
     const res = await fetch("/api/control", {
@@ -439,7 +432,6 @@ function BigBoard({
   );
 }
 
-/** Shown while the WebAssembly engine and the real net are downloading. */
 function BootScreen({ p }: { p: BootProgress }) {
   const pct = p.total > 0 ? Math.round((p.loaded / p.total) * 100) : 0;
   return (

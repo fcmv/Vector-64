@@ -1,19 +1,8 @@
-// Correctness harness for the drop variants (crazyhouse, bughouse).
+// FEN reconstruction independently checks reserves and promoted-piece marks
+// as well as board state.
 //
-// Two independent checks:
-//
-//  1. Random legal games, verifying that every piece of incrementally
-//     maintained state -- zobrist hash, reserves, promoted-piece marks,
-//     mailbox, material and psqt -- still matches a from-scratch rebuild, and
-//     that make/unmake round-trips exactly. Because toFEN emits the reserves
-//     and promotion marks, the rebuild comparison covers all of the drop
-//     state, not just the board.
-//
-//  2. Perft anchors that need no external reference table. From the start
-//     position no reserve can be non-empty until a capture has happened, so
-//     the earliest legal drop is the ninth ply; crazyhouse perft must
-//     therefore agree with standard chess exactly through depth 4, and must
-//     exceed it at depth 5 (where the first drops appear).
+// From startpos, captures can begin at ply three and drops at ply five.
+// Crazyhouse must match chess through depth four and exceed it at depth five.
 #include "cores/attacks.h"
 #include "cores/material.h"
 #include "cores/movegen.h"
@@ -93,10 +82,7 @@ bool list_contains(const MoveList &list, Move m) {
   return false;
 }
 
-// The staged generators plus the fast legality path must reproduce
-// generate_legal_moves exactly, and is_pseudo_legal must accept exactly the
-// generator output -- a false accept on a drop would decrement a reserve
-// counter that may be zero and corrupt the position permanently.
+// A false pseudo-legal drop can decrement an empty reserve and corrupt state.
 bool check_movegen(Position &pos, std::mt19937_64 &rng) {
   MoveList full;
   generate_legal_moves(pos, full);
@@ -145,8 +131,6 @@ bool check_movegen(Position &pos, std::mt19937_64 &rng) {
   return true;
 }
 
-// A drop must never be a capture, must land on an empty square, and must come
-// from a non-empty reserve.
 bool check_drop_shape(const Position &pos, Move m) {
   if (!m.is_drop())
     return true;
@@ -175,10 +159,8 @@ bool check_drop_shape(const Position &pos, Move m) {
   return true;
 }
 
-// generate_drop_checks feeds quiescence, so it must be exactly the set of
-// legal drops that give check -- no more (wasted qsearch nodes) and no fewer
-// (missed forced mates, which is the bug it exists to fix). Verified against
-// brute force: play every legal drop and ask whether the opponent is in check.
+// Brute-force played drops provide an independent oracle for the checking-drop
+// generator.
 bool check_drop_check_generator(Position &pos) {
   if (!pos.has_drops() || !pos.has_any_in_hand(pos.side_to_move()))
     return true;
@@ -270,15 +252,11 @@ bool run_games(Variant v, const char *label, const char *startFen, int games,
       const int handMatBefore = pos.hand_material_wb();
       const int handBefore = total_in_hand(pos);
 
-      // key_after drives the search's pre-make TT prefetch, so it must equal
-      // the real post-move hash for drops too.
       const uint64_t predicted = pos.key_after(move);
 
       UndoInfo undo{};
       pos.make_move(move, undo);
 
-      // The mover must never leave its own king attacked; this fires on the
-      // illegal move itself rather than a ply later when the king vanishes.
       if (pos.opponent_in_check()) {
         std::printf("FAIL: move left the mover's king in check "
                     "(drop=%d pt=%d to=%d cap=%d)\n  before: %s\n  after:  "
@@ -297,8 +275,6 @@ bool run_games(Variant v, const char *label, const char *startFen, int games,
       if (!check_against_rebuild(pos, v))
         return false;
 
-      // Bughouse captures feed the partner board's reserve, not this one, so
-      // the only way a hand grows here is an injected FEN.
       if (!pos.captures_fill_hand() && move.is_capture() &&
           total_in_hand(pos) != handBefore) {
         fail("bughouse capture changed a reserve on this board", fenBefore);
@@ -331,11 +307,9 @@ bool run_games(Variant v, const char *label, const char *startFen, int games,
   return true;
 }
 
-// Standard chess perft from the start position, for the equivalence anchor.
 constexpr uint64_t STANDARD_PERFT[6] = {1, 20, 400, 8902, 197281, 4865609};
 
 bool run_perft_anchors() {
-  // Through depth 4 no reserve can be non-empty for the side to move, so
   // crazyhouse must reproduce standard chess exactly.
   for (int depth = 1; depth <= 4; ++depth) {
     Position pos;
@@ -354,7 +328,6 @@ bool run_perft_anchors() {
   std::printf(
       "PASS: crazyhouse perft matches standard chess through depth 4\n");
 
-  // At depth 5 the first drops become legal, so the count must exceed chess.
   Position pos;
   pos.set_variant(VARIANT_CRAZYHOUSE);
   pos.setFromFEN(DROP_STARTPOS);
@@ -375,7 +348,6 @@ bool run_perft_anchors() {
   return true;
 }
 
-// A standard-variant Position must reject a FEN carrying reserves rather than
 // silently loading the board and dropping the hand on the floor.
 bool check_fen_isolation() {
   Position std_;
@@ -386,8 +358,6 @@ bool check_fen_isolation() {
   std::printf("PASS: standard mode rejects a bracketed variant FEN\n");
   return true;
 }
-
-// --- Validator surface -----------------------------------------------------
 
 bool expect_terminal(const char *fen, Variant v, const char *want,
                      const char *what) {
@@ -408,7 +378,6 @@ bool expect_terminal(const char *fen, Variant v, const char *want,
 }
 
 bool run_validator_checks() {
-  // Terminal detection, in the vocabulary the host consumes.
   if (!expect_terminal("rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w "
                        "KQkq - 1 3",
                        VARIANT_STANDARD, "checkmate", "fool's mate"))
@@ -423,7 +392,6 @@ bool run_validator_checks() {
                        "draw_fifty_move", "fifty-move"))
     return false;
 
-  // Mating material, per side. A lone minor cannot mate; two can.
   {
     Position pos;
     pos.setFromFEN("8/8/4k3/8/8/4KB2/8/8 w - - 0 1");
@@ -454,7 +422,6 @@ bool run_validator_checks() {
     }
   }
 
-  // capturedDropType must report the promotion revert: a captured promoted
   // queen enters a reserve as a pawn, not as a queen.
   {
     Position pos;
@@ -490,7 +457,6 @@ bool run_validator_checks() {
     }
   }
 
-  // Draw-rule policy: bughouse defaults to neither repetition nor fifty-move,
   // and the host can force the standard rules back on.
   {
     Position pos;
@@ -512,7 +478,6 @@ bool run_validator_checks() {
     }
   }
 
-  // Threefold is counted, not just detected as twofold: shuffling knights
   // back to the start position must reach a repetition count of 2.
   {
     Position pos;

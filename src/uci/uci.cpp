@@ -110,8 +110,7 @@ bool parse_square(const std::string &s, Core::Square &out) {
   return true;
 }
 
-// promo_to_char / move_to_uci now live in uci_util.h so the visualizer can
-// format moves identically.
+// Shared move formatting keeps UCI and visualizer notation identical.
 
 bool move_matches_uci(Core::Move m, const std::string &uci) {
   if (uci.size() < 4 || uci.size() > 5)
@@ -262,7 +261,7 @@ private:
       out.setFromFEN(startpos_fen(variant_));
       ++i;
     } else {
-      ++i; // consume "fen"
+      ++i;
       std::string fen;
       int parts = 0;
       while (i < tokens.size() && tokens[i] != "moves" && parts < 6) {
@@ -511,10 +510,7 @@ private:
     emit("option name SmallNetThreshold type spin default 950 min 0 max 5000");
     emit("option name LazyEvalMargin type spin default 0 min 0 max 5000");
     emit("option name ShowStats type check default false");
-    // Move-ordering history normally resets per search. Keeping it warm across
-    // the short searches of one game is what datagen does; exposing it here
-    // lets the same binary play both ways so the idea can be SPRT-tested
-    // before it becomes a default.
+    // Warm history is the default; ucinewgame still clears it.
     emit("option name PersistOrdering type check default true");
     emit("option name MultiPV type spin default 1 min 1 max 32");
 #if defined(ENGINE_VARIANTS)
@@ -641,7 +637,6 @@ private:
       stop_and_join(true);
       forceStandardDraws_ = (v == "standard");
       std::lock_guard<std::mutex> lock(positionMu_);
-      // Re-apply to the resident position; the variant and FEN are unchanged.
       if (forceStandardDraws_)
         position_.set_standard_draws(true);
       else
@@ -714,7 +709,7 @@ private:
 
       stop_and_join(true);
       if (path.empty() || to_lower(path) == "<empty>") {
-        search_.load_syzygy(""); // clears any loaded tables
+        search_.load_syzygy("");
         emit("info string SyzygyPath cleared");
         return;
       }
@@ -877,8 +872,6 @@ private:
     start_search(params);
   }
 
-  // Fixed-depth searches over a small position set; reports total
-  // nodes and NPS so perf changes are measurable and comparable.
   void handle_bench(const std::vector<std::string> &tokens) {
     stop_and_join(true);
 
@@ -890,7 +883,7 @@ private:
     }
 
     // clang-format off: keep each FEN on a single line so adjacent string
-    // literals are never implicitly concatenated (bugprone-suspicious-missing-comma).
+    // literals cannot merge into one value.
     // clang-format off
     static const char *BENCH_FENS[] = {
         STANDARD_STARTPOS_FEN,
@@ -1093,11 +1086,9 @@ private:
         const int mtg = params.movesToGo > 0 ? params.movesToGo : 40;
 
         long long optimum = remain / mtg + (inc * 3) / 4 - overhead;
-        long long maximum =
-            (params.movesToGo == 1)
-                // Last move before a new time control: the clock refills.
-                ? hardBudget
-                : remain / 5 + (inc * 3) / 4 - overhead;
+        long long maximum = (params.movesToGo == 1)
+                                ? hardBudget
+                                : remain / 5 + (inc * 3) / 4 - overhead;
 
         maximum = std::clamp(maximum, 1LL, hardBudget);
         optimum = std::clamp(optimum, 1LL, maximum);
@@ -1172,7 +1163,6 @@ private:
         return;
       emit_info(info);
 
-      // The predicted reply to ponder on next: the second move of the PV.
       ponderMove = info.pvLen >= 2 ? info.pv[1] : Core::Move::none();
 
       // Time spent against our own budget. While pondering we run on the
@@ -1181,7 +1171,7 @@ private:
       if (isPonder) {
         budgetElapsedMs =
             pondering_.load(std::memory_order_acquire)
-                ? -1 // still the opponent's clock: never cut off on time
+                ? -1
                 : static_cast<int>(std::chrono::duration_cast<Ms>(
                                        Clock::now() - ponderHitTime_)
                                        .count());
@@ -1267,7 +1257,6 @@ private:
   // for a host that adjudicates draws per board.
   bool forceStandardDraws_ = false;
   bool nnueLoaded_ = false;
-  // SearchJson: emit a structured summary line after bestmove.
   bool jsonSearch_ = false;
   int jsonDepth_ = 0;
   int jsonScoreCp_ = 0;

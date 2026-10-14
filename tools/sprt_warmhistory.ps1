@@ -3,19 +3,15 @@
 #   powershell -ExecutionPolicy Bypass -File tools\sprt_warmhistory.ps1
 #   powershell -ExecutionPolicy Bypass -File tools\sprt_warmhistory.ps1 -Nodes 50000
 #
-# Background: the search clears its ordering tables at the start of every search.
-# Datagen already opts out (set_persist_ordering) because a game is many short
-# fixed-node searches and re-zeroing ~857 KB each time is pure overhead there.
-# Whether it also *plays* better has never been measured -- this measures it.
+# PersistOrdering now defaults on after an SPRT gain. This harness still
+# compares on vs off in one binary; ucinewgame clears history between games.
 #
 # Both sides are the SAME binary. Only the PersistOrdering UCI option differs,
 # so nothing else can account for the result: no separate build, no other diff.
 # ucinewgame still resets between games, so history only ever warms within one
 # game, which is the behaviour under test.
 #
-# Ordering effects need depth to express (a shallow fixed-node tree undervalues
-# them, which is what sank earlier ordering tests at 8k). 25k nodes is the floor;
-# rerun at 50k if the result lands borderline.
+# Use at least 25k nodes for depth-sensitive ordering; re-test borderline results at 50k.
 #
 # SPRT: H0 elo<=0, H1 elo>=5, alpha=beta=0.05, stops at LLR +/-2.94.
 

@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
-# STK-Vector-64 — profile-guided (PGO) build benchmark.
-# Runs the full PGO cycle automatically: build instrumented -> exercise a
-# search-representative learning set (both thread modes, all game phases, the
-# time-managed abort path) -> rebuild optimized -> benchmark.
-#
-#   bash tools/bench_pgo.sh
-#
-# PGO tunes codegen for the search workload, so perft may regress slightly —
-# that is expected and correct (games run search, not perft).
+# Usage: bash tools/bench_pgo.sh
+# The PGO workload includes both thread modes, game phases and deadline aborts.
+# Search-oriented PGO can reduce perft throughput without harming gameplay.
 
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_bench.sh"

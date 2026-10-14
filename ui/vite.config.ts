@@ -10,7 +10,6 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    // Inline everything; no code splitting, no separate chunks.
     assetsInlineLimit: 100 * 1024 * 1024,
     chunkSizeWarningLimit: 100 * 1024,
     cssCodeSplit: false,
@@ -18,7 +17,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // During `npm run dev` the UI talks to a running ChessEngine-viz.
     proxy: {
       "/api": "http://127.0.0.1:7777",
     },

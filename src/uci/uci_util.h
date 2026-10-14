@@ -19,12 +19,11 @@ inline char promo_to_char(Core::PieceType pt) {
     return 'b';
   case Core::ROOK:
     return 'r';
-  default: // queen (and any non-underpromotion) prints as 'q'
+  default:
     return 'q';
   }
 }
 
-// Uppercase piece letter used by drop notation.
 inline char drop_to_char(Core::PieceType pt) {
   switch (pt) {
   case Core::PAWN:

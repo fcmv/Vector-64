@@ -1,18 +1,9 @@
 #!/usr/bin/env bash
-# Build the browser (WebAssembly) visualizer.
+# Emscripten pthreads require SharedArrayBuffer and COOP/COEP. The service
+# worker shim supplies isolation on static hosts; unsupported hosts use one thread.
 #
-# This runs the REAL engine and the REAL H=1024 net in the browser -- there is
-# no reduced network and no demo path. The net is served alongside and cached
-# after the first visit.
-#
-# Threads: Emscripten pthreads need SharedArrayBuffer, which needs COOP/COEP
-# headers that static hosts (GitHub Pages) cannot send. ui/public/coi-service
-# worker.js installs a service worker that supplies them, so the browser build
-# gets real multi-threaded search. Where the shim cannot register, Emscripten
-# falls back to a single thread and the UI reports the true thread count.
-#
-#   source /path/to/emsdk/emsdk_env.sh
-#   bash tools/build_wasm.sh [output-dir]      # default: ui/dist-wasm
+# Usage: source /path/to/emsdk/emsdk_env.sh
+#        bash tools/build_wasm.sh [output-dir]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

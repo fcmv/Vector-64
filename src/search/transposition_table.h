@@ -48,12 +48,8 @@ enum TTBound : uint8_t {
 
 constexpr int TT_EVAL_NONE = INT16_MIN;
 
-// 16 bytes so four entries tile one 64-byte cache line exactly and no
-// probe ever straddles two lines. The high 32 bits of the Zobrist key
-// verify identity; the low bits pick the bucket, so the verification
-// and index bits are disjoint. A SoA + SIMD-probe variant was measured
-// and rejected: the probe is fetch-bound, not compare-bound, so the SIMD
-// compare only lengthened the critical path on cache-resident hits.
+// Four 16-byte entries fill one cache line. High hash bits verify identity;
+// low bits select the bucket. The probe is fetch-bound.
 struct TTEntry {
   uint32_t key32;
   int32_t score;
@@ -85,7 +81,6 @@ public:
 
   void resize_mb(size_t mb) {
     size_t buckets = (std::max<size_t>(1, mb) * 1024 * 1024) / sizeof(TTBucket);
-    // Round down to power of 2 for fast modulo via bitmask
     size_t count = 1;
     while (count * 2 <= buckets)
       count *= 2;
@@ -103,7 +98,6 @@ public:
     generation_ = 0;
   }
 
-  // Age entries between searches instead of clearing.
   void new_search() {
     generation_ = static_cast<uint8_t>((generation_ + 1) & 0x3F);
   }
@@ -156,7 +150,6 @@ public:
     }
   }
 
-  // Probe. Returns nullptr on miss.
   const TTEntry *probe(uint64_t key) const {
     const TTBucket &bucket = buckets_[key & mask_];
     const uint32_t key32 = static_cast<uint32_t>(key >> 32);

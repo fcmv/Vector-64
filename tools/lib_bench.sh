@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# Shared helpers for the STK-Vector-64 benchmark scripts (bench.sh, bench_pgo.sh,
-# bench_arm.sh). Handles platform/toolchain detection, building, the correctness
-# gate, thermally-robust best-of-N measurement, and pretty terminal output.
 
 set -euo pipefail
 
-# ---- knobs (override via env) ----
 BENCH_DEPTH="${BENCH_DEPTH:-13}"   # search bench depth
 PERFT_RUNS="${PERFT_RUNS:-3}"      # perft samples (best taken)
 SEARCH_RUNS="${SEARCH_RUNS:-6}"    # search samples (best taken)
@@ -14,7 +10,6 @@ RULE_W=60
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EPD_ABS="$REPO_ROOT/test_data/standard.epd"
 
-# ---- colors (auto-disabled when not a tty or NO_COLOR set) ----
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   C_RESET=$'\033[0m'; C_BOLD=$'\033[1m'; C_DIM=$'\033[2m'
   C_CYAN=$'\033[36m'; C_GRN=$'\033[32m'; C_YEL=$'\033[33m'; C_RED=$'\033[31m'; C_MAG=$'\033[35m'
@@ -49,7 +44,6 @@ cpu_name() {
 }
 cpu_threads() { (command -v nproc >/dev/null 2>&1 && nproc) || echo "?"; }
 
-# ISA features the compiler enables for a given arch flag (display only).
 isa_features() {
   local flag="$1" defs out=""
   defs="$(echo | ${CXX:-c++} $flag -dM -E - 2>/dev/null || true)"
@@ -60,20 +54,17 @@ isa_features() {
   echo "${out% }"
 }
 
-# configure + build; aborts on failure. Args: build_dir, extra cmake args...
 cmake_build() {
   local dir="$1"; shift
   ( cd "$REPO_ROOT" && cmake "${GEN_ARGS[@]}" "$@" -S . -B "$dir" >/dev/null )
   ( cd "$REPO_ROOT" && cmake --build "$dir" -j >/dev/null 2>&1 )
 }
-# non-fatal variant for flag probing. Returns nonzero on failure.
 try_cmake_build() {
   local dir="$1"; shift
   ( cd "$REPO_ROOT" && cmake "${GEN_ARGS[@]}" "$@" -S . -B "$dir" >/dev/null 2>&1 ) || return 1
   ( cd "$REPO_ROOT" && cmake --build "$dir" -j >/dev/null 2>&1 ) || return 1
 }
 
-# Fail loudly if the build is not correct — never report perf on a broken build.
 run_correctness() {
   local dir="$1"
   local exe="$REPO_ROOT/$dir/bin/ChessEngine$EXE"
@@ -90,7 +81,6 @@ run_correctness() {
   [[ "$ok" -eq 1 ]] || { echo "${C_RED}${C_BOLD}Aborting: correctness gate failed.${C_RESET}"; exit 1; }
 }
 
-# best-of-N single-thread search, echoes nps
 measure_search_st() {
   local exe="$1" best=0 n
   for _ in $(seq 1 "$SEARCH_RUNS"); do
@@ -98,7 +88,6 @@ measure_search_st() {
     [[ "${n:-0}" -gt "$best" ]] && best="$n"; sleep 0.3
   done; echo "$best"
 }
-# best-of-N multi-thread search (engine default = hardware threads), echoes nps
 measure_search_mt() {
   local exe="$1" best=0 n
   for _ in $(seq 1 "$SEARCH_RUNS"); do
@@ -132,7 +121,6 @@ quit
 " "$net" | "$exe" 2>/dev/null     | grep -q "EvalFile loaded" && echo 1 || echo 0
 }
 
-# best-of-N NNUE search (net loaded), single- and multi-thread, echoes nps
 measure_search_nnue_st() {
   local exe="$1" net="$2" best=0 n
   for _ in $(seq 1 "$SEARCH_RUNS"); do
@@ -158,7 +146,6 @@ print_nnue_lines() {
   printf "  ${C_DIM}net: %s${C_RESET}\n" "$(basename "$net")"
 }
 
-# best-of-N perft, echoes "ST_MNPS MT_MNPS"
 measure_perft() {
   local exe="$1" bs=0 bm=0 out s m
   for _ in $(seq 1 "$PERFT_RUNS"); do
@@ -170,7 +157,6 @@ measure_perft() {
   done; echo "$bs $bm"
 }
 
-# PGO training workload: both thread modes + diverse phases + the deadline path.
 run_pgo_learning_set() {
   local exe="$1"
   printf "setoption name Hash value 128\nbench %s\nquit\n" "$BENCH_DEPTH" | "$exe" >/dev/null 2>&1 || true
@@ -187,7 +173,6 @@ run_pgo_learning_set() {
   done
 }
 
-# ---- pretty output ----
 # Build the rule by repeating the (possibly multibyte) glyph — tr is byte-wise
 # and would corrupt box-drawing characters.
 rule() {
@@ -199,7 +184,6 @@ step()  { printf "${C_DIM}» %s${C_RESET}\n" "$1"; }
 title() { rule "═"; printf "  ${C_BOLD}%s${C_RESET}\n" "$1"; rule "═"; }
 kv()    { printf "  ${C_DIM}%-7s${C_RESET} %s\n" "$1" "$2"; }
 
-# print_report st_nps mt_nps perft_st perft_mt threads note
 print_report() {
   local st="$1" mt="$2" pst="$3" pmt="$4" thr="$5" note="${6:-}"
   rule "─"

@@ -25,8 +25,8 @@ enum class Wdl { FAIL, LOSS, DRAW, WIN };
 int init(const std::string &path);
 void shutdown();
 
-int max_pieces(); // TB_LARGEST, 0 when inactive
-bool active();    // max_pieces() > 0
+int max_pieces();
+bool active();
 
 // WDL probe for use inside the search (thread-safe). The caller must have
 // already checked piece_count <= max_pieces(). Returns FAIL when the tables

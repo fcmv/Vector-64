@@ -21,7 +21,6 @@
 // gets typed arrays with no parsing.
 namespace Viz {
 
-// Serialize a snapshot into the framed binary message described above.
 std::string encode_state(const Snapshot &s);
 
 // One compact JSON line per frame for session recording: the numbers worth

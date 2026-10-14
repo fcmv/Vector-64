@@ -1,72 +1,11 @@
 #!/usr/bin/env python3
-"""
-Section A - Dataset: Lichess Evaluations
+"""Legacy 81920-feature HalfKP training and VECTOR64_NNUE export pipeline.
 
-This section parses training data without depending on python-chess. It reads
-ordinary JSONL, zstd-compressed JSONL, and EPD-like text, parses FEN strings
-rank-8 downward, and builds the exact HalfKP feature indices used by the C++
-engine. Seekable text files are indexed by byte offset so samples can be loaded
-on demand without keeping the whole dataset in memory. Compressed zstd input is
-streamed lazily because compressed byte offsets cannot be used as normal text
-line offsets. Bad FENs, missing kings, missing centipawn scores, and malformed
-records are skipped.
-
-What can go wrong: zstandard may be missing for .zst files, a dataset may not
-contain usable cp/mate values, or the FEN may not contain both kings.
-
-Section B - Model Architecture
-
-The NNUEModel mirrors the C++ inference path in float32: two HalfKP embedding
-accumulators, side-to-move accumulator differencing, two dense ReLU layers, and
-a centipawn output. The training loss compares tanh(out_cp / 400) to the target.
-
-What can go wrong: feature indices outside [0, 81920) indicate a parser/formula
-bug and are rejected before training.
-
-Section C - Checkpoints & Auto-Resume
-
-Training writes step checkpoints under checkpoints/, keeps the latest three,
-saves best.pt when validation improves, auto-resumes the newest valid step
-checkpoint, and writes emergency checkpoints for SIGINT, SIGTERM, and unhandled
-exceptions.
-
-What can go wrong: old checkpoints with missing keys are ignored for auto-resume
-and rejected when explicitly requested.
-
-Section D - Training Loop
-
-The loop uses Adam, cosine learning-rate decay, optional CUDA AMP, periodic step
-logs, and validation at the end of each epoch. The default settings are chosen
-for the full pipeline but can be overridden from the CLI.
-
-What can go wrong: this trainer intentionally refuses to start without CUDA when
-run as a script, matching the pipeline contract.
-
-Section E - Export to Engine Binary
-
-Export writes the packed VECTOR64_NNUE binary exactly as nnue.cpp::load_file()
-expects: 21-byte header, 64-byte aligned sections, zero padding, no internal
-bias padding, and an exact 83,904,900-byte file. Quantized tensors are written
-little-endian and a top-level .meta.json sidecar supplies positive float scales
-for scaled engine inference.
-
-What can go wrong: incompatible checkpoints, wrong tensor shapes, or accidental
-padding changes fail with explicit assertions.
-
-Section F - Verification Pass
-
-Verification reloads the exported .nnue with a pure-Python implementation of
-load_file() and infer_side_to_move_scaled(), then compares ten deterministic FEN
-positions against the PyTorch model within +/-2 centipawns.
-
-What can go wrong: missing sidecar keys, nonzero padding, clamped weights, or
-shape mismatches will show up as verification failures.
-
-Section G - CLI
-
-The command-line interface supports training, auto-resume, export-only, and
-post-export verification. The module is also importable by tools/smoke_test.py
-and tools/run_pipeline.py.
+The active C++ engine uses STK-HalfKA in src/nnue/network.h; this module retains
+its older model and sidecar-scaled export for existing Python tooling.
+Training targets are side-to-move relative. Export uses a packed 21-byte header,
+64-byte aligned sections and a .meta.json scale sidecar. Resume restores saved
+training state; compressed input is streamed because zstd offsets are not text offsets.
 """
 
 from __future__ import annotations
@@ -157,25 +96,20 @@ PIECE_BUCKETS = {
     (QUEEN, BLACK): 9,
 }
 
-
 def align_to(offset: int, alignment: int = SECTION_ALIGNMENT) -> int:
     return ((offset + alignment - 1) // alignment) * alignment
-
 
 def halfkp_feature_index(king_square: int, bucket: int, piece_square: int, perspective: int) -> int:
     side = 1 if perspective == BLACK else 0
     return (((king_square * HALF_KP_PIECE_BUCKETS + bucket) * 64 + piece_square) * 2) + side
-
 
 def lround(value: float) -> int:
     if value >= 0.0:
         return int(math.floor(value + 0.5))
     return int(math.ceil(value - 0.5))
 
-
 def clamp_array(values: torch.Tensor, low: int, high: int) -> torch.Tensor:
     return torch.clamp(torch.round(values), low, high)
-
 
 @dataclass
 class FenPosition:
@@ -186,7 +120,6 @@ class FenPosition:
     black_king: int
     white_count: int
     black_count: int
-
 
 def parse_fen(fen: str) -> FenPosition:
     parts = fen.strip().split()
@@ -249,14 +182,11 @@ def parse_fen(fen: str) -> FenPosition:
         black_count=black_count,
     )
 
-
 def piece_color(piece: str) -> int:
     return WHITE if piece.isupper() else BLACK
 
-
 def piece_type(piece: str) -> int:
     return PIECE_TYPE_BY_CHAR[piece.lower()]
-
 
 def halfkp_features_from_position(pos: FenPosition) -> tuple[list[int], list[int]]:
     if pos.white_king < 0 or pos.black_king < 0:
@@ -284,18 +214,14 @@ def halfkp_features_from_position(pos: FenPosition) -> tuple[list[int], list[int
 
     return white_indices, black_indices
 
-
 def square_file(square: int) -> int:
     return square & 7
-
 
 def square_rank(square: int) -> int:
     return square >> 3
 
-
 def in_bounds(file: int, rank: int) -> bool:
     return 0 <= file < 8 and 0 <= rank < 8
-
 
 def is_square_attacked(pos: FenPosition, square: int, attacker: int) -> bool:
     target_file = square_file(square)
@@ -352,21 +278,17 @@ def is_square_attacked(pos: FenPosition, square: int, attacker: int) -> bool:
 
     return False
 
-
 def side_to_move_in_check(pos: FenPosition) -> bool:
     king_square = pos.white_king if pos.stm == WHITE else pos.black_king
     if king_square < 0:
         return True
     return is_square_attacked(pos, king_square, BLACK if pos.stm == WHITE else WHITE)
 
-
 def target_from_cp(cp: float) -> float:
     return float(math.tanh(float(cp) / 400.0))
 
-
 def target_from_mate(mate: float) -> float:
     return 1.0 if mate > 0 else -1.0
-
 
 def best_lichess_eval(obj: dict[str, Any]) -> tuple[float | None, int | None, str]:
     best_cp: float | None = None
@@ -407,7 +329,6 @@ def best_lichess_eval(obj: dict[str, Any]) -> tuple[float | None, int | None, st
         return None, best_depth, "mate_only"
     return None, best_depth, "no_cp"
 
-
 def best_lichess_mate(obj: dict[str, Any]) -> float | None:
     best_mate: float | None = None
     best_depth: int | None = None
@@ -431,13 +352,11 @@ def best_lichess_mate(obj: dict[str, Any]) -> float | None:
                 best_mate = mate
     return best_mate
 
-
 EPD_SCORE_RE = re.compile(
     r"(?:^|[\s;])(?:ce|cp|eval|score)\s+(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 EPD_MATE_RE = re.compile(r"(?:^|[\s;])(?:mate|bm)\s+(-?\d+)", re.IGNORECASE)
-
 
 def parse_epd_line(line: str) -> tuple[str, float | None, float | None]:
     fields = line.strip().split()
@@ -449,7 +368,6 @@ def parse_epd_line(line: str) -> tuple[str, float | None, float | None]:
     cp = float(score_match.group(1)) if score_match else None
     mate = float(mate_match.group(1)) if mate_match else None
     return fen, cp, mate
-
 
 def parse_training_line(line: str, source_kind: str) -> tuple[str, int, list[int], list[int], float] | None:
     try:
@@ -475,14 +393,13 @@ def parse_training_line(line: str, source_kind: str) -> tuple[str, int, list[int
         if cp is not None:
             target = target_from_cp(stm_sign * float(cp))
         else:
-            assert mate is not None  # guaranteed: cp and mate are not both None above
+            assert mate is not None
             target = target_from_mate(stm_sign * float(mate))
 
         white_indices, black_indices = halfkp_features_from_position(pos)
         return fen, pos.stm, white_indices, black_indices, target
     except Exception:
         return None
-
 
 class IndexedTextEvalDataset(Dataset):
     def __init__(
@@ -557,7 +474,6 @@ class IndexedTextEvalDataset(Dataset):
             "target": target,
         }
 
-
 def build_seekable_offsets(
     path: Path,
     *,
@@ -583,7 +499,6 @@ def build_seekable_offsets(
     if not offsets:
         raise RuntimeError(f"No usable training positions found in {path}")
     return offsets
-
 
 class StreamingZstdEvalDataset(IterableDataset):
     def __init__(
@@ -638,7 +553,6 @@ class StreamingZstdEvalDataset(IterableDataset):
                             "target": target,
                         }
 
-
 def count_usable_zstd(path: Path, max_positions: int | None) -> int:
     try:
         import zstandard as zstd  # type: ignore
@@ -658,7 +572,6 @@ def count_usable_zstd(path: Path, max_positions: int | None) -> int:
     if count == 0:
         raise RuntimeError(f"No usable training positions found in {path}")
     return count
-
 
 class NPZShardDataset(IterableDataset):
     def __init__(
@@ -719,7 +632,6 @@ class NPZShardDataset(IterableDataset):
                         }
                     global_index += 1
 
-
 def collate_samples(samples: Sequence[dict[str, Any]]) -> dict[str, torch.Tensor]:
     if not samples:
         raise RuntimeError("Empty batch")
@@ -747,7 +659,6 @@ def collate_samples(samples: Sequence[dict[str, Any]]) -> dict[str, torch.Tensor
     if torch.any(white >= HALF_KP_TOTAL_FEATURES) or torch.any(black >= HALF_KP_TOTAL_FEATURES):
         raise RuntimeError("Feature index out of range in batch")
     return {"white_indices": white, "black_indices": black, "stm": stm, "target": target}
-
 
 class NNUEModel(nn.Module):
     def __init__(self) -> None:
@@ -801,7 +712,6 @@ class NNUEModel(nn.Module):
         out_cp = self.output(x2) / float(OUTPUT_SCALE)
         return out_cp
 
-
 def discover_shard_files(path: Path) -> tuple[list[Path], int | None]:
     if path.is_dir():
         manifest = path / "manifest.json"
@@ -826,7 +736,6 @@ def discover_shard_files(path: Path) -> tuple[list[Path], int | None]:
         return [path], total
 
     return [], None
-
 
 def build_datasets(
     data_path: Path,
@@ -895,11 +804,9 @@ def build_datasets(
     )
     return train_ds, val_ds, len(train_ds) + len(val_ds)
 
-
 def checkpoint_step(path: Path) -> int:
     match = re.search(r"nnue_step_(\d+)\.pt$", path.name)
     return int(match.group(1)) if match else -1
-
 
 def validate_checkpoint_obj(obj: Any, path: Path) -> dict[str, Any]:
     if not isinstance(obj, dict):
@@ -908,7 +815,6 @@ def validate_checkpoint_obj(obj: Any, path: Path) -> dict[str, Any]:
     if missing:
         raise ValueError(f"{path} is missing checkpoint keys: {', '.join(sorted(missing))}")
     return obj
-
 
 def find_latest_checkpoint(checkpoint_dir: Path) -> Path | None:
     candidates = sorted(checkpoint_dir.glob("nnue_step_*.pt"), key=checkpoint_step)
@@ -920,7 +826,6 @@ def find_latest_checkpoint(checkpoint_dir: Path) -> Path | None:
         except Exception as exc:
             print(f"Skipping invalid checkpoint {path}: {exc}")
     return None
-
 
 def save_checkpoint(
     path: Path,
@@ -947,7 +852,6 @@ def save_checkpoint(
         path,
     )
 
-
 def prune_step_checkpoints(checkpoint_dir: Path, keep: int = 3) -> None:
     checkpoints = sorted(checkpoint_dir.glob("nnue_step_*.pt"), key=checkpoint_step)
     for old in checkpoints[:-keep]:
@@ -955,7 +859,6 @@ def prune_step_checkpoints(checkpoint_dir: Path, keep: int = 3) -> None:
             old.unlink()
         except OSError:
             pass
-
 
 @dataclass
 class TrainConfig:
@@ -975,7 +878,6 @@ class TrainConfig:
     log_every: int = 100
     no_color: bool = False
 
-
 @dataclass
 class TrainResult:
     model: NNUEModel
@@ -986,7 +888,6 @@ class TrainResult:
     output_path: Path
     verification_passed: bool | None
     total_positions: int
-
 
 class EmergencyCheckpoint:
     def __init__(self, checkpoint_dir: Path) -> None:
@@ -1035,7 +936,6 @@ class EmergencyCheckpoint:
         print(f"Emergency checkpoint saved: {path}")
         return path
 
-
 def require_cuda_or_exit(device_arg: str) -> torch.device:
     lowered = device_arg.lower()
     if lowered == "cpu":
@@ -1054,7 +954,6 @@ def require_cuda_or_exit(device_arg: str) -> torch.device:
         return torch.device(lowered)
     print("ERROR: --device must be cuda or a specific CUDA device like cuda:1.")
     raise SystemExit(1)
-
 
 def make_loaders(
     data_path: Path,
@@ -1084,15 +983,12 @@ def make_loaders(
     )
     return train_loader, val_loader, total_positions
 
-
 def estimate_batches(total_positions: int, batch_size: int, val_split: float, epochs: int) -> int:
     train_positions = max(1, int(total_positions * (1.0 - val_split)))
     return max(1, math.ceil(train_positions / batch_size) * max(1, epochs))
 
-
 def move_batch(batch: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
     return {k: v.to(device, non_blocking=True) for k, v in batch.items()}
-
 
 def train_one_epoch(
     *,
@@ -1183,7 +1079,6 @@ def train_one_epoch(
 
     return step, running_loss / max(1, batches)
 
-
 @torch.no_grad()
 def validate(model: NNUEModel, loader: DataLoader, device: torch.device) -> float:
     model.eval()
@@ -1197,7 +1092,6 @@ def validate(model: NNUEModel, loader: DataLoader, device: torch.device) -> floa
         total_loss += float(loss.detach().cpu().item())
         batches += 1
     return total_loss / max(1, batches)
-
 
 def load_checkpoint_into(
     path: Path,
@@ -1220,18 +1114,15 @@ def load_checkpoint_into(
     best_loss = float(obj["best_loss"])
     return step, epoch, best_loss
 
-
 def quantize_tensor(tensor: torch.Tensor, multiplier: float, low: int, high: int, dtype: np.dtype) -> np.ndarray:
     q = clamp_array(tensor.detach().cpu().to(torch.float32) * multiplier, low, high)
     return q.numpy().astype(dtype, copy=False)
-
 
 def write_padding(fh: Any) -> None:
     current = fh.tell()
     aligned = align_to(current)
     if aligned > current:
         fh.write(b"\x00" * (aligned - current))
-
 
 def export_model_to_nnue(model: NNUEModel, output_path: Path) -> dict[str, float]:
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1313,7 +1204,6 @@ def export_model_to_nnue(model: NNUEModel, output_path: Path) -> dict[str, float
         raise AssertionError(f"Exported file size {actual_size} != {EXPECTED_FILE_SIZE}")
     return scales
 
-
 @dataclass
 class LoadedNNUE:
     ft_w: np.ndarray
@@ -1326,13 +1216,11 @@ class LoadedNNUE:
     out_b: np.ndarray
     scales: dict[str, float]
 
-
 def assert_zero_padding(blob: bytes, begin: int, end: int) -> None:
     if begin > end:
         raise ValueError("Invalid padding range")
     if any(b != 0 for b in blob[begin:end]):
         raise ValueError(f"Nonzero padding bytes in range [{begin}, {end})")
-
 
 def load_nnue_file(path: Path) -> LoadedNNUE:
     blob = path.read_bytes()
@@ -1384,7 +1272,6 @@ def load_nnue_file(path: Path) -> LoadedNNUE:
         scales=scales,
     )
 
-
 def infer_scaled_python(net: LoadedNNUE, fen: str) -> int:
     pos = parse_fen(fen)
     white_features, black_features = halfkp_features_from_position(pos)
@@ -1420,7 +1307,6 @@ def infer_scaled_python(net: LoadedNNUE, fen: str) -> int:
     out += float(np.dot(net.out_w.astype(np.float32) * np.float32(net.scales["output_weight"]), x2))
     return lround(out / float(OUTPUT_SCALE))
 
-
 VERIFY_FENS = [
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     "rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
@@ -1433,7 +1319,6 @@ VERIFY_FENS = [
     "8/5pk1/3p2p1/2pPp3/2P1P3/3K1P2/6P1/8 w - - 0 40",
     "4r1k1/5ppp/8/8/8/8/5PPP/4R1K1 b - - 0 30",
 ]
-
 
 @torch.no_grad()
 def verify_export(model: NNUEModel, output_path: Path, *, verbose: bool = True) -> bool:
@@ -1468,7 +1353,6 @@ def verify_export(model: NNUEModel, output_path: Path, *, verbose: bool = True) 
     if verbose:
         print("PASS" if all_ok else "FAIL")
     return all_ok
-
 
 def train_model(cfg: TrainConfig) -> TrainResult:
     if cfg.export_only is None and cfg.data is None:
@@ -1624,7 +1508,6 @@ def train_model(cfg: TrainConfig) -> TrainResult:
         signal.signal(signal.SIGINT, old_sigint)
         signal.signal(signal.SIGTERM, old_sigterm)
 
-
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train and export VECTOR64_NNUE.")
     parser.add_argument("--data", type=Path, help="Lichess eval dataset (.jsonl, .jsonl.zst, .bin/.epd)")
@@ -1640,11 +1523,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--device", default="cuda", help="cuda or cuda:N. cpu is rejected by pipeline policy.")
     return parser.parse_args(argv)
 
-
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
 
-    # Reproducibility: seed every RNG involved in training.
     random.seed(1337)
     np.random.seed(1337)
     torch.manual_seed(1337)
@@ -1670,7 +1551,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Final val loss: {result.final_val_loss}")
     print(f"Verification: {status}")
     return 0 if result.verification_passed is not False else 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

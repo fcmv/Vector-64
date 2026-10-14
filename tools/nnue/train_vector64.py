@@ -52,7 +52,6 @@ FEATURE_TO_DENSE_SCALE = 64.0
 DENSE_TO_DENSE_SCALE = 64.0
 OUTPUT_SCALE = 16.0
 
-
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Train Vector-64 NNUE model.")
     p.add_argument("--dataset", required=True, help="Path to dataset .npz")
@@ -81,14 +80,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--shard-slice", help="Slice of shards to load, e.g. '0:40'")
     return p.parse_args()
 
-
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
 
 def choose_device(device_arg: str) -> torch.device:
     if device_arg == "cpu":
@@ -99,13 +96,11 @@ def choose_device(device_arg: str) -> torch.device:
         return torch.device("cuda")
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 def require_key(data: Any, key: str) -> np.ndarray:
     if key not in data:
         available = ", ".join(data.files)
         raise KeyError(f"Dataset missing '{key}'. Available keys: {available}")
     return data[key]
-
 
 @dataclass
 class LoadedDataset:
@@ -117,7 +112,6 @@ class LoadedDataset:
     black_vals: torch.Tensor | None
     sample_weight: torch.Tensor | None
     raw_count: int
-
 
 def load_dataset(
     path: Path,
@@ -135,14 +129,12 @@ def load_dataset(
 
     path_str = str(path)
 
-    # Check if we are loading a list of shards (folder or manifest)
     if path_str.endswith('.json') or os.path.isdir(path_str):
         if path_str.endswith('.json'):
             base_dir = os.path.dirname(path_str)
         else:
             base_dir = path_str
 
-        # Find all .npz files
         files = sorted(glob.glob(os.path.join(base_dir, "*.npz")))
         if shard_slice:
             start, end = map(int, shard_slice.split(':'))
@@ -153,11 +145,9 @@ def load_dataset(
         if not files:
             raise ValueError(f"No .npz files found in {base_dir}")
 
-        # 1. Load the first file to get the keys (stm, white_indices, etc.)
         with np.load(files[0], allow_pickle=True) as first:
             keys = list(first.keys())
 
-        # 2. Collect all arrays from all files
         collected: dict[str, list[np.ndarray]] = {k: [] for k in keys}
 
         for i, f in enumerate(files):
@@ -168,12 +158,10 @@ def load_dataset(
                     collected[k].append(shard[k])
 
         print("  Merging shards into RAM...")
-        # 3. Concatenate them into one giant dictionary
         data = {k: np.concatenate(collected[k], axis=0) for k in keys}
         print(f" Loaded {len(data['stm'])} positions.")
 
     else:
-        # Fallback for single file
         data = np.load(path, allow_pickle=True)
 
     white_idx = require_key(data, "white_indices").astype(np.int64, copy=False)
@@ -198,7 +186,6 @@ def load_dataset(
     if np.any((stm != 0) & (stm != 1)):
         raise ValueError("'stm' must only contain 0 (white) or 1 (black).")
 
-    # Validate index ranges with -1 padding convention.
     if np.any(white_idx < -1) or np.any(black_idx < -1):
         raise ValueError("Feature indices must be -1 (padding) or non-negative.")
     if np.any(white_idx >= TOTAL_FEATURES) or np.any(black_idx >= TOTAL_FEATURES):
@@ -251,7 +238,6 @@ def load_dataset(
         raw_count=raw_count,
     )
 
-
 def dataset_sha256(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
     h = hashlib.sha256()
     with path.open("rb") as fh:
@@ -261,7 +247,6 @@ def dataset_sha256(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
                 break
             h.update(chunk)
     return h.hexdigest()
-
 
 def resolve_manifest_path(dataset_path: Path, explicit_manifest: str | None) -> Path:
     if explicit_manifest:
@@ -283,14 +268,12 @@ def resolve_manifest_path(dataset_path: Path, explicit_manifest: str | None) -> 
         f"{sidecar.name} or manifest.json exists next to dataset shards."
     )
 
-
 def load_manifest(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as fh:
         obj = json.load(fh)
     if not isinstance(obj, dict):
         raise ValueError(f"Manifest must be a JSON object: {path}")
     return obj
-
 
 def expected_samples_from_manifest(manifest: dict, dataset_path: Path) -> int:
     if "samples" in manifest:
@@ -306,7 +289,6 @@ def expected_samples_from_manifest(manifest: dict, dataset_path: Path) -> int:
                     raise ValueError(f"Shard entry has no 'samples' for {dataset_path.name}")
                 return int(shard["samples"])
 
-    # Fallback for single-dataset manifests.
     if "total_samples" in manifest:
         if isinstance(shards, list) and len(shards) > 1:
             raise ValueError(
@@ -315,7 +297,6 @@ def expected_samples_from_manifest(manifest: dict, dataset_path: Path) -> int:
         return int(manifest["total_samples"])
 
     raise ValueError("Manifest does not contain sample count fields ('samples' or 'total_samples').")
-
 
 def cp_distribution(cp: np.ndarray) -> dict[str, Any]:
     if cp.ndim != 1:
@@ -352,12 +333,10 @@ def cp_distribution(cp: np.ndarray) -> dict[str, Any]:
         "hist_counts": [int(x) for x in hist_counts.tolist()],
     }
 
-
 def assert_finite_tensor(name: str, t: torch.Tensor) -> None:
     arr = t.detach().cpu().numpy()
     if not np.isfinite(arr).all():
         raise ValueError(f"Detected NaN/Inf in tensor: {name}")
-
 
 def run_dataset_preflight(
     *,
@@ -402,7 +381,6 @@ def run_dataset_preflight(
 
     return data_hash, cp_stats
 
-
 class Vector64Dataset(Dataset):
     def __init__(self, loaded: LoadedDataset) -> None:
         self.loaded = loaded
@@ -425,7 +403,6 @@ class Vector64Dataset(Dataset):
             item["sample_weight"] = self.loaded.sample_weight[idx]
         return item
 
-
 class FeatureTransform(nn.Module):
     def __init__(self, total_features: int, hidden: int) -> None:
         super().__init__()
@@ -444,7 +421,6 @@ class FeatureTransform(nn.Module):
 
         gathered = gathered * valid.unsqueeze(-1)
         return gathered.sum(dim=1) + self.bias
-
 
 class Vector64NNUE(nn.Module):
     def __init__(self) -> None:
@@ -475,7 +451,6 @@ class Vector64NNUE(nn.Module):
         x = self.output(x).squeeze(1) / OUTPUT_SCALE
         return x
 
-
 def weighted_mse(pred: torch.Tensor, target: torch.Tensor, weight: torch.Tensor | None) -> torch.Tensor:
     err = (pred - target) ** 2
     if weight is None:
@@ -483,13 +458,11 @@ def weighted_mse(pred: torch.Tensor, target: torch.Tensor, weight: torch.Tensor 
     denom = torch.clamp(weight.sum(), min=1e-8)
     return (err * weight).sum() / denom
 
-
 def move_batch_to_device(batch: dict, device: torch.device) -> dict:
     out = {}
     for k, v in batch.items():
         out[k] = v.to(device, non_blocking=True)
     return out
-
 
 def run_epoch(
     model: nn.Module,
@@ -512,7 +485,7 @@ def run_epoch(
         batch = move_batch_to_device(batch, device)
 
         if train_mode:
-            assert optimizer is not None  # train_mode implies an optimizer was constructed
+            assert optimizer is not None
             optimizer.zero_grad(set_to_none=True)
 
         with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
@@ -529,8 +502,6 @@ def run_epoch(
             assert optimizer is not None
             if scaler is not None:
                 scaler.scale(loss).backward()
-                # Force gradients to stay within a sane range
-                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 scaler.step(optimizer)
                 scaler.update()
             else:
@@ -553,7 +524,6 @@ def run_epoch(
     mean_loss = running_loss / max(seen, 1)
     mean_mae = running_abs / max(seen, 1)
     return mean_loss, mean_mae
-
 
 def main() -> int:
     args = parse_args()
@@ -619,7 +589,6 @@ def main() -> int:
             print(f"Loading checkpoint from: {args.resume}")
             checkpoint = torch.load(args.resume, map_location=device)
 
-            # Load the weights
             model.load_state_dict(checkpoint['state_dict'])
             print(" Weights loaded successfully.")
         else:
@@ -715,7 +684,6 @@ def main() -> int:
     meta_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote meta: {meta_path}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

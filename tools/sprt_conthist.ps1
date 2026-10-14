@@ -1,19 +1,10 @@
-# Validate continuation history + history-based LMR, native PowerShell.
-# Live, detailed progress on screen AND saved to a log.
+# Historical continuation-history/history-LMR comparison.
+# allfeat.exe: singular + capture history + lazy eval + SMP, no continuation history
+# conthist.exe: adds continuation history and history-based LMR
+# Recorded bench d12/1thr: 3158101 base, 3200474 new.
+# Use 25k+ nodes so ordering effects can appear. H0<=0, H1>=5, LLR +/-2.94.
 #
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_conthist.ps1              # 25k nodes
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_conthist.ps1 -Nodes 50000 # deeper
-#
-# Binaries in sprt\ (gitignored):
-#   sprt\allfeat.exe    base for THIS test (singular + capture + lazy + SMP),
-#                       no continuation history  (bench 3158101 @ d12/1thr)
-#   sprt\conthist.exe   allfeat + continuation history + history-based LMR
-#                       (bench 3200474 @ d12/1thr)
-#
-# Continuation history is an ORDERING feature: it only expresses in a deep
-# enough tree. At 8k nodes the tree is too shallow and fixed-node undervalues
-# it (that is why the earlier attempts read negative). This runs at 25k+.
-# SPRT: H0 elo<=0, H1 elo>=5, alpha=beta=0.05, stops at LLR +/-2.94.
+# Usage: powershell -File tools\sprt_conthist.ps1 [-Nodes 50000]
 
 param(
   [int]$Nodes = 25000,

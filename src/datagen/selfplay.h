@@ -4,7 +4,7 @@
 #include "../cores/bitboard.h"
 #include "../cores/movegen.h"
 #include "../cores/position.h"
-#include "../search/transposition_table.h" // is_mate_score
+#include "../search/transposition_table.h"
 
 #include <algorithm>
 #include <cmath>
@@ -16,10 +16,8 @@
 #include <random>
 #include <string>
 
-// Self-play primitives shared by the data generator (src/datagen/datagen.cpp)
-// and the visualizer's self-play mode (src/viz/session.cpp), so both drive
-// games by exactly the same rules: the same opening distribution and the same
-// cheap draw detection.
+// CLI and visualizer share opening and draw rules to produce compatible
+// training rows.
 
 namespace Datagen {
 
@@ -84,15 +82,8 @@ inline bool make_opening(Core::Position &pos, std::mt19937_64 &rng,
   return std::abs(pos.material_wb()) <= balance;
 }
 
-// A dataset is written as numbered shards in a directory -- shard_0000.txt,
-// shard_0001.txt, ... -- which is the layout the training pipeline consumes
-// (tools/bullet/build_net.py globs shard_*.txt and holds the last one out as a
-// validation set). It also keeps any single file small enough to move, inspect
-// and convert: a 500M-position run is ~45 GB, which is not one file you want.
-//
-// Sharding used to come from tools/nnue/datagen_bulk.py driving the generator
-// once per shard. That script is deprecated, so the generator does it itself
-// and both callers -- the CLI and the visualizer -- share this writer.
+// The trainer globs shard_*.txt and holds the last shard out for validation.
+// Both CLI and visualizer use this writer.
 class ShardWriter {
 public:
   ShardWriter() = default;
@@ -115,7 +106,7 @@ public:
     std::error_code fec;
     if (std::filesystem::is_regular_file(path_, fec))
       rowsPerShard_ = 0;
-    if (rowsPerShard_ <= 0) { // single-file mode
+    if (rowsPerShard_ <= 0) {
       out_.open(path_,
                 std::ios::binary | (resume ? std::ios::app : std::ios::trunc));
       return out_.is_open();
@@ -142,7 +133,6 @@ public:
 
   bool is_open() const { return out_.is_open(); }
 
-  // Writes one row and rolls over to the next shard once this one is full.
   bool write_row(const std::string &row) {
     if (!out_.is_open())
       return false;
@@ -175,7 +165,6 @@ public:
   // or because an older single-file dataset was opened.
   bool sharded() const { return rowsPerShard_ > 0; }
   int64_t rows_in_shard() const { return rowsInShard_; }
-  // Where rows are going right now, for progress display.
   std::string current_path() const {
     return rowsPerShard_ > 0 ? shard_path(shard_) : path_;
   }

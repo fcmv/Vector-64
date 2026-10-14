@@ -19,7 +19,6 @@ export interface BootProgress {
 export async function connect(
   onProgress: (p: BootProgress) => void,
 ): Promise<EngineSource> {
-  // A native server responds to this immediately; a static host 404s.
   try {
     const res = await fetch("/api/health", {
       cache: "no-store",
@@ -27,7 +26,6 @@ export async function connect(
     });
     if (res.ok) return new HttpEngineSource("");
   } catch {
-    // fall through to WASM
   }
 
   onProgress({ phase: "engine", loaded: 0, total: 1 });
@@ -49,7 +47,6 @@ export async function connect(
   return wasm;
 }
 
-/** True when the browser gave us SharedArrayBuffer (so pthreads can be used). */
 export function crossOriginIsolated(): boolean {
   return typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated;
 }

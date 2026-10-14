@@ -1,6 +1,4 @@
-// Plays random legal games and verifies that the incrementally maintained
-// position state (zobrist hash, mailbox, material and psqt scores) always
-// matches a from-scratch rebuild, and that make/unmake round-trips exactly.
+// FEN reconstruction is an independent oracle for incremental position state.
 #include "cores/attacks.h"
 #include "cores/movegen.h"
 #include "cores/position.h"
@@ -58,9 +56,8 @@ bool list_contains(const MoveList &list, Move m) {
   return false;
 }
 
-// The staged generators plus the fast legality path must reproduce
-// generate_legal_moves exactly, and is_pseudo_legal must accept exactly
-// the generator output (no false accepts that could corrupt make_move).
+// Pseudo-legal false accepts can corrupt make_move, not just return a wrong
+// move list.
 bool check_movegen_equivalence(Position &pos, std::mt19937_64 &rng, int game,
                                int ply) {
   MoveList full;
@@ -121,7 +118,6 @@ int main(int argc, char **argv) {
   Attacks::init();
   Zobrist::init();
 
-  // Optional selector so CTest can register each check as its own test:
   //   test_zobrist [all|nnue|games]   (default: all)
   const std::string which = argc > 1 ? argv[1] : "all";
   const bool runNnue = (which == "all" || which == "nnue");
@@ -171,7 +167,6 @@ int main(int argc, char **argv) {
       if (!check_movegen_equivalence(pos, rng, game, ply))
         return 1;
 
-      // key_after(m) must equal the real post-move hash, or the search's
       // pre-make_move TT prefetch would target the wrong bucket.
       const uint64_t predicted = pos.key_after(move);
 

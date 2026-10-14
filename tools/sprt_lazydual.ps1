@@ -1,19 +1,9 @@
-# Test lazy-eval + dual-net (tiered cheap eval) vs the big-net-only baseline,
-# native PowerShell, live + logged. Both engines are allfeat.exe; only the
-# UCI eval knobs differ, so this isolates the eval-shortcut Elo cost.
+# Use the same allfeat.exe on both sides, varying only eval-shortcut options.
+# Both gates use material+psqt: LazyMargin skips NNUE; SmallThreshold selects the small net.
+# Fixed-node testing isolates the shortcut's strength effect, not its time-control speed gain.
+# H0<=-4, H1>=0, LLR +/-2.94.
 #
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_lazydual.ps1
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_lazydual.ps1 -LazyMargin 400 -SmallThreshold 250
-#
-# Tiering (both gate on the O(1) material+psqt estimate):
-#   |est| > LazyMargin      -> return material+psqt, skip the NNUE entirely
-#   SmallThreshold..Lazy    -> the distilled 128 small net
-#   < SmallThreshold        -> full 1024 big net
-#
-# Fixed nodes measures the Elo COST of the shortcut (it is pure cost at fixed
-# nodes, pure speed at fixed time). Gate: H0 elo<=-4 (a real loss), H1 elo>=0
-# (neutral/gain). If it accepts H1, the shortcut is free -> keep the NPS at
-# real time control.
+# Usage: powershell -File tools\sprt_lazydual.ps1 [-LazyMargin 400 -SmallThreshold 250]
 
 param(
   [int]$LazyMargin     = 500,

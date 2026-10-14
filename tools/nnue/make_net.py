@@ -1,31 +1,11 @@
 #!/usr/bin/env python3
-"""One-command STK-HalfKA NNUE pipeline: data prep -> train -> export -> verify.
+"""Resumable STK-HalfKA preparation, training, export and engine-parity checks.
 
-    python tools/nnue/make_net.py --input lichess_db_eval.jsonl.zst --workdir runs/v1
-
-Re-running the same command resumes wherever it stopped (prep line count,
-training epoch/shard, export). Safe to Ctrl-C or lose power at any point.
-
-Hyperparameters follow bullet's canonical recipe (examples/simple.rs): AdamW
-(decay 0.01, weight clipping +/-127/64), lr 1e-3 with x0.1 drops at 45%/90% of
-the run, batch 16384, sigmoid(eval/400) squared-error loss, and ~4B total
-position-visits (e.g. 20 epochs over a 200M-position dataset). WDL blending is
-omitted only because the Lichess eval DB carries no game results.
-
-Training uses the standard NNUE quantization scheme (as in bullet/nnue-pytorch):
-the model is trained in a normalized float domain (activations clipped to
-[0, 1], dense weights clamped to the int8-representable +/-127/64), and the
-fixed engine scales are applied only at export:
-
-    ft weights/bias  x127 -> int16      dense weights x64  -> int8
-    dense biases     x8128 -> int32     psqt          x16  -> int32
-
-which reproduces the engine's integer pipeline (clip 127, >>7 pairwise, >>6
-dense, >>4 output) so eval_cp = 508 * float_out + psqt_cp. The final step
-loads the exported net into the engine and asserts Python == engine on a set
-of test positions.
-
-VRAM: the 1024-wide model needs < 1 GB; batches auto-halve on CUDA OOM.
+Targets and model output are side-to-move relative. Training uses normalized
+activations; export scales FT by 127, dense weights by 64, dense biases by 8128
+and PSQT by 16. Pairwise scaling makes eval_cp = 508 * float_out + psqt_cp.
+Integer-reference parity is exact; float quantization drift is informational.
+CUDA batches halve on OOM. Re-running the command resumes saved prep/training state.
 """
 
 from __future__ import annotations
@@ -56,12 +36,12 @@ L1 = 16
 L2 = 32
 BUCKETS = 8
 
-QA = 127.0  # activation quantization (clip ceiling)
-QB = 64.0  # dense weight quantization
-WMAX = QA / QB  # trainable dense-weight range, ~1.984
-OUT_CP = QA * QB / 16.0  # 508: float output -> centipawns (engine >>4)
+QA = 127.0
+QB = 64.0
+WMAX = QA / QB
+OUT_CP = QA * QB / 16.0
 CP_SCALE = 400.0  # tanh() sharpness of the WDL loss
-PAIR_FACTOR = QA / 128.0  # exact float image of the engine's (a*b)>>7
+PAIR_FACTOR = QA / 128.0
 
 BENCH_FENS = [
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -73,7 +53,6 @@ BENCH_FENS = [
     "r1bq1rk1/pp2bppp/2n2n2/2pp4/4P3/2NP1N2/PPP1BPPP/R1BQ1RK1 w - - 0 8",
     "8/8/1p1k4/p1p2p2/P1P2P2/1P1K4/8/8 w - - 0 1",
 ]
-
 
 def mirror_fen(fen: str) -> str:
     """The same position with the colours swapped, top to bottom.
@@ -98,7 +77,6 @@ def mirror_fen(fen: str) -> str:
         ep = ep[0] + str(9 - int(ep[1]))
 
     return " ".join([flipped, stm, castling, ep, halfmove, fullmove])
-
 
 class STKNet(nn.Module):
     """Normalized-domain model of src/nnue/network.{h,cpp}."""
@@ -165,10 +143,6 @@ class STKNet(nn.Module):
         psqt_cp = psq_us[rows, bucket] - psq_them[rows, bucket]
         return positional + psqt_cp
 
-
-# ---------------------------------------------------------------- data prep
-
-
 def stage_prep(args: argparse.Namespace, work: Path) -> Path:
     data_dir = work / "data"
     manifest = data_dir / "manifest.json"
@@ -233,7 +207,7 @@ def stage_prep(args: argparse.Namespace, work: Path) -> Path:
     for line in _input_lines():
         line_no += 1
         if line_no <= lines_done:
-            continue  # fast-forward on resume
+            continue
         parsed = prep.parse_line(line, args.min_depth)
         if parsed is None:
             continue
@@ -262,14 +236,9 @@ def stage_prep(args: argparse.Namespace, work: Path) -> Path:
     print(f"[prep] done: {kept} samples, {shards_done} shards")
     return data_dir
 
-
-# ------------------------------------------------------------------- train
-
-
 def load_shard(path: Path) -> dict[str, np.ndarray]:
     d = np.load(path)
     return {k: d[k] for k in ("white_indices", "black_indices", "stm", "eval_cp")}
-
 
 def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
     ckpt_path = work / "ckpt_latest.pt"
@@ -367,7 +336,6 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
                     pieces = (w >= 0).sum(dim=1) + 1
                     bucket = torch.clamp((pieces - 1) // 4, 0, BUCKETS - 1)
                     if teacher is not None:
-                        # Teacher output is already side-to-move relative.
                         with torch.no_grad():
                             target = teacher(w, b, stm, bucket)
                     else:
@@ -376,7 +344,6 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
                         target = torch.where(stm == 0, cp, -cp)
                     opt.zero_grad(set_to_none=True)
                     pred = model(w, b, stm, bucket)
-                    # bullet loss form: sigmoid(eval/400) squared error.
                     loss = torch.mean((torch.sigmoid(pred / CP_SCALE) - torch.sigmoid(target / CP_SCALE)) ** 2)
                     loss.backward()
                     opt.step()
@@ -405,14 +372,9 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
     print(f"[train] done -> {float_path}")
     return float_path
 
-
-# ------------------------------------------------------------------ export
-
-
 def quant(t: torch.Tensor, scale: float, lo: int, hi: int, dtype: str) -> np.ndarray:
     q = torch.round(t.detach().cpu().float() * scale).clamp(lo, hi)
     return q.numpy().astype(dtype)
-
 
 def quantize_model(model: STKNet) -> dict[str, np.ndarray]:
     """The exact integer tensors written to the .nnue (padding row dropped)."""
@@ -430,13 +392,11 @@ def quantize_model(model: STKNet) -> dict[str, np.ndarray]:
     }
     return q
 
-
 def load_float_model(float_path: Path) -> STKNet:
     model = STKNet()
     model.load_state_dict(torch.load(float_path, map_location="cpu", weights_only=False)["state_dict"])
     model.eval()
     return model
-
 
 def stage_export(work: Path, float_path: Path) -> Path:
     out = work / f"stk_halfka_{HIDDEN}.nnue"
@@ -458,10 +418,6 @@ def stage_export(work: Path, float_path: Path) -> Path:
         print(f"[export] WARNING: accumulator may overflow int16 (worst-case reach {reach})")
     return out
 
-
-# ------------------------------------------------------------------ verify
-
-
 def python_eval(model: STKNet, fen: str) -> int:
     pieces, stm = hk.parse_fen_pieces(fen)
     wf = hk.features_for(pieces, hk.WHITE)
@@ -475,7 +431,6 @@ def python_eval(model: STKNet, fen: str) -> int:
     with torch.no_grad():
         cp = model(w, b, torch.tensor([stm]), bucket)
     return int(round(float(cp[0])))
-
 
 def python_eval_int(q: dict[str, np.ndarray], fen: str) -> int:
     """Mirror of the engine's integer forward over the exported tensors."""
@@ -499,7 +454,6 @@ def python_eval_int(q: dict[str, np.ndarray], fen: str) -> int:
     psqt_term = int(psq[us][bucket] - psq[them][bucket]) >> 4
     return positional + psqt_term
 
-
 def find_engine(cli: str | None) -> Path | None:
     if cli:
         return Path(cli)
@@ -508,7 +462,6 @@ def find_engine(cli: str | None) -> Path | None:
         if p.exists():
             return p
     return None
-
 
 def stage_verify(args: argparse.Namespace, float_path: Path, net_path: Path) -> None:
     engine = find_engine(args.engine)
@@ -554,10 +507,6 @@ def stage_verify(args: argparse.Namespace, float_path: Path, net_path: Path) -> 
         raise SystemExit(f"[verify] FAIL: colour-mirror asymmetry ({mirror_worst} cp) -- stm sign bug")
     print(f"[verify] PASS: engine == quantized reference (max diff {worst} cp), mirror-symmetric")
 
-
-# -------------------------------------------------------------------- main
-
-
 def main() -> int:
     p = argparse.ArgumentParser(description="STK-HalfKA NNUE pipeline (prep/train/export/verify, resumable).")
     p.add_argument("--input", default=None,
@@ -600,7 +549,6 @@ def main() -> int:
     stage_verify(args, float_path, net_path)
     print(f"\nAll stages complete. Net: {net_path}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

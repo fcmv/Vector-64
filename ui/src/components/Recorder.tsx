@@ -1,19 +1,8 @@
 import { useState } from "react";
 import type { ControlCommand, EngineState } from "../engine/types";
 
-/**
- * Frame recording: append every published frame to a JSONL log.
- *
- * One line per frame -- position, search telemetry, the candidate moves and,
- * when a net is loaded, the eval broken into its PSQT and positional parts.
- * That is the file you plot from or diff two nets over, and it is the same
- * writer `--record` uses, so a session captured here is interchangeable with
- * one captured from the command line.
- *
- * The button follows the ENGINE's state, not a local flag: a run may already
- * have been started with --record, and a path that cannot be opened has to
- * report as not recording rather than silently look armed.
- */
+/* Recording state comes from the engine, including CLI-started recordings
+   and failed opens. JSONL rows use the same writer as --record. */
 export function Recorder({
   s,
   send,

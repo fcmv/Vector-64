@@ -10,37 +10,15 @@
 
 #include <string>
 
-// Structured request/response surface for a host that treats the engine as the
-// single source of chess truth: legality, move application, legal-move
-// enumeration, terminal detection and mating-material checks, with no search
-// and no NNUE.
-//
-// Responses are one line of compact JSON, hand-built so that `cores` gains no
-// third-party dependency. Every response carries "ok"; a failure also carries
-// "error" drawn from a fixed taxonomy the host can branch on:
-//
-//   illegal_move       well-formed request, the move is not legal here
-//   malformed_request  unparseable move, side, or arguments
-//   internal_error     engine fault; the host should evict the worker
-//
-// Commands. Each runs on the caller-supplied position, so a worker holds no
-// game identity and any worker can answer any request.
-//
-//   getfen        fen, variant, drawRules
-//   legalmoves    count, moves[] as exact UCI strings
-//   apply <uci>   legal, fen, sideToMove, inCheck, terminal, capturedDropType
-//   children      every legal move with the position it leads to, in one reply
-//   status        sideToMove, inCheck, terminal, legalCount, repetitions
-//   canmate <w|b> side, canMate
-//
-// `capturedDropType` is the piece a capture sends to a reserve, already
-// reverted to a pawn if the captured piece had been promoted, or null when
-// the move captured nothing. `repetitions` counts prior occurrences of the
-// current position, so threefold is a value of 2 or more.
+// Replies are compact single-line JSON with "ok" and, on failure, "error".
+// Hand-built encoding keeps cores free of JSON dependencies. Error taxonomy:
+// illegal_move, malformed_request, internal_error (reserved for engine faults).
+// Commands operate on the supplied position without owning game identity.
+// capturedDropType applies the promoted-piece-to-pawn revert; null means no
+// capture. repetitions counts prior occurrences, so threefold is 2 or more.
 
 namespace UCI::Validator {
 
-// Error codes, as emitted in the "error" field.
 constexpr const char *ERR_ILLEGAL = "illegal_move";
 constexpr const char *ERR_MALFORMED = "malformed_request";
 constexpr const char *ERR_INTERNAL = "internal_error";
@@ -54,7 +32,7 @@ inline std::string json_escape(const std::string &s) {
     if (c == '"' || c == '\\')
       out += '\\';
     if (static_cast<unsigned char>(c) < 0x20)
-      continue; // drop control characters outright
+      continue;
     out += c;
   }
   return out;
@@ -194,5 +172,5 @@ inline std::string json_canmate(const Core::Position &pos, Core::Color c) {
 
 } // namespace UCI::Validator
 
-#endif // ENGINE_VARIANTS
+#endif
 #endif

@@ -7,33 +7,13 @@ import type { EngineState } from "../engine/types";
 
 interface Props {
   state: EngineState | null;
-  /** A candidate move to preview, drawn instead of the engine's intent. */
   highlight?: string | null;
   onMove?: (uci: string) => void;
 }
 
-/**
- * Lichess's chessground, driven straight from the engine's FEN and its own
- * legal-move list -- the UI never computes legality itself, so what you can
- * play is exactly what the engine accepts.
- */
-/**
- * The engine's intended move. lineWidth is chessground's own unit (a square is
- * 10), so 5 is half a square -- a pointer, not a bar across the board, and the
- * arrowhead scales with it so a thinner line also gives a sharper head.
- *
- * Amber rather than the interface accent, and that is the whole point: the
- * board is blue, the last move is cyan and so is the eval bar, so a cyan arrow
- * would be one more blue thing on a blue board. --pos is the theme's other
- * principal colour -- the neuron field already reads it as "positive" -- so
- * the board ends up saying cyan for what has happened and amber for what the
- * engine intends next.
- *
- * Near-opaque on purpose: chessground's stock arrows are translucent navy,
- * which over a light square leaves neither the arrow nor the square legible.
- * No mid-tone hue clears 3:1 against both square colours, so what actually
- * delimits the arrow is the ink halo theme.css puts under the shape layer.
- */
+/* Legality comes from the engine's move list.
+   Chessground measures lineWidth in tenths of a square. The ink halo supplies
+   contrast against both square colours; the amber fill alone cannot. */
 const INTENT_BRUSHES: DrawBrushes = {
   intent: { key: "vi", color: "#ffb545", opacity: 0.92, lineWidth: 5 },
   // chessground requires its four standard brushes. Nothing draws with them
@@ -60,9 +40,6 @@ export function Board({ state, highlight, onMove }: Props) {
       drawable: {
         enabled: false,
         autoShapes: [],
-        // Chessground's stock arrows are thick and navy -- they read as a
-        // separate application drawn over the board. This one is the interface
-        // accent, thin enough to point without hiding the squares it crosses.
         brushes: INTENT_BRUSHES,
       },
       highlight: { lastMove: true, check: true },
@@ -77,7 +54,6 @@ export function Board({ state, highlight, onMove }: Props) {
     const cg = api.current;
     if (!cg || !state) return;
 
-    // Group the engine's legal moves into chessground's origin -> targets map.
     const dests = new Map<Key, Key[]>();
     for (const uci of state.legalMoves) {
       const from = uci.slice(0, 2) as Key;
@@ -94,8 +70,6 @@ export function Board({ state, highlight, onMove }: Props) {
       state.engineColor !== sideToMoveIndex(state.game.fen);
 
     const last = state.game.lastMove;
-    // Show what the engine intends to play next as an arrow, so the board and
-    // the network view agree on the decision being made.
     const intend = highlight ?? state.search.pv[0];
     const shapes =
       intend && intend.length >= 4 && !state.game.over

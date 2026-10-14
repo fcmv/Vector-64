@@ -1,26 +1,9 @@
 #!/usr/bin/env python3
-"""RL self-play loop for the STK-HalfKA net.
+"""Resumable self-play, warm-start training and SPRT-gated net promotion.
 
-One generation:
-  1. engine datagen : the current best net plays itself; positions get a
-                    WDL-blended label ("<fen> | <cp>").
-  2. build train  : ACCUMULATE (sample from every generation's self-play so far)
-                    and MIX a fraction of the original Lichess evals as an anchor
-                    against drift -- both automatic.
-  3. make_net.py  : fine-tune (warm-start --init from the best net's
-                    model_float.pt) on that mix -> a new .nnue + model_float.pt.
-  4. match.py     : SPRT the new net vs the best net at fixed nodes.
-  5. gate         : accept the new net iff SPRT accepts H1 (a real gain);
-                    otherwise keep the best and generate fresh data next round.
-
-State lives in <root>/state.json, so the loop is resumable (Ctrl-C safe): it
-never regresses because every generation is SPRT-gated against the current best.
-Accumulation samples all generations' data.txt each round (no append state), so
-it is idempotent on resume.
-
-    python tools/nnue/rl_loop.py --engine build-bench/bin/ChessEngine.exe \
-        --init-net runs/v2/stk_halfka_1024.nnue \
-        --init-float runs/v2/model_float.pt --root runs/rl --generations 10
+Accept a candidate only when SPRT accepts H1. Accumulation resamples every
+generation's data.txt on each run, so resume is idempotent. Mixing original
+Lichess labels anchors training against self-play drift.
 """
 
 from __future__ import annotations
@@ -34,7 +17,6 @@ import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-
 
 def reservoir_sample(paths: list[Path], k: int, rng: random.Random) -> list[str]:
     """Reservoir-sample up to k lines from the concatenation of `paths`
@@ -59,7 +41,6 @@ def reservoir_sample(paths: list[Path], k: int, rng: random.Random) -> list[str]
                     if j < k:
                         res[j] = line
     return res
-
 
 def extract_lichess_pool(jsonl: str, out_path: Path, cap: int) -> int:
     """Extract '<fen> | <cp>' (deepest, white-perspective) from a Lichess eval
@@ -88,7 +69,6 @@ def extract_lichess_pool(jsonl: str, out_path: Path, cap: int) -> int:
                     break
     return n
 
-
 def run(cmd: list[str], log, allow_fail: bool = False) -> str:
     log.write("\n$ " + " ".join(cmd) + "\n")
     log.flush()
@@ -107,7 +87,6 @@ def run(cmd: list[str], log, allow_fail: bool = False) -> str:
     if proc.returncode != 0 and not allow_fail:
         raise SystemExit(f"command failed ({proc.returncode}): {' '.join(cmd)}")
     return "".join(out_lines)
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="RL self-play loop.")
@@ -180,7 +159,6 @@ def main() -> int:
         print(f"\n{'='*66}\n  GENERATION {gen}   best={Path(state['best_net']).name}"
               f"   accepted so far: {n_acc}/{len(state['history'])}\n{'='*66}")
 
-        # 1) self-play data from the current best net
         t = time.time()
         if not data.exists() or data.stat().st_size == 0:
             run([str(Path(args.engine).resolve()), "datagen",
@@ -190,8 +168,6 @@ def main() -> int:
                  "--out", str(data)], log)
         t_dg = (time.time() - t) / 60
 
-        # 2) build the training set (accumulate every gen's self-play + mix the
-        #    Lichess anchor), then fine-tune warm-started from the best net.
         t = time.time()
         new_net = gdir / "stk_halfka_1024.nnue"
         train_input = gdir / "train_input.txt"
@@ -218,7 +194,6 @@ def main() -> int:
             run(cmd, log)
         t_tr = (time.time() - t) / 60
 
-        # 3) SPRT the new net vs the current best (different seed than datagen)
         t = time.time()
         out = run([py, str(HERE / "match.py"), "--engine", args.engine,
                    "--base-engine", args.engine, "--net", str(new_net),
@@ -256,7 +231,6 @@ def main() -> int:
           f"/{len(state['history'])} generations. Best net: {state['best_net']}")
     log.close()
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -1,10 +1,6 @@
 name: Release
 
-# Build portable binaries for each platform and attach them to a GitHub Release
-# when a version tag is pushed. Binaries use fixed micro-architecture levels
-# (never -march=native), so they run on any CPU meeting that level.
-#
-#   git tag v1.0.0 && git push origin v1.0.0
+# Use fixed ISA levels so release binaries run beyond the build runner's CPU.
 
 on:
   push:
@@ -71,14 +67,9 @@ jobs:
           [ "$base" = "$asset" ] && dot="" || dot=".exe"
           cp "$BIN/ChessEngine$EXT" "dist/$asset"
 
-          #   nnue      standard chess, net embedded
-          #   all       the same plus crazyhouse and bughouse -- the one to ship
-          #             for variants; falls back to the classical eval there
-          #   variants  drop variants without a net (SPRT / classical-only)
-          #   validator legality, terminal and FEN queries; no search, no net
-          #   viz       Vector Scope, the NNUE visualizer (net + UI in one file)
-          # A platform that cannot produce one is not fatal: the release ships
-          # whatever that platform actually built.
+          # nnue embeds the net; all adds drop variants with classical eval in those modes.
+          # variants omits the net; validator omits search; viz embeds the net and UI.
+          # Some platforms build only a subset of these targets.
           for t in nnue all variants validator viz; do
             src="$BIN/ChessEngine-$t$EXT"
             if [ -f "$src" ]; then

@@ -1,16 +1,10 @@
-# Final merge gate: the ENTIRE search-elo branch vs current main, native
-# PowerShell. If this is a clear positive, the branch merges to main.
+# Historical search-elo comparison, already merged into main.
+# base.exe represents the futility + IIR + SEE baseline (861800ce).
+# conthist.exe represents the search-elo program (3db333f4).
+# These filenames do not track today's main; rebuild from those revisions to reproduce.
+# H0<=0, H1>=5, LLR +/-2.94; use 25k+ nodes for depth-sensitive ordering.
 #
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_final.ps1               # 25k nodes
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_final.ps1 -Nodes 50000  # deeper
-#
-# Binaries in sprt\ (gitignored):
-#   sprt\base.exe      current main   (futility + IIR + SEE, +109 Elo)
-#   sprt\conthist.exe  search-elo tip (base + singular + capture history
-#                                      + continuation history / history-LMR)
-#
-# The features are depth-sensitive (continuation history especially), so this
-# runs deep. SPRT: H0 elo<=0, H1 elo>=5, alpha=beta=0.05, stops at LLR +/-2.94.
+# Usage: powershell -File tools\sprt_final.ps1 [-Nodes 50000]
 
 param(
   [int]$Nodes = 25000,

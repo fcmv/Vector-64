@@ -24,7 +24,6 @@ PerspectiveInput collect(const Core::Position &pos, Core::Color persp) {
   out.kingSquare = int(ksq);
   out.kingBucket = o.kingBucket;
   out.mirrored = o.mirror;
-  // Every piece but the perspective's own king contributes exactly one feature.
   out.features.reserve(static_cast<size_t>(popcount(pos.occupancy())));
 
   for (int c = WHITE; c <= BLACK; ++c) {
@@ -34,7 +33,7 @@ PerspectiveInput collect(const Core::Position &pos, Core::Color persp) {
         const Square s = pop_lsb(bb);
         const int f = HK::feature_index(o, Color(c), PieceType(pt), s);
         if (f < 0)
-          continue; // the perspective's own king: bucket anchor, not a feature
+          continue;
         ActiveFeature af;
         af.square = int(s);
         af.orientedSquare = HK::orient_sq(int(s), o.side, o.mirror);

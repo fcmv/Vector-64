@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { EngineState } from "./types";
 
-/** One completed ply, kept for the graph and for seeking back to it. */
 export interface PlyRecord {
   ply: number;
   /** Evaluation in centipawns, always from White's point of view. */
@@ -14,7 +13,6 @@ export interface PlyRecord {
   nps: number;
 }
 
-/** One search iteration, for the search-tree view. */
 export interface IterRecord {
   depth: number;
   seldepth: number;
@@ -22,14 +20,8 @@ export interface IterRecord {
   ply: number;
 }
 
-/**
- * Accumulates the game as it happens.
- *
- * The engine streams state but keeps no history, so anything that wants to look
- * backwards -- the evaluation graph, seeking to an earlier position, the shape
- * of the search over time -- has to remember it here. Cleared whenever a new
- * game starts, and capped so a long session cannot grow without bound.
- */
+/* The engine streams snapshots without history. Keep a bounded record here
+   and reset it when the game or position changes. */
 export function useGameHistory(state: EngineState | null) {
   const [plies, setPlies] = useState<PlyRecord[]>([]);
   const [iters, setIters] = useState<IterRecord[]>([]);
@@ -41,7 +33,6 @@ export function useGameHistory(state: EngineState | null) {
     if (!state) return;
     const g = state.game;
 
-    // A new game (or a jump to a different position) restarts the record.
     if (g.gameIndex !== lastGame.current || g.ply < lastPly.current) {
       lastGame.current = g.gameIndex;
       lastPly.current = g.ply;
@@ -73,7 +64,6 @@ export function useGameHistory(state: EngineState | null) {
       );
     }
 
-    // Search iterations: one per depth completed, keyed so repeats are skipped.
     const key = `${g.ply}:${state.search.depth}:${state.search.nodes}`;
     if (state.search.depth > 0 && key !== lastIter.current) {
       lastIter.current = key;

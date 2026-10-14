@@ -136,7 +136,6 @@ void init_magics(bool is_bishop, Bitboard *&attack_table_ptr) {
     bool found = false;
     for (int k = 0; k < 1000000; ++k) {
 
-      // keep trying sparse magics till table maps clean
       uint64_t magic_cand = get_random_u64_sparse();
 
       int shift = 64 - bit_count;
@@ -167,7 +166,6 @@ void init_magics(bool is_bishop, Bitboard *&attack_table_ptr) {
           temp_table[idx] = attacks[i];
         } else if (temp_table[idx] != attacks[i]) {
 
-          // same slot + diff attack means this magic is junk
           fail = true;
           break;
         }
@@ -193,8 +191,6 @@ void init_magics(bool is_bishop, Bitboard *&attack_table_ptr) {
   }
 }
 
-// Two squares share a rank, a file, or a diagonal. Judged on raw file/rank
-// deltas, before any normalization to unit steps.
 bool aligned(int f1, int r1, int f2, int r2) {
   const int df = f2 - f1;
   const int dr = r2 - r1;

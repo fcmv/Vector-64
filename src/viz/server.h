@@ -22,10 +22,8 @@ struct ServerOptions {
 //   POST /api/control          control commands (JSON)
 //   GET  /api/health           liveness probe
 //
-// Binds loopback by default. This is a local developer tool with no
-// authentication, so binding a routable interface would expose engine control
-// to the network; a non-loopback host is refused unless `allowRemote` is set
-// explicitly by the caller (the CLI does not offer it).
+// Unauthenticated engine control is loopback-only; non-loopback hosts are
+// rejected.
 //
 // Blocks until the server stops. Returns 0 on clean shutdown.
 int run_server(Session &session, const ServerOptions &opts);

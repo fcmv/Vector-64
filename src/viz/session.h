@@ -16,34 +16,18 @@
 #include <utility>
 #include <vector>
 
-// Session layer: owns an engine, drives it in one of the visualizer's modes,
-// and publishes an immutable snapshot of "what the engine is doing right now"
-// for the transport to stream.
-//
-// Everything here is real engine output. The snapshot carries the search's own
-// telemetry and a VizFrame captured from the same net the search is using.
+// Publish immutable snapshots so transports read a coherent position and
+// telemetry.
 namespace Viz {
 
-enum class Mode {
-  SelfPlay, // engine plays itself continuously
-  Analysis, // a position is set; the engine thinks about it
-  Human,    // engine plays one side, the user the other
-  Datagen   // self-play that writes labelled training positions
-};
+enum class Mode { SelfPlay, Analysis, Human, Datagen };
 
-// Data generation settings. The rows written are produced by the SAME helpers
-// the CLI datagen uses (src/datagen/selfplay.h), so a dataset built here is
-// byte-compatible with one built by `ChessEngine datagen`.
-// Defaults follow what Stockfish uses for its foundational NNUE data: depth 9
-// with a 5000-node ceiling, so the node cap bounds a shallow-depth search
-// rather than replacing it. Shipping these means a run started without touching
-// anything produces a dataset of the usual shape.
+// Shared selfplay helpers keep rows compatible with CLI datagen. The node cap
+// bounds the depth-limited search, rather than replacing it.
 struct DatagenConfig {
-  // The dataset DIRECTORY. Rows go to numbered shards inside it
-  // (shard_0000.txt, shard_0001.txt, ...) -- the layout the training pipeline
-  // globs, and the only sane way to hold 500M positions (~45 GB).
+  // Dataset directory containing shard_0000.txt, shard_0001.txt, ...
   std::string out = "data/selfplay";
-  int64_t targetPositions = 500000000; // 500M
+  int64_t targetPositions = 500000000;
   // Optional second stop condition: finish after this many games even if the
   // position target is not reached. 0 = no game cap, positions decide. The CLI
   // is games-driven (--games), a dataset is positions-driven, so both are here
@@ -53,7 +37,7 @@ struct DatagenConfig {
   int depth = 9;      // 0 = node-limited only
   int skipPlies = 12; // opening plies to leave unlabelled
   int maxPlies = 200;
-  int openingPlies = 8; // datagen always uses random balanced openings
+  int openingPlies = 8;
   int balance = 150;
   // Root-move variety, as in Config -- Stockfish's random-multi-pv. Random
   // openings alone leave every game after ply openingPlies deterministic, so
@@ -69,7 +53,6 @@ struct DatagenConfig {
   uint64_t seed = 12345;
 };
 
-// Live progress, and what a crashed run left behind.
 struct DatagenState {
   bool running = false;
   std::string out;
@@ -80,16 +63,11 @@ struct DatagenState {
   int wins = 0, draws = 0, losses = 0;
   double positionsPerSec = 0.0;
   double etaMinutes = 0.0;
-  // A previous run's state file was found and can be continued.
   bool resumable = false;
   int64_t resumablePositions = 0;
-  // Which shard rows are landing in, and where, for the progress display.
   int shard = 0;
   std::string shardPath;
-  // The settings the run on disk was built with. A resume reuses these instead
-  // of whatever the caller happens to send: a dataset assembled from shifting
-  // node counts or labelling rules is not one dataset, and resume is precisely
-  // where they could otherwise change unnoticed.
+  // Resume restores these row-shaping settings instead of the caller's values.
   bool hasConfig = false;
   DatagenConfig config;
 };
@@ -106,11 +84,9 @@ struct Config {
   int depth = 0;     // 0 = no depth cap
   int hashMb = 32;
   int threads = 1;
-  int moveDelayMs = 300; // pacing so self-play is watchable
-  // Plies of random balanced opening per game. 0 means "no preference": the
-  // first game starts from the real initial position, which is what you want to
-  // see when the tool opens, and later games use kDefaultOpeningPlies so they
-  // do not all replay the same line. Set it to pin a specific length.
+  int moveDelayMs = 300;
+  // 0 means no preference: the first game uses startpos, later games use
+  // kDefaultOpeningPlies. A nonzero value pins the opening length.
   int openingPlies = 0;
   int balance = 150;
   int maxPlies = 300;
@@ -119,22 +95,17 @@ struct Config {
   // Human mode clock, per side. The engine also keeps thinking on the
   // opponent's time (see ponder handling in human_step).
   int clockMs = 300000; // 5 minutes
-  // Candidate moves to evaluate per search. >1 makes the decision visible as a
-  // comparison; it costs extra search, which is why the engine defaults to 1.
+  // Core search defaults to single-PV; the visualizer requests four candidates.
   int multiPv = 4;
-  // Root-move variety, in centipawns. For the first varietyPlies of a game the
-  // engine picks uniformly among the root moves it scored within this much of
-  // the best, rather than always the top one -- without it a deterministic
-  // search replays the identical game every time (see pick_varied). 0 = off,
-  // always play the best move. Needs multiPv > 1 to have anything to choose
-  // between.
+  // 0 always picks best. Otherwise variety needs multiPv > 1 and applies only
+  // for varietyPlies, choosing scored moves within this many centipawns of
+  // best.
   int varietyCp = 30;
   // Only the opening is varied. Past this the engine plays its best move, so a
   // sharp middlegame or endgame is never thrown away for the sake of variety.
   int varietyPlies = 16;
 };
 
-// One candidate move with the score the search actually gave it.
 struct Candidate {
   std::string move;
   int scoreCp = 0;
@@ -183,12 +154,11 @@ struct Snapshot {
   bool thinking = false;
   bool nnueActive = false;
   int threads = 1;
-  int varietyCp = 0;   // root-move variety currently in effect
+  int varietyCp = 0;
   int engineColor = 1; // Human mode: the colour the engine plays (Core::Color)
   GameState game;
   SearchInfo search;
   VizFrame frame;
-  // Same position through a second net, when one is loaded.
   bool compareActive = false;
   VizFrame compareFrame;
   std::string compareName;
@@ -209,7 +179,6 @@ public:
   Session(const Session &) = delete;
   Session &operator=(const Session &) = delete;
 
-  // Load the net the engine (and therefore the visualization) uses.
   bool load_net(const std::string &path);
   bool load_net_buffer(const unsigned char *data, std::size_t size);
   // A second net, evaluated on the same positions so two nets can be compared
@@ -217,7 +186,6 @@ public:
   bool load_compare_net(const std::string &path);
   bool has_compare_net() const;
 
-  // Record every published frame as JSONL. Off unless a path is given.
   bool start_recording(const std::string &path);
   void stop_recording();
   bool recording() const;
@@ -227,7 +195,7 @@ public:
 
   void set_mode(Mode m);
   void set_paused(bool p);
-  void step(); // advance one move while paused
+  void step();
   void set_move_delay(int ms);
   void set_nodes(int nodes);
   // Applied between searches, never during one: set_threads reconfigures lazy
@@ -238,13 +206,11 @@ public:
   // Root-move variety in centipawns; 0 plays the best move always. See
   // Config::varietyCp.
   void set_variety(int cp);
-  // Deepest search the engine supports; the UI uses it to bound its control.
   static int max_depth();
   void new_game();
   // Analysis/Human: set the board. `moves` are long-algebraic from `fen`.
   bool set_position(const std::string &fen,
                     const std::vector<std::string> &moves);
-  // Human mode: apply the user's move if legal.
   bool play_move(const std::string &uci);
   void set_engine_color(int color);
   void set_random_opening(bool v);
@@ -254,14 +220,11 @@ public:
   // truncating.
   bool start_datagen(const DatagenConfig &wanted, bool resume);
   void stop_datagen();
-  // Inspect an output path for a recoverable previous run.
   static DatagenState probe_datagen(const std::string &out);
 
   Snapshot snapshot() const;
-  // Wait until the published sequence passes `have` (or `timeoutMs` elapses).
   Snapshot wait_for(uint64_t have, int timeoutMs) const;
 
-  // What this machine can actually run. The UI clamps its thread control to
   // this instead of guessing a maximum.
   static int hardware_threads();
 
@@ -301,7 +264,6 @@ private:
   Snapshot snap_;
   uint64_t seq_ = 0;
 
-  // Worker + control.
   std::thread worker_;
   std::atomic<bool> stop_{false};
   std::atomic<bool> paused_{false};
@@ -350,7 +312,6 @@ private:
   std::string recPath_;
   int64_t recFrames_ = 0;
 
-  // --- data generation -------------------------------------------------
   DatagenConfig dgCfg_;
   Datagen::ShardWriter dgOut_;
   std::mutex dgMu_;

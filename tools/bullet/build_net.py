@@ -1,21 +1,11 @@
 #!/usr/bin/env python3
-"""One command: finished self-play shards -> final engine-ready .nnue.
+"""Build an engine-ready net from self-play shards.
 
-Pipeline (each stage skips if its output already exists, so the whole thing is
-resumable -- Ctrl-C and re-run):
-  1. convert every <data-dir>/shard_*.txt -> <scratch>/<name>.bin   (bullet-utils)
-     (the LAST shard is held out as a validation set, not trained on)
-  2. interleave the training .bins         -> <scratch>/combined.bin (cross-shard mix)
-  3. shuffle combined.bin                  -> <scratch>/train.bin    (full shuffle)
-  4. train STK-HalfKA in bullet on the GPU for --epochs passes (checkpoint every 5)
-  5. pick the best checkpoint by held-out validation loss, transfer -> STKNet ->
-     quantise/export + engine parity
-
-    python tools/bullet/build_net.py --bullet D:/Soumik/Cpp/bullet
-
-Then SPRT the result vs runs/v2 with tools/nnue/match.py -- that is the only
-verdict that counts. Disk: needs the text shards (~45GB for 500M) plus ~16-48GB
-scratch; intermediates are removed once train.bin exists (keep with --keep-scratch).
+Stages resume from existing outputs. Hold the last shard out for validation;
+select a checkpoint by held-out loss, then transfer, export and check engine parity.
+A 500M-position run needs roughly 45 GB of text plus 16-48 GB scratch.
+Intermediates are removed after train.bin is ready unless --keep-scratch is set.
+Use tools/nnue/match.py for the final SPRT.
 """
 
 from __future__ import annotations
@@ -28,17 +18,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-
 def run(cmd: list, cwd: Path | None = None) -> None:
     print(f"\n$ {' '.join(str(c) for c in cmd)}", flush=True)
     r = subprocess.run([str(c) for c in cmd], cwd=cwd)
     if r.returncode != 0:
         raise SystemExit(f"command failed ({r.returncode}): {cmd[0]}")
 
-
 def exists(p: Path) -> bool:
     return p.exists() and p.stat().st_size > 0
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Build the final .nnue from self-play shards.")
@@ -67,10 +54,7 @@ def main() -> int:
     scratch = Path(args.scratch)
     scratch.mkdir(parents=True, exist_ok=True)
 
-    # 1) convert shards -> per-shard .bin; hold out the last shard for validation
-    # The generator writes shard_NNNN.txt. Datasets predating that are plain
-    # .txt files with whatever name they were given, so fall back to those
-    # rather than telling the user their data is unusable.
+    # Hold the last shard out for validation; accept plain .txt files from older datasets.
     shards = sorted(data.glob("shard_*.txt")) or sorted(data.glob("*.txt"))
     if len(shards) < 2:
         raise SystemExit(
@@ -89,12 +73,10 @@ def main() -> int:
     for s, b in zip(train_shards, bins, strict=True):
         convert(s, b)
 
-    # 2) interleave -> combined.bin
     combined = scratch / "combined.bin"
     if not exists(combined):
         run([utils, "interleave", *[b.resolve() for b in bins], "--output", combined.resolve()])
 
-    # 3) shuffle -> train.bin
     trainbin = scratch / "train.bin"
     if not exists(trainbin):
         run([utils, "shuffle", "--input", combined.resolve(),
@@ -109,9 +91,8 @@ def main() -> int:
     bps = max(1, positions // args.batch)
     print(f"\n[4/5] training: {positions:,} positions, {args.epochs} epochs x {bps} batches/superbatch")
 
-    # 4) train in the bullet clone (GPU); checkpoints every 5 superbatches.
-    # Resumable: if the final checkpoint exists, skip; else clear stale
-    # checkpoints (from other runs) so pick_checkpoint only sees this run's.
+    # Skip an existing final checkpoint; otherwise clear stale checkpoints so
+    # selection considers only this run.
     final_ckpt = bullet / f"checkpoints/stk-{args.epochs}" / "raw.bin"
     if exists(final_ckpt):
         print(f"[4/5] {final_ckpt.parent.name} exists, skip training")
@@ -121,7 +102,6 @@ def main() -> int:
         run(["cargo", "run", "-r", "--example", "stk_train", "--features", "cuda", "--",
              str(trainbin.resolve()), str(args.epochs), str(bps)], cwd=bullet)
 
-    # 5) pick the best checkpoint by held-out validation loss, transfer -> .nnue
     print("\n[5/5] selecting best checkpoint by held-out validation loss + export")
     run([sys.executable, str(HERE / "pick_checkpoint.py"), "--bullet", bullet,
          "--val", val_shard.resolve(), "--workdir", args.workdir, "--engine", args.engine])
@@ -136,7 +116,6 @@ def main() -> int:
     print(f"      --net {net} --base-net runs/v2/stk_halfka_1024.nnue \\")
     print("      --sprt 0 5 --games 12000 --nodes 10000 --concurrency 10")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

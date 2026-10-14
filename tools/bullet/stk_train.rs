@@ -15,11 +15,10 @@ use bullet_lib::{
 };
 use bulletformat::ChessBoard;
 
-// ------------------- custom input type (verified in stk_halfka.rs) -------------------
 const KING_BUCKETS: usize = 32;
 const KINDS: usize = 11;
 const SQUARES: usize = 64;
-const NUM: usize = KING_BUCKETS * KINDS * SQUARES; // 22528
+const NUM: usize = KING_BUCKETS * KINDS * SQUARES;
 const DEAD: usize = NUM;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -89,7 +88,6 @@ impl SparseInputType for StkHalfKa {
     }
 }
 
-// ------------------- custom output buckets: (pieces - 1) / 4, clamped [0,7] -------------------
 #[derive(Clone, Copy, Default)]
 pub struct StkBucket;
 impl OutputBuckets<ChessBoard> for StkBucket {
@@ -115,7 +113,6 @@ fn main() {
         .optimiser(AdamW)
         .inputs(StkHalfKa)
         .output_buckets(StkBucket)
-        // raw f32 weights -> read by the STKNet transfer script
         .save_format(&[
             SavedFormat::id("l0w"),
             SavedFormat::id("l0b"),
@@ -136,11 +133,10 @@ fn main() {
             let l3 = builder.new_affine("l3", L2, NB);
             let psqt = builder.new_affine("psqt", NUM + 1, NB);
 
-            // FT -> CReLU -> pairwise-mul within each perspective (512*512 -> 512)
             let ft = |input, s, e| l0.slice(s, e).forward(input).crelu();
             let stm_h = ft(stm, 0, HL / 2) * ft(stm, HL / 2, HL);
             let ntm_h = ft(ntm, 0, HL / 2) * ft(ntm, HL / 2, HL);
-            let hidden = stm_h.concat(ntm_h); // 1024
+            let hidden = stm_h.concat(ntm_h);
 
             let a1 = l1.forward(hidden).select(buckets).crelu();
             let a2 = l2.forward(a1).select(buckets).crelu();

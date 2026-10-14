@@ -1,8 +1,4 @@
-// ChessEngine-viz: the NNUE live visualizer ("Vector Scope").
-//
-// Runs the real engine and serves a browser UI that renders what its network is
-// actually computing. Deliberately a separate binary from the UCI engines so
-// those stay lean -- no HTTP server, no UI bytes, no extra link dependencies.
+// Keep HTTP, UI bytes and their dependencies outside the UCI binaries.
 #include "../cores/attacks.h"
 #include "../cores/zobrist.h"
 #include "server.h"

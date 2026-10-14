@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
-# Deterministic search signature (Stockfish-style bench check). The engine's
-# node count for a fixed depth / threads / hash is a fingerprint of search
-# behaviour: if it changes, the search tree changed. The expected value is the
-# single source of truth in tools/bench_signature.txt -- intentional changes
-# regenerate it (tools/update_bench_signature.sh) in the same commit; unintended
-# ones are caught here.
-#
-#   bash tools/bench_signature.sh <path-to-ChessEngine>
-#   BENCH_SIG_DEPTH=13 BENCH_SIG_NODES=5253789 bash tools/bench_signature.sh ...  # override
+# Usage: bash tools/bench_signature.sh <engine> [nnue]
+# Read expected counts from bench_signature.txt; environment overrides are optional.
 
 set -euo pipefail
 

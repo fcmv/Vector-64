@@ -1,11 +1,5 @@
-// Emscripten entry points for the browser build of the visualizer.
-//
-// Deliberately thin: it reuses Viz::encode_state and Viz::handle_control
-// unchanged, so a WASM build emits byte-identical frames to the native server
-// and the UI's decoder and control paths are shared. There is no second
-// implementation to drift.
-//
-// Built only under Emscripten (see tools/build_wasm.sh).
+// Reuse the native wire encoder and control handler so the browser transport
+// has the same contract. Built by tools/build_wasm.sh under Emscripten.
 #ifdef __EMSCRIPTEN__
 
 #include "../cores/attacks.h"
@@ -42,8 +36,7 @@ void stk_viz_init(int nodes, int threads, int hashMb, int delayMs, int seed) {
   g_session = std::make_unique<Viz::Session>(cfg);
 }
 
-// The real H=1024 net, fetched by JS and handed over here. No reduced net: the
-// browser build runs the same network as the desktop engine.
+// JS supplies the same H=1024 net used by native builds.
 EMSCRIPTEN_KEEPALIVE
 int stk_viz_load_net(const unsigned char *data, int size) {
   if (!g_session || !data || size <= 0)
@@ -110,7 +103,6 @@ const char *stk_viz_net_info() {
       Viz::encode_net_info(g_session->net(), g_session->snapshot().nnueActive);
   return g_control.c_str();
 }
+}
 
-} // extern "C"
-
-#endif // __EMSCRIPTEN__
+#endif

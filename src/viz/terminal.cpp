@@ -19,7 +19,6 @@ constexpr const char *AMBER = "\033[33m";
 constexpr const char *BLUE = "\033[34m";
 constexpr const char *OFF = "\033[0m";
 
-// Render the board from the FEN's piece field, rank 8 first.
 void draw_board(const std::string &fen) {
   const std::string board = fen.substr(0, fen.find(' '));
   int rank = 8;
@@ -32,8 +31,6 @@ void draw_board(const std::string &fen) {
       for (int i = 0; i < c - '0'; ++i)
         std::printf("%s . %s", DIM, OFF);
     } else {
-      // Upper case is White; colour them so the sides are separable at a
-      // glance without relying on the glyph alone.
       const bool white = c >= 'A' && c <= 'Z';
       std::printf("%s %c %s", white ? BOLD : DIM, c, OFF);
     }
@@ -44,7 +41,6 @@ void draw_board(const std::string &fen) {
 }
 
 void bar(int cp) {
-  // A short signed bar for the evaluation, clamped to +/-5 pawns.
   const int width = 24;
   const int mid = width / 2;
   int n = cp * mid / 500;

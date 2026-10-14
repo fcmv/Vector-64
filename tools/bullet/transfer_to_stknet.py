@@ -39,7 +39,6 @@ NIN = FT + 1
 DEAD = FT
 NB, L1, L2 = 8, 16, 32
 
-
 def load_raw(raw_path: Path, hidden: int) -> dict[str, np.ndarray]:
     raw = np.fromfile(raw_path, dtype=np.float32)
     meta = [("l0w", hidden, NIN), ("l0b", hidden, 1),
@@ -57,10 +56,9 @@ def load_raw(raw_path: Path, hidden: int) -> dict[str, np.ndarray]:
         off += o * i
     return out
 
-
 def build_stknet(R: dict[str, np.ndarray], hidden: int, eval_scale: float) -> mk.STKNet:
-    pf = mk.PAIR_FACTOR  # QA/128 = 127/128
-    out_cp = mk.OUT_CP  # 508
+    pf = mk.PAIR_FACTOR
+    out_cp = mk.OUT_CP
     # column-major (out,in) -> reshape (in,out) gives M[in][out]
     m0 = R["l0w"].reshape(NIN, hidden)                 # M0[feature] = hidden vec
     wl1 = R["l1w"].reshape(hidden, NB * L1).T          # (128, hidden) [out,in]
@@ -92,7 +90,6 @@ def build_stknet(R: dict[str, np.ndarray], hidden: int, eval_scale: float) -> mk
     model.eval()
     return model
 
-
 def stk_cp(model: mk.STKNet, fen: str) -> float:
     pieces, stm = hk.parse_fen_pieces(fen)
     wf, bf = hk.features_for(pieces, hk.WHITE), hk.features_for(pieces, hk.BLACK)
@@ -103,7 +100,6 @@ def stk_cp(model: mk.STKNet, fen: str) -> float:
     bk = torch.tensor([min(max((len(pieces) - 1) // 4, 0), NB - 1)])
     with torch.no_grad():
         return float(model(w, b, torch.tensor([stm]), bk)[0])
-
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Transfer bullet raw.bin -> STKNet -> .nnue.")
@@ -144,7 +140,6 @@ def main() -> int:
                     float_path, net_path)
     print(f"[transfer] done -> {net_path}")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

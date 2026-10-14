@@ -37,14 +37,14 @@
 // the dual-net lazy eval (cheap eval for clearly-decided positions). Both are
 // trained/exported by tools/nnue/make_net.py (--hidden), same file format.
 //
-// Fixed-point: FT weights/bias int16, accumulator int16, activations clipped
-// to [0,127], dense weights int8; fixed shifts (>>7 pairwise, >>6 dense,
-// >>4 out) reproduce the trainer's normalized-float model exactly.
+// Fixed-point inference clips activations to [0,127] and uses shifts
+// >>7 pairwise, >>6 dense and >>4 output. It matches the quantized integer
+// reference; the unquantized float model can differ after export.
 
 namespace NNUE {
 
 namespace Arch {
-constexpr int FEATURES = HalfKA::FEATURES; // 22528
+constexpr int FEATURES = HalfKA::FEATURES;
 constexpr int PSQT_BUCKETS = 8;
 constexpr int L1 = 16;
 constexpr int L2 = 32;
@@ -169,7 +169,6 @@ inline int dot(const uint8_t *RESTRICT a, const int8_t *RESTRICT w, int n) {
   for (; i + 16 <= n; i += 16)
     acc = vdotq_s32(acc, vreinterpretq_s8_u8(vld1q_u8(a + i)), vld1q_s8(w + i));
 #else
-  // Pre-8.2 NEON fallback: widening multiply + pairwise-accumulate.
   for (; i + 16 <= n; i += 16) {
     const uint8x16_t va = vld1q_u8(a + i);
     const int8x16_t vw = vld1q_s8(w + i);
@@ -308,7 +307,7 @@ inline __m128i dot4x16w(const uint8_t *RESTRICT a, const int8_t *RESTRICT w,
 // Both perspectives' fused updates in ONE loop body: two independent
 // dependency chains per iteration double the ILP the out-of-order core can
 // extract from the (L2-bound) column streams. Bit-identical to two
-// sequential acc_fused passes. Measured -14% on the update core.
+// sequential acc_fused passes.
 template <int H>
 inline void acc_fused2(int16_t *RESTRICT dstW, const int16_t *RESTRICT srcW,
                        const int16_t *const *addW, int naW,
@@ -483,7 +482,7 @@ inline void acc_fused2(int16_t *RESTRICT dstW, const int16_t *RESTRICT srcW,
 #if defined(__AVX2__)
 // Eight dot-product rows sharing every activation load (halves the
 // activation re-reads and reduction trees of the 4-row form; exact int32
-// sums, order-independent). Measured -32% on the L1 layer.
+// sums, order-independent).
 inline void dot8(const uint8_t *RESTRICT a, const int8_t *RESTRICT w,
                  size_t stride, int n, int32_t out[8]) {
   __m256i c0 = _mm256_setzero_si256(), c1 = c0, c2 = c0, c3 = c0, c4 = c0,
@@ -614,8 +613,7 @@ template <int H> struct RefreshTableT {
   std::array<std::array<Entry, Core::SQUARE_NB>, Core::COLOR_NB> entries{};
 };
 
-// Everything needed to replay one move's feature changes (width-independent;
-// kept for lazy-update experiments).
+// Move feature changes are width-independent; king moves form refresh barriers.
 struct DirtyMove {
   Core::Color mover = Core::WHITE;
   Core::Square from = Core::SQ_NONE, to = Core::SQ_NONE;
@@ -828,10 +826,10 @@ public:
                               const Core::UndoInfo &ui) {
     using namespace Core;
     DirtyMove dm;
-    dm.mover = ~after.side_to_move(); // side that just moved
+    dm.mover = ~after.side_to_move();
     dm.from = m.from_sq();
     dm.to = m.to_sq();
-    dm.movedNow = after.piece_on(dm.to); // moved or promoted piece
+    dm.movedNow = after.piece_on(dm.to);
     dm.removedType = m.is_promotion() ? PAWN : dm.movedNow;
     if (m.is_capture()) {
       dm.capType = ui.capturedPiece;
@@ -876,12 +874,8 @@ public:
     apply_delta(persp, added, na, removed, nr, a);
   }
 
-  // Derive `child` from `parent` for the just-played move `m`. A perspective
-  // is refreshed only when its own king moved -- via the cache when `table`
-  // is given; otherwise the few changed features are applied incrementally.
-  // Fused single step: child = parent + adds - subs in one pass over the
-  // accumulator half. Only valid when persp's king did not move in dm (the
-  // orientation for ksq must hold across the step).
+  // Incremental changes require the perspective's king/orientation to stay
+  // fixed. Refresh after a king move, using the cache when table is supplied.
   void apply_dirty_fused(Core::Color persp, Core::Square ksq,
                          const DirtyMove &dm, const AccumulatorT<H> &parent,
                          AccumulatorT<H> &child) const {
@@ -929,8 +923,7 @@ public:
     const DirtyMove dm = make_dirty(after, m, ui);
 
     if (!dm.kingMoved) {
-      // Common case (no refresh needed): both perspectives in one
-      // interleaved pass over the accumulators.
+      // Update both perspectives together when neither needs a refresh.
       const int16_t *addC[2][2];
       const int16_t *subC[2][2];
       int na[2] = {0, 0}, nr[2] = {0, 0};
@@ -996,7 +989,6 @@ public:
     return forward(a, pos.side_to_move(), bucket_of(pos), &probe);
   }
 
-  // Deterministic random weights (self-test / tooling; no file needed).
   void randomize(uint64_t seed) {
     auto next = [&seed]() {
       seed ^= seed << 13;
@@ -1031,7 +1023,6 @@ public:
     loaded_ = true;
   }
 
-  // Verifies the SIMD forward against a pure-scalar reference and the
   // incremental delta against a rebuild. Defined in network.cpp.
   static bool self_test();
 
@@ -1068,8 +1059,7 @@ private:
 
     alignas(32) std::array<uint8_t, Arch::L1> l1o;
 #if defined(__AVX2__)
-    // Eight output rows per pass share every activation load (H is a
-    // multiple of 32, so dot8 needs no tail).
+    // H is a multiple of 32, so dot8 needs no tail.
     for (int o = 0; o < Arch::L1; o += 8) {
       alignas(16) int32_t sums[8];
       detail::dot8(l1in.data(), &b.l1w[o * H], H, H, sums);

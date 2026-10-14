@@ -32,7 +32,6 @@ export interface GameState {
   clockRunning: boolean;
 }
 
-/** A root move the engine actually searched, with the score it gave it. */
 export interface Candidate {
   move: string;
   scoreCp: number;
@@ -82,7 +81,6 @@ export interface Frame {
   white: PerspectiveInfo;
   black: PerspectiveInfo;
 
-  /** Raw layer values, exactly as the engine computed them. */
   accUs: Int16Array;
   accThem: Int16Array;
   l1in: Uint8Array;
@@ -101,7 +99,6 @@ export interface Frame {
 
 export type Mode = "selfplay" | "analysis" | "human" | "datagen";
 
-/** Live data-generation progress, and what a crashed run left recoverable. */
 export interface DatagenState {
   running: boolean;
   out: string;
@@ -115,16 +112,11 @@ export interface DatagenState {
   losses: number;
   positionsPerSec: number;
   etaMinutes: number;
-  /**
-   * Rows are written as numbered shards inside the dataset directory, which is
-   * what the training pipeline globs and what keeps any one file small enough
-   * to move around. `shard` is the index being filled, `shardPath` its file.
-   */
+  /* shard is the current index; shardPath names its file in the dataset directory. */
   shard: number;
   shardPath: string;
 }
 
-/** Everything that shapes the dataset. No pacing knobs: datagen runs flat out. */
 export interface DatagenOptions {
   out: string;
   targetPositions: number;
@@ -144,11 +136,7 @@ export interface DatagenOptions {
   resume?: boolean;
 }
 
-/**
- * Frame recording. Reported by the engine rather than tracked here, because a
- * recording can also be started with --record on the command line, and an open
- * that failed must not look like it worked.
- */
+/* Engine-reported state includes CLI recordings and failed opens. */
 export interface RecordState {
   recording: boolean;
   path: string;
@@ -180,7 +168,6 @@ export interface DatagenProbe {
   };
 }
 
-/** The engine's own shipped defaults; the UI never invents its own. */
 export interface DatagenDefaults {
   out: string;
   targetPositions: number;
@@ -206,16 +193,10 @@ export interface EngineState {
   thinking: boolean;
   nnueActive: boolean;
   threads: number;
-  /**
-   * Root-move variety in centipawns. While a game is inside its first plies the
-   * engine picks at random among the root moves it scored within this much of
-   * the best, so consecutive self-play games are not identical replays of one
-   * deterministic search. 0 = always play the best move.
-   */
+  /* 0 always plays best; nonzero variety chooses near-equal scored moves
+     only during the configured opening plies. */
   varietyCp: number;
-  /** Cores this machine reports; the thread control never exceeds it. */
   hardwareThreads: number;
-  /** Deepest search the engine supports. */
   maxDepth: number;
   engineColor: number;
   arch: Arch;

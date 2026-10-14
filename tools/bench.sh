@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
-# STK-Vector-64 — default build benchmark.
-# Builds the best native Release configuration for this machine (auto-detects
-# toolchain; PEXT/AVX2 enabled where available, magic/scalar fallback elsewhere)
-# and reports perft + search NPS, single- and multi-threaded.
-#
-#   bash tools/bench.sh
-#   BENCH_DEPTH=14 SEARCH_RUNS=8 bash tools/bench.sh   # override sampling
+# Usage: bash tools/bench.sh
+# Override sampling with BENCH_DEPTH, SEARCH_RUNS and PERFT_RUNS.
 
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_bench.sh"

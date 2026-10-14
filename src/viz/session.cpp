@@ -2,7 +2,7 @@
 
 #include "../cores/movegen.h"
 #include "../datagen/selfplay.h"
-#include "../search/transposition_table.h" // is_mate_score
+#include "../search/transposition_table.h"
 
 #include "../uci/uci_util.h"
 #include "wire.h"
@@ -22,7 +22,7 @@ namespace {
 // engine's own formatting means castling and promotions need no special cases.
 bool find_move(const Core::Position &pos, const std::string &uci,
                Core::Move &out) {
-  Core::Position scratch = pos; // generate_legal_moves needs a mutable board
+  Core::Position scratch = pos;
   Core::MoveList legal;
   Core::generate_legal_moves(scratch, legal);
   for (int i = 0; i < legal.size(); ++i) {
@@ -41,18 +41,8 @@ bool has_legal_move(const Core::Position &pos) {
   return legal.size() > 0;
 }
 
-// Pick uniformly among the root moves the search scored within `cp` of the
-// best, instead of always the top one.
-//
-// A search is deterministic: the same position gives the same move, so an
-// engine playing itself from the start position replays one identical game
-// forever. Random openings paper over that, but the moment they are off the
-// problem is back. Varying the choice among near-equal root moves is what
-// fixes it at the source -- and it is what Stockfish's own data generator does
-// (its random-multi-pv option) for exactly this reason.
-//
-// Nothing here invents a move or touches a reported number: every candidate is
-// one the search itself scored, with a full window, as within `cp` of best.
+// Choose among fully searched root lines within cp of best so fixed openings
+// can produce different games. Reported scores remain those of the search.
 Core::Move pick_varied(const Search::Result &r,
                        const std::vector<Search::RootLine> &lines, int cp,
                        uint64_t &rngState) {
@@ -124,8 +114,7 @@ Session::Session(Config cfg)
   depth_.store(std::clamp(cfg_.depth, 0, max_depth()));
   varietyCp_.store(std::max(0, cfg_.varietyCp));
   rngState_ = cfg_.seed ? cfg_.seed : 0x9E3779B97F4A7C15ULL;
-  // Later games open randomly so they differ; the first starts from the real
-  // initial position, which is what you want to see when the tool opens.
+  // The first game uses startpos; later games use random openings for variety.
   randomOpening_ = true;
   reset_game(false);
   publish();
@@ -156,7 +145,6 @@ bool Session::load_compare_net(const std::string &path) {
   if (!net->load_file(path))
     return false;
   compareNet_ = std::move(net);
-  // Show the file name only; the full path is noise in a panel.
   const size_t slash = path.find_last_of("/\\");
   compareName_ = slash == std::string::npos ? path : path.substr(slash + 1);
   publish();
@@ -244,7 +232,7 @@ void Session::set_move_delay(int ms) { moveDelayMs_.store(std::max(0, ms)); }
 
 void Session::set_nodes(int nodes) { nodes_.store(std::max(0, nodes)); }
 
-int Session::max_depth() { return 246; } // matches the UCI clamp
+int Session::max_depth() { return 246; }
 
 void Session::set_depth(int d) { depth_.store(std::clamp(d, 0, max_depth())); }
 
@@ -261,7 +249,7 @@ void Session::set_threads(int n) {
   // Clamped to what the machine has: asking for more threads than cores makes
   // lazy SMP slower, not faster.
   threads_.store(std::clamp(n, 1, hardware_threads()));
-  abortSearch_.store(true); // take effect on the next search, not this one
+  abortSearch_.store(true);
   cv_.notify_all();
 }
 
@@ -332,14 +320,9 @@ bool Session::start_datagen(const DatagenConfig &wanted, bool resume) {
   if (wanted.out.empty())
     return false;
 
-  // Resuming continues ONE dataset, so the rows added now have to be produced
-  // the same way as the rows already on disk. Everything that shapes a row is
-  // therefore taken from what the run recorded, not from what the caller sent
-  // -- otherwise resume is the one place those settings can change unnoticed,
-  // and the result is a file that looks like a dataset but is two.
-  //
-  // The targets are the exception: extending a run to a larger goal is the
-  // whole reason to resume, so those come from the caller.
+  // Resume restores row-shaping settings from disk. Only run targets come from
+  // the caller, allowing the existing dataset to grow without changing its
+  // labels.
   DatagenConfig cfg = wanted;
   const DatagenState prev = resume ? probe_datagen(wanted.out) : DatagenState{};
   if (resume && prev.hasConfig) {
@@ -378,15 +361,12 @@ bool Session::start_datagen(const DatagenConfig &wanted, bool resume) {
   }
   {
     std::lock_guard<std::mutex> lk(cmdMu_);
-    // Take the run's seed, offset by the games already on disk. rngState_ is
-    // the stream openings and root-move variety are drawn from, so without
-    // this a run ignored its seed entirely and -- worse -- a resumed run
-    // restarted the stream and regenerated the very games it was resuming
-    // past, duplicating rows in the dataset.
+    // Advance the seeded opening/variety stream past completed games so resume
+    // does not regenerate their rows.
     rngState_ = seed ? seed : 0x9E3779B97F4A7C15ULL;
     mode_ = Mode::Datagen;
     pendingReset_ = true;
-    pendingRandomOpening_ = true; // datagen always wants varied openings
+    pendingRandomOpening_ = true;
     ++boardGen_;
   }
   paused_.store(false);
@@ -576,12 +556,8 @@ void Session::tick_clock() {
 
 // Caller holds cmdMu_.
 void Session::reset_game(bool randomOpening) {
-  // How many random plies to open with. Config::openingPlies is 0 so that plain
-  // self-play starts from the real initial position, but that number must NOT
-  // be what a random opening uses -- zero plies means every game starts from
-  // the same position, and a deterministic search then replays the identical
-  // game forever. Datagen brings its own count; self-play falls back to the
-  // usual 8.
+  // Zero openingPlies means no configured preference, not a zero-length random
+  // opening. Datagen supplies its length; self-play falls back to 8.
   int plies = 0;
   int balance = cfg_.balance;
   if (randomOpening) {
@@ -617,7 +593,7 @@ void Session::reset_game(bool randomOpening) {
   ++gameIndex_;
   whiteMs_ = blackMs_ = std::max(1000, cfg_.clockMs);
   turnStart_ = std::chrono::steady_clock::now();
-  search_.clear(); // games are independent
+  search_.clear();
 }
 
 Snapshot Session::snapshot() const {
@@ -743,7 +719,6 @@ void Session::publish() {
 
 Search::Result Session::think(bool ponder,
                               std::vector<Search::RootLine> *linesOut) {
-  // Thread count changes land here, between searches.
   const int want = threads_.load();
   if (want != appliedThreads_) {
     appliedThreads_ = want;
@@ -760,9 +735,7 @@ Search::Result Session::think(bool ponder,
   Search::Limits limits;
   const int n = nodes_.load();
   const int d = depth_.load();
-  // Pondering is ONE long search that ends when the opponent moves, not a
-  // stream of short ones. Repeating short searches restarted the display many
-  // times a second, which read as flicker rather than as thinking.
+  // Pondering keeps one search alive until the opponent moves.
   limits.maxNodes = ponder ? 0 : (n > 0 ? static_cast<uint64_t>(n) : 0);
   limits.maxDepth = d > 0 ? d : max_depth();
 
@@ -818,7 +791,7 @@ Search::Result Session::think(bool ponder,
     if (ponder) {
       const auto now = std::chrono::steady_clock::now();
       if (now - lastPublish_ < std::chrono::milliseconds(110))
-        return; // too soon: the previous frame is still what matters
+        return;
       lastPublish_ = now;
     }
     std::lock_guard<std::mutex> lk(mu_);
@@ -844,7 +817,6 @@ Search::Result Session::think(bool ponder,
 bool Session::detect_terminal(bool hadLegalMove) {
   if (!hadLegalMove) {
     if (pos_.in_check()) {
-      // Side to move is mated.
       const bool whiteMated = pos_.side_to_move() == Core::WHITE;
       result_ = whiteMated ? "0-1" : "1-0";
       reason_ = "checkmate";
@@ -889,10 +861,6 @@ void Session::self_play_step() {
         ++losses_;
       else
         ++draws_;
-      // Honour the toggle. Forcing true here made the setting meaningless;
-      // leaving it false for every game makes each one start from the same
-      // position, which a deterministic search then replays identically -- so
-      // the toggle is what decides, and it defaults to on for variety.
       reset_game(randomOpening_);
       publish_needed_ = true;
       return;
@@ -956,9 +924,7 @@ void Session::human_step() {
         live && (static_cast<int>(pos_.side_to_move()) == engineColor_);
   }
   if (!engineToMove) {
-    // The opponent's clock is running. Keep searching the position they are
-    // deciding on, so the network view goes on evolving instead of freezing --
-    // this is the engine genuinely thinking on their time, not a replay.
+    // Ponder while the opponent's clock runs; their move cancels this search.
     if (live) {
       think(/*ponder=*/true);
       abortSearch_.store(false);
@@ -988,7 +954,6 @@ void Session::datagen_step() {
     std::lock_guard<std::mutex> lk(dgMu_);
     if (!dgState_.running)
       return;
-    // Whichever limit is reached first ends the run.
     if (dgState_.positions >= dgState_.target ||
         (dgState_.targetGames > 0 && dgState_.games >= dgState_.targetGames)) {
       dgState_.running = false;
@@ -998,7 +963,6 @@ void Session::datagen_step() {
     }
   }
 
-  // Terminal? Bank the game's rows and start the next one.
   bool finished = false;
   {
     std::lock_guard<std::mutex> lk(cmdMu_);
@@ -1020,7 +984,7 @@ void Session::datagen_step() {
         ++losses_;
       else
         ++draws_;
-      reset_game(true); // datagen always wants varied openings
+      reset_game(true);
     }
     datagen_write(rec, wdl);
     publish();

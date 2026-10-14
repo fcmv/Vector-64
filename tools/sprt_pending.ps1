@@ -1,16 +1,9 @@
-# Validate the pending search features at a chosen node count, native
-# PowerShell (no WSL / bash). Live, detailed progress on screen AND saved.
+# Historical singular-extension/capture-history comparison; these features are merged.
+# base.exe represents futility + IIR + SEE (861800ce), not today's main.
+# allfeat.exe adds singular extensions and capture history (f76034d4).
+# Use 25k+ nodes for depth-sensitive features. H0<=0, H1>=5, LLR +/-2.94.
 #
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_pending.ps1              # 25k nodes
-#   powershell -ExecutionPolicy Bypass -File tools\sprt_pending.ps1 -Nodes 50000 # deeper
-#
-# Binaries in sprt\ (gitignored):
-#   sprt\base.exe      main today  (futility + IIR + SEE, +109 Elo over pre-program)
-#   sprt\allfeat.exe   base + singular extensions + capture history
-#
-# These search features are depth-sensitive and read weak at 5000 nodes; this
-# runs them at a depth closer to real play. SPRT: H0 elo<=0, H1 elo>=5,
-# alpha=beta=0.05, stops at LLR +/-2.94.
+# Usage: powershell -File tools\sprt_pending.ps1 [-Nodes 50000]
 
 param(
   [int]$Nodes = 25000,

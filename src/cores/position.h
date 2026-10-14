@@ -64,7 +64,6 @@ public:
     handFromCaptures = (v == VARIANT_CRAZYHOUSE);
   }
   Variant variant_type() const { return variant; }
-  // True for crazyhouse and bughouse alike -- the board mechanics are shared.
   bool has_drops() const { return drops; }
 
   // Draw-rule policy, selectable independently of the variant. Real bughouse

@@ -7,7 +7,6 @@ interface Props {
   frame: Frame | null;
   arch: Arch | null;
   nnueActive: boolean;
-  /** The engine's current principal variation; pv[0] is the move it will play. */
   pv: string[];
   depth: number;
   thinking: boolean;
@@ -28,16 +27,8 @@ const PIECE = ["", "pawn", "knight", "bishop", "rook", "queen", "king"];
 
 const signed = (x: number) => `${x > 0 ? "+" : ""}${x}`;
 
-/**
- * The big nodes (L1, L2, output) get a card rather than a cursor tooltip: they
- * are the part of the network a person can actually reason about, and each one
- * is explained in terms of the decision it is feeding.
- *
- * Only exact quantities are reported. An L1 neuron's effect on the final
- * evaluation is NOT linear -- the L2 clip and the shifts sit in between -- so
- * its drive into L2 is reported as what it is rather than converted into a
- * centipawn figure that would look precise and not be.
- */
+/* L1 drive is not a linear centipawn contribution: L2 clips and shifts it.
+   Report layer attribution without implying a direct final-eval effect. */
 function describeCard(
   h: HoverTarget,
   f: Frame,
@@ -51,7 +42,6 @@ function describeCard(
   sub: string;
   rows: [string, string][];
   line?: string;
-  /** The move this neuron is feeding, shown in full rather than truncated. */
   move?: string;
   tone?: "pos" | "neg";
 } | null {
@@ -142,7 +132,6 @@ function describeCard(
   }
 }
 
-/** Small cells keep a cursor tooltip: there are thousands and they are tiny. */
 function describe(
   h: HoverTarget,
   f: Frame,
@@ -189,7 +178,7 @@ function describe(
       return { title: name, rows };
     }
     default:
-      return null; // L1 / L2 / output are shown as a card instead
+      return null;
   }
 }
 
@@ -229,7 +218,6 @@ export function NeuronField({
     };
   }, [onHover]);
 
-  // Esc releases a pinned node.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") rendererRef.current?.clearSelection();
@@ -261,7 +249,6 @@ export function NeuronField({
     rendererRef.current?.setPerspective(persp);
   }, [persp, frame]);
 
-  // Big nodes get the card; small cells get the cursor tooltip. Never both.
   const card =
     hover && frame && arch
       ? describeCard(hover, frame, arch, pv, depth, thinking)
@@ -324,7 +311,7 @@ export function NeuronField({
         </div>
       )}
 
-      {/* Shown only while a big node is hovered, so the field stays clean. */}
+      {}
       {card && (
         <div className="decision">
           <h5>{card.head}</h5>

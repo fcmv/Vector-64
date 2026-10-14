@@ -71,12 +71,7 @@ export function EvalPanel({ s }: { s: EngineState }) {
   );
 }
 
-/**
- * The candidate moves the engine actually searched, each with the exact score
- * it gave that move. This is where the decision becomes visible as a choice:
- * the network produces an evaluation, and these are the options it was weighed
- * against.
- */
+/* Candidate scores are root-relative, unlike the PV-leaf frame evaluation. */
 export function CandidatesPanel({
   s,
   onHover,
@@ -92,7 +87,7 @@ export function CandidatesPanel({
   const lo = Math.min(...scores);
   const hi = Math.max(...scores);
   const span = Math.max(1, hi - lo);
-  const stm = s.game.fen.split(" ")[1] === "b" ? -1 : 1; // root scores
+  const stm = s.game.fen.split(" ")[1] === "b" ? -1 : 1;
 
   return (
     <div className="panel">
@@ -133,14 +128,10 @@ const clock = (ms: number) => {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 
-/**
- * Human-mode clocks. The engine keeps searching while your clock runs, so the
- * network view stays live on your time -- it is thinking, not waiting.
- */
 export function ClockPanel({ s }: { s: EngineState }) {
   if (s.mode !== "human") return null;
   const g = s.game;
-  const stm = g.fen.split(" ")[1] === "b" ? 1 : 0; // 0 = white to move
+  const stm = g.fen.split(" ")[1] === "b" ? 1 : 0;
   const low = (ms: number) => ms < 30000;
   return (
     <div className="panel">
@@ -226,7 +217,6 @@ export function GamePanel({ s }: { s: EngineState }) {
   const total = Math.max(1, g.wins + g.draws + g.losses);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Keep the latest move visible without changing the panel's height.
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;

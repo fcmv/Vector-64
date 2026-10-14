@@ -1,18 +1,8 @@
 #!/usr/bin/env bash
-# NNUE hot-path profiler. Builds a *dedicated* -DENGINE_PROF binary (in
-# build-prof/, leaving your normal build untouched), runs a fixed bench, and
-# aggregates the per-position PROF lines into one cycle breakdown.
+# Dedicated ENGINE_PROF build in build-prof/.
+# Only percentages are comparable across x86 TSC and ARM counter ticks.
 #
-# The point of this on ARM: the x86 (AVX2/VNNI) baseline spends ~65% of the
-# forward in L1, ~19% pairwise, ~10% L2, ~6% out, and ~90% of updates are
-# incremental. If the NEON run is lopsided vs that (e.g. L1 or pairwise far
-# higher), that's the kernel to attack next.
-#
-# Ticks are arch-specific (x86 TSC / arm64 cntvct_el0), so only the PERCENTAGES
-# are comparable across machines -- never the raw tick counts.
-#
-#   bash tools/profile_nnue.sh          # depth 13 (matches the bench signature)
-#   bash tools/profile_nnue.sh 15       # deeper = more samples, longer run
+# Usage: bash tools/profile_nnue.sh [depth]  # default: 13
 set -euo pipefail
 
 DEPTH="${1:-13}"

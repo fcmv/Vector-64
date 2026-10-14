@@ -11,10 +11,8 @@
 # with -Conc 2 on both, the pair occupies 4 cores plus a little arbiter
 # overhead. Drop to -Conc 1 each on a 2-core box.
 #
-# Background: quiescence generated captures only, so it never saw a checking
-# drop -- the dominant tactical motif in a drop variant -- and walked past
-# forced mates. ENGINE_DROP_CHECK_QDEPTH now bounds how many quiescence plies
-# generate them. The default of 2 was a guess; this measures it.
+# ENGINE_DROP_CHECK_QDEPTH bounds checking-drop quiescence. The shipped
+# default is 0 after SPRTs; this harness compares 2 vs 0 and 4 vs 2.
 #
 # The depth is a COMPILE-TIME knob on purpose, so the two sides are two
 # binaries built from identical source rather than one binary in two modes.

@@ -14,10 +14,8 @@ public:
     CASTLING = 0b0010,
     EN_PASSANT = 0b0011,
     CAPTURE = 0b0100,
-    // Bughouse: a piece from the hand placed on an empty square. There is no
-    // origin square, so the from_sq field carries the dropped PieceType
-    // instead. Keeps Move at 16 bits, so the TT, PV and killer tables are
-    // unaffected. 0b0110 and 0b0111 remain unused.
+    // Drops have no origin square: from_sq stores the PieceType instead.
+    // This keeps Move at 16 bits for the TT, PV and killer tables.
     DROP = 0b0101,
     PROMOTION_N = 0b1000,
     PROMOTION_B = 0b1001,
@@ -40,7 +38,7 @@ public:
     return Move(from, to, QUIET);
   }
 
-  // Bughouse drop: `pt` rides in the from_sq field (see DROP).
+  // from_sq carries the dropped PieceType, not a board square.
   static Move make_drop(PieceType pt, Square to) {
     return Move(static_cast<Square>(pt), to, DROP);
   }

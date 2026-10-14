@@ -25,7 +25,6 @@ inline bool can_side_mate(const Position &pos, Color c) {
   return popcount(minors) >= 2;
 }
 
-// The position is drawn because neither side can ever deliver mate.
 inline bool insufficient_material_both(const Position &pos) {
   return !can_side_mate(pos, WHITE) && !can_side_mate(pos, BLACK);
 }

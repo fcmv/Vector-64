@@ -1,23 +1,8 @@
 #!/usr/bin/env python3
-"""
-Pure RL self-play trainer for Vector-64 NNUE.
+"""Legacy HalfKP self-play trainer for tools/nnue/export_vector64.py checkpoints.
 
-This script performs:
-  1) Self-play game generation using the current value network
-  2) Replay-buffer storage of (state, Monte Carlo target) samples
-  3) Gradient updates from replay
-
-It writes checkpoints compatible with tools/nnue/export_vector64.py.
-
-Dependencies:
-  - torch
-  - numpy
-
-Chess rules come from the engine's validator binary (ChessEngine-validator),
-not a chess library: house rule is that only the engine encodes chess rules.
-Self-play uses one `children` call per ply, which returns every legal move
-together with the position it leads to and that position's terminal state --
-so a whole ply of lookahead costs a single round trip.
+ChessEngine-validator supplies rules and one-ply child positions; FEN decoding
+is shared with halfka_features. Requires torch and numpy.
 """
 
 from __future__ import annotations
@@ -40,13 +25,12 @@ START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 KING_TYPE = 6
 
 PIECE_BUCKET = {
-    1: 0,  # pawn
-    2: 1,  # knight
-    3: 2,  # bishop
-    4: 3,  # rook
-    5: 4,  # queen
+    1: 0,
+    2: 1,
+    3: 2,
+    4: 3,
+    5: 4,
 }
-
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Pure RL self-play trainer for Vector-64 NNUE.")
@@ -87,14 +71,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--bootstrap-truncated", action="store_true", help="Bootstrap truncated games from final state")
     return p.parse_args()
 
-
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
 
 def choose_device(device_arg: str) -> torch.device:
     if device_arg == "cpu":
@@ -105,13 +87,11 @@ def choose_device(device_arg: str) -> torch.device:
         return torch.device("cuda")
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 def linear_decay(start: float, end: float, step: int, horizon: int) -> float:
     if horizon <= 0:
         return end
     t = min(max(step, 0), horizon) / float(horizon)
     return start + (end - start) * t
-
 
 def terminal_white_score(terminal: str, side_to_move: str) -> float:
     """White's result for a finished position: +1 white win, -1 black win.
@@ -124,14 +104,10 @@ def terminal_white_score(terminal: str, side_to_move: str) -> float:
         return -1.0 if side_to_move == "w" else 1.0
     return 0.0
 
-
 def encode_halfkp(fen: str, max_features: int):
-    """HalfKP indices for one position, read straight off its FEN.
+    """Legacy HalfKP indices using shared FEN decoding.
 
-    Board decoding is shared with halfka_features (which mirrors
-    src/nnue/halfka.h), so there is one FEN parser in the tree rather than a
-    second one hidden behind a library. Square, colour and piece-type
-    conventions match Core: a1=0, WHITE=0, PAWN=1..KING=6.
+    Squares use a1=0, WHITE=0 and PAWN=1..KING=6.
     """
     pieces, stm = hkf.parse_fen_pieces(fen)
 
@@ -164,7 +140,6 @@ def encode_halfkp(fen: str, max_features: int):
 
     return white_idx, black_idx, stm
 
-
 def model_infer_cp(
     model: torch.nn.Module,
     device: torch.device,
@@ -181,7 +156,6 @@ def model_infer_cp(
             pred = model(w, b, s)
     return pred.detach().cpu().numpy().astype(np.float32, copy=False)
 
-
 def choose_selfplay_move(
     model: torch.nn.Module,
     arbiter: Arbiter,
@@ -195,8 +169,6 @@ def choose_selfplay_move(
     amp_enabled: bool,
     inference_batch: int,
 ):
-    # One round trip gives every legal move, the position it reaches and that
-    # position's terminal state -- the whole ply of lookahead.
     kids = arbiter.children(moves)
     if not kids:
         return None
@@ -251,7 +223,6 @@ def choose_selfplay_move(
     chosen = int(np.random.choice(best_indices))
     return kids[chosen]
 
-
 @dataclass
 class GeneratedGame:
     white_idx: np.ndarray
@@ -261,7 +232,6 @@ class GeneratedGame:
     white_score: float
     plies: int
     terminated: bool
-
 
 def generate_selfplay_game(
     model: torch.nn.Module,
@@ -281,8 +251,6 @@ def generate_selfplay_game(
     states_b = []
     states_stm = []
 
-    # The chosen child carries the resulting position and its terminal state,
-    # so the loop needs no extra query to know where it stands.
     moves: list[str] = []
     fen = START_FEN
     terminal = "none"
@@ -357,7 +325,6 @@ def generate_selfplay_game(
 
     signed = np.where(stm_arr == 0, white_score, -white_score).astype(np.float32)
     if gamma != 1.0:
-        # Earlier plies have larger distance to terminal reward.
         dist_to_end = np.arange(stm_arr.shape[0] - 1, -1, -1, dtype=np.float32)
         signed *= np.power(np.float32(gamma), dist_to_end)
 
@@ -371,7 +338,6 @@ def generate_selfplay_game(
         plies=int(stm_arr.shape[0]),
         terminated=terminated,
     )
-
 
 class ReplayBuffer:
     def __init__(self, capacity: int, max_features: int) -> None:
@@ -437,7 +403,6 @@ class ReplayBuffer:
             "target_cp": torch.from_numpy(self.target_cp[idx]).to(device, non_blocking=True),
         }
 
-
 def train_step(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
@@ -471,7 +436,6 @@ def train_step(
     mae = torch.mean(torch.abs(pred.detach() - batch["target_cp"])).item()
     return float(loss.detach().item()), float(mae)
 
-
 def save_checkpoint(
     path: Path,
     model: torch.nn.Module,
@@ -499,7 +463,6 @@ def save_checkpoint(
         },
     }
     torch.save(payload, path)
-
 
 def main() -> int:
     args = parse_args()
@@ -667,7 +630,6 @@ def main() -> int:
     print(f"Wrote meta: {meta_path}")
     arbiter.quit()
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

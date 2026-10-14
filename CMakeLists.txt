@@ -128,15 +128,8 @@ set_target_properties(ChessEngine PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
-# ---------------------------------------------------------------------------
-# Variant binary: ChessEngine-variants, supporting crazyhouse and bughouse via
-# the UCI_Variant option. Drops, reserves and promoted-piece tracking are
-# compile-time gated behind ENGINE_VARIANTS and built into a *separate* core
-# library, so the tournament binaries above contain none of it: no extra
-# Position state, no branches in move_piece/remove_piece, and MoveList stays
-# at 256 entries. The standard bench signature and NPS are unaffected by
-# construction, not by measurement.
-# ---------------------------------------------------------------------------
+# Compile variant state and branches into a separate core library so the
+# standard binaries retain their position layout and 256-entry move buffers.
 option(ENGINE_VARIANTS "Build ChessEngine-variants (crazyhouse + bughouse)" ON)
 # Plies of quiescence that generate checking drops. Kept a compile-time knob
 # (not a UCI option) so an SPRT compares two binaries built from the same
@@ -151,14 +144,8 @@ option(ENGINE_VARIANTS "Build ChessEngine-variants (crazyhouse + bughouse)" ON)
 # grows fast and a fixed node budget buys less real depth than the extra
 # tactics are worth.
 #
-# That explanation was challenged and survived. The suspicion was that the
-# measurement had been confounded by reserve material being worth nothing: a
-# checking drop would then also look like it won a piece, letting quiescence
-# manufacture material with a corruption growing in qdepth exactly as the
-# numbers above do. Re-run on top of ENGINE_VARIANT_HAND_MATERIAL:
-#   qdepth 2 vs 0: -21.4 Elo +/- 12.5 over 2960 games, H0 accepted, LLR -2.96
-# Statistically the same as the original -20.8 +/- 12.4. The confounding
-# hypothesis was wrong; node cost it is.
+# With reserve material enabled, qdepth 2 vs 0 still lost:
+# -21.4 Elo +/- 12.5 over 2960 games, H0 accepted, LLR -2.96.
 set(ENGINE_DROP_CHECK_QDEPTH "0" CACHE STRING
         "Quiescence plies that generate checking drops (0 = off)")
 
@@ -205,16 +192,10 @@ set(ENGINE_KING_DANGER_SCALE "6" CACHE STRING
 set(ENGINE_PIECE_VALUES "0,100,340,320,450,800,0" CACHE STRING
         "Variant board piece values (set equal to PieceValue to disable)")
 
-# Allow null-move pruning in a drop variant. Tempo is worth much more here than
-# in chess and the zugzwang guard does not see reserves, so this is a real
-# question rather than a formality.
-#
-# Default 1 (on), and that is a measured result that contradicts the received
-# wisdom. Crazyhouse SPRT at 25k nodes on top of reserve material:
-#   OFF vs ON: -16.1 Elo +/- 10.9 over 3850 games, H0 accepted, LLR -3.00
-# Turning null move off costs Elo here, so the "null move is the crazyhouse
-# footgun" advice does not hold for this search. Worth re-testing at longer
-# time control and once a variant-tuned evaluation exists.
+# The zugzwang guard ignores reserves, so null-move pruning is independently
+# switchable for drop variants. Crazyhouse at 25k nodes, reserve material on:
+# OFF vs ON: -16.1 Elo +/- 10.9 over 3850 games, H0 accepted, LLR -3.00.
+# Keep it on; re-test for longer time controls or a variant-trained evaluation.
 set(ENGINE_VARIANT_NULLMOVE "1" CACHE STRING
         "Allow null-move pruning in drop variants (0 = off)")
 
@@ -257,9 +238,7 @@ if(ENGINE_VARIANTS)
         target_link_libraries(ChessEngine-variants chess_core_variants)
         set_target_properties(ChessEngine-variants PROPERTIES
                 RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-        # Lean validator: the same core, started in validator mode. It runs no
-        # search and needs no net, so a host can keep a resident pool of these
-        # for legality/terminal queries without them queueing behind searches.
+        # Validator workers need neither a net nor search; keep startup cheap for resident pools.
         add_executable(ChessEngine-validator
                 app/main.cpp
                 tests/cpp/perfts.cpp
@@ -275,13 +254,8 @@ if(ENGINE_VARIANTS)
         message(STATUS "Validator binary: ChessEngine-validator (no search, no net)")
 endif()
 
-
-# ---------------------------------------------------------------------------
-# NNUE binary: ChessEngine-nnue, with the default net baked into the executable
-# (Stockfish-style, via GNU-as .incbin). Built only when the net exists and the
-# toolchain is GNU/Clang (the embed uses GNU-as directives; MSVC/macOS embedding
-# would need a different section/symbol convention). The classical ChessEngine
-# above is unchanged. Override the net with -DEMBED_NNUE=/path/to/net.nnue.
+# Embed the default net with RCDATA on MSVC and GNU-as .incbin on
+# ELF, Mach-O and MinGW. Override it with -DEMBED_NNUE=/path/to/net.nnue.
 set(EMBED_NNUE "${CMAKE_SOURCE_DIR}/nets/stk-vector-64.nnue"
         CACHE FILEPATH "Net embedded into the ChessEngine-nnue binary")
 if(EXISTS "${EMBED_NNUE}" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|MSVC")
@@ -325,14 +299,8 @@ else()
         message(STATUS "NNUE binary: skipped (net '${EMBED_NNUE}' missing or unsupported toolchain)")
 endif()
 
-# ---------------------------------------------------------------------------
-# Combined binary: ChessEngine-all -- standard chess with the embedded NNUE
-# net, plus crazyhouse and bughouse, in one executable. Standard play is
-# full-strength NNUE; a drop variant automatically falls back to the classical
-# evaluation, because no net covers reserves, and picks the net back up when
-# UCI_Variant returns to chess. Defined after the NNUE section so the embed
-# sources it builds are already configured.
-# ---------------------------------------------------------------------------
+# Configure embed sources before this target reuses them. Drop variants suppress
+# NNUE without unloading the net, so returning to chess restores NNUE.
 if(ENGINE_VARIANTS AND TARGET ChessEngine-nnue)
         add_executable(ChessEngine-all
                 app/main.cpp
@@ -348,15 +316,8 @@ if(ENGINE_VARIANTS AND TARGET ChessEngine-nnue)
         message(STATUS "Combined binary: ChessEngine-all (chess+NNUE, crazyhouse, bughouse)")
 endif()
 
-# ---------------------------------------------------------------------------
-# Visualizer support library. Kept out of chess_core on purpose: the tournament
-# binaries must gain nothing from it (no extra code, no future third-party
-# link deps). Only the visualizer binary and its tests link this.
-#
-# Everything visualizer -- the library, its binary and its tests -- lives inside
-# the ENGINE_VIZ block. The sources include the headers fetched below, so with
-# the option off there must be no target left that would try to compile them.
-# ---------------------------------------------------------------------------
+# Keep viz dependencies outside chess_core. With ENGINE_VIZ=OFF, no viz target
+# may remain: its sources require the headers fetched inside this block.
 option(ENGINE_VIZ "Build the NNUE visualizer binary (needs network on first configure)" ON)
 if(ENGINE_VIZ)
     add_library(chess_viz STATIC
@@ -496,13 +457,8 @@ endif()
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 
-# ---------------------------------------------------------------------------
-# Test suite (ctest). Each check is a named test with a single clear goal.
-# ---------------------------------------------------------------------------
 enable_testing()
 
-# Perft -- exact node counts for the six reference positions, each depth its own
-# test, so a movegen regression points at the exact position and depth.
 function(add_perft_test name fen depth expected)
     add_test(NAME "perft.${name}"
              COMMAND ChessEngine --perft-one "${fen}" ${depth} ${expected})
@@ -545,7 +501,6 @@ add_perft_test(position6_d2 "${FEN_POS6}" 2 2079)
 add_perft_test(position6_d3 "${FEN_POS6}" 3 89890)
 add_perft_test(position6_d4 "${FEN_POS6}" 4 3894594)
 
-# State / evaluation invariants.
 add_test(NAME "consistency.nnue_simd_bitexact" COMMAND test_zobrist nnue)
 add_test(NAME "consistency.make_unmake_and_movegen" COMMAND test_zobrist games)
 
@@ -557,29 +512,17 @@ endif()
 
 # Unguarded, these report as "Not Run" in an ENGINE_VIZ=OFF tree.
 if(ENGINE_VIZ)
-    # Visualizer telemetry reports the engine's real arithmetic: the captured
-    # eval equals the ordinary eval path, and each layer's attribution sums back
-    # to that layer's output.
+    # Layer attributions must sum to the same outputs as ordinary evaluation.
     add_test(NAME "viz.telemetry_exact" COMMAND test_viz frame)
-    # The session driver keeps the board and the reported move list in
-    # agreement, and self-play games actually reach terminal states.
     add_test(NAME "viz.session_selfplay" COMMAND test_viz session)
-    # A search is deterministic, so without root-move variety self-play replays
-    # one identical game from the same position forever -- a silent failure that
-    # only shows up as "why is every game the same?". Random openings hide it,
-    # so this runs with them off.
+    # Disable random openings so they cannot hide missing root-move variety.
     add_test(NAME "viz.selfplay_variety" COMMAND test_viz variety)
-    # Rows are written as numbered shards, which is what the training pipeline
-    # globs; a resumed run must continue the sequence without a gap and without
-    # regenerating the games it resumed past (which would duplicate rows).
+    # A resumed shard sequence must neither skip a file nor regenerate earlier games.
     add_test(NAME "viz.datagen_shards" COMMAND test_viz shards)
-    # The wire format is binary: a renamed field would fail silently at runtime,
-    # so the encoder must keep producing something the UI decoder understands.
-    # CI pairs this with the TypeScript side (see the viz-ui job).
+    # CI feeds this binary fixture to the TypeScript decoder to catch wire-format drift.
     add_test(NAME "viz.wire_fixture" COMMAND test_viz fixture "${CMAKE_BINARY_DIR}/viz_frame.bin")
 endif()
 
-# Search regression fingerprint.
 find_program(BASH_EXECUTABLE bash)
 if(BASH_EXECUTABLE)
     add_test(NAME "search.bench_signature"
