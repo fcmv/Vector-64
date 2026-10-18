@@ -28,6 +28,12 @@ export async function connect(
   } catch {
   }
 
+  if (!crossOriginIsolated()) {
+    throw new Error(
+      "This page cannot start the browser engine. Enable cross-origin isolation on this host and reload, or run ChessEngine-viz locally.",
+    );
+  }
+
   onProgress({ phase: "engine", loaded: 0, total: 1 });
   const wasm = new WasmEngineSource();
   await wasm.boot({
@@ -48,5 +54,6 @@ export async function connect(
 }
 
 export function crossOriginIsolated(): boolean {
-  return typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated;
+  return typeof SharedArrayBuffer !== "undefined" &&
+    typeof self !== "undefined" && self.crossOriginIsolated === true;
 }

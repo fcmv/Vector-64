@@ -1,0 +1,42 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Install documentation and example dependencies
+        run: |
+          python -m pip install -r requirements-docs.txt pytest numpy
+          python -m pip install 'torch>=2.2,<2.6' --index-url https://download.pytorch.org/whl/cpu
+      - name: Build documentation with strict links and anchors
+        run: |
+          python tools/docs/check_punctuation.py
+          python -m mkdocs build --strict
+      - name: Build the documented engine interfaces
+        run: |
+          cmake -S . -B build-docs -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF -DENGINE_VIZ=OFF
+          cmake --build build-docs --target ChessEngine ChessEngine-validator -j2
+      - name: Check examples and protocol reference
+        env:
+          ENGINE_BIN: ${{ github.workspace }}/build-docs/bin/ChessEngine
+          VALIDATOR_BIN: ${{ github.workspace }}/build-docs/bin/ChessEngine-validator
+        run: python -m pytest tests/docs -v
+      - name: Run the tiny CPU training walkthrough
+        env:
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
+        run: |
+          python tools/run_pipeline.py --input examples/training_positions.txt --workdir runs/docs-cpu --hidden 128 --epochs 1 --batch-size 4 --shard-size 4 --device cpu --engine build-docs/bin/ChessEngine --tolerance-cp 0 --output artifacts/docs-candidate.nnue
+          python tools/nnue/check_vector64.py artifacts/docs-candidate.nnue

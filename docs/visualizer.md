@@ -1,176 +1,147 @@
-# Vector Scope — the NNUE live visualizer
+# Vector Scope
 
-Vector Scope renders what STK-Vector-64's neural network is actually computing
-while the engine plays. It ships as part of the engine, as its own binary.
+Vector Scope renders the existing STK-HalfKA forward pass while the engine plays
+or analyzes positions. The native binary embeds the default big network and the
+committed UI. Telemetry is a separate capture outside search's hot path; tests
+compare its integer values and layer contributions against the evaluator.
 
-**It shows the real engine.** The full H=1024 net, the real search, exact
-values. There is no reduced network, no demo mode and no illustrative
-approximation: the eval it displays is checked in CI to equal what the engine's
-own `eval` command reports for the same position, and the per-layer
-contributions it draws are the exact integers that layer summed.
+## Run the native viewer
 
 ```bash
-./ChessEngine-viz                 # opens http://127.0.0.1:7777
-./ChessEngine-viz --port 8080 --nodes 50000 --threads 4
-./ChessEngine-viz --headless      # serve without opening a browser
+./build/bin/ChessEngine-viz
+./build/bin/ChessEngine-viz --port 8080 --nodes 50000 --threads 4
+./build/bin/ChessEngine-viz --headless
+./build/bin/ChessEngine-viz --terminal
 ```
 
-## Modes
+MSVC paths include `bin/Release/` and Windows names end in `.exe`. Native HTTP
+binds loopback, port 7777 by default. `--headless` suppresses browser opening;
+`--terminal` runs the plain-text live view. Stop the process with your terminal's
+interrupt command. `--help` lists the executable's flags:
 
-| Mode | What it does |
+| Flag | Default / purpose |
 |---|---|
-| **self-play** | The engine plays itself continuously from random balanced openings (the same opening generator the data pipeline uses). |
-| **analysis** | Paste a FEN; the engine thinks about that position and the network view follows it. |
-| **play** | You play one side, the engine the other. Legal moves come from the engine, so the board can only offer moves it accepts. |
-| **net inspector** | The net itself, independent of any game: the feature-transformer weight histogram, per-bucket dense weight statistics, and the king-bucket map. |
+| `--port` | 7777, local HTTP port. |
+| `--net` | Load this file, otherwise use embedded big net; a failed explicit load can fall back to the embedded net. |
+| `--net-b` | Optional comparison net. |
+| `--nodes` | 20000 per move. |
+| `--threads` | 1 search thread. |
+| `--hash` | 32 MB. |
+| `--delay` | 300 ms between self-play moves. |
+| `--seed` | Opening seed. |
+| `--record` | Append frame summaries to a JSONL file. |
+| `--no-browser`, `--headless` | Serve without opening the browser. |
+| `--terminal` | Console view instead of HTTP. |
 
-## Reading the neuron field
+## Modes and reading the field
 
-Left to right, the field is the forward pass:
+Self-play creates games; analysis accepts a FEN; play mode lets a human choose
+moves supplied by the engine; datagen records labelled positions. The net
+inspector shows transformer/dense statistics and the king-bucket map. The API
+mode values are `selfplay`, `analysis`, `human`, and `datagen`.
 
-```
-active features → accumulator (2 × 1024 int16) → pairwise clipped ReLU (1024)
-                → L1 (16) → L2 (32) → eval
-```
-
-- **Cell colour** is a real activation. Cool is negative, warm is positive; the
-  pairwise and dense layers are clipped to `[0, 127]` so they use an intensity
-  ramp instead.
-- **Edges are attribution, not topology.** Every line is drawn from the
-  engine's own `weight × activation`, and its width and opacity scale with
-  `|weight × activation|`. A thick bright edge is a path that actually moved
-  the evaluation. The L1 layer has 1024 inputs per neuron, far too many to
-  draw, so only each neuron's strongest inputs are shown.
-- **Accumulator contrast** is scaled by mean magnitude rather than the maximum,
-  because a single outlier would otherwise wash the whole block out. The
-  mapping stays monotonic — only the contrast is chosen, never the meaning.
-- **While the engine is thinking**, the field shows the *leaf of the principal
-  variation*: the position the engine is actually weighing at that depth, not
-  the root.
-
-## Architecture
-
-Four layers. The first has no I/O and the last has no engine knowledge.
-
-```
-src/viz/probe.{h,cpp}     telemetry extraction (pure data, no I/O)
-src/viz/session.{h,cpp}   drives the engine in one of the modes, publishes snapshots
-src/viz/server.{h,cpp}    HTTP transport (cpp-httplib)
-ui/                       React + TypeScript + PixiJS
+```text
+active features -> two H=1024 accumulators -> pairwise clipped activation
+                -> concatenated H=1024 vector -> L1=16 -> L2=32 -> output
 ```
 
-**`chess_core` gains no dependencies.** cpp-httplib and nlohmann/json are
-attached only to the visualizer targets; CI checks that `ChessEngine` and
-`ChessEngine-nnue` link neither them nor `chess_viz`. The engine you run in a
-tournament is exactly as lean as it was before this existed.
+The displayed value includes the network's PSQT side output. Accumulator colors
+represent signed values; clipped layers use the 0..127 activation range. Edges
+show selected large `weight * activation` contributions, not every connection.
+During search the view can follow the PV leaf rather than the root. A captured
+forward pass is an exact evaluation of that sampled position, not a record of
+every visited search node or an explanation of why search selected a move.
 
-**The probe never runs in the search hot path.** `Viz::capture()` rebuilds its
-own accumulator and runs its own forward pass, out of band. The bench
-signatures (`5253789` classical, `2926142` NNUE) are unchanged and CI enforces
-that.
+## Native transport and controls
 
-### Wire format
-
-One framed binary message per state update:
-
-```
-[uint32 LE headerLen][headerLen bytes of UTF-8 JSON][raw little-endian buffers]
-```
-
-The JSON header carries the game state, search telemetry, the architecture
-constants (so the UI never hard-codes the network shape) and a table naming
-each raw buffer, its element type and length, in payload order. Sending the
-bulk arrays as binary keeps a frame around 9 KB instead of ~25 KB and hands the
-client typed arrays with no parsing.
-
-`GET /api/state?since=N` is a **long poll**: it blocks until something newer
-than `N` exists. The client requests the next frame only after rendering the
-last, so it applies natural backpressure and can never fall behind a queue.
-
-### Endpoints
-
-| Endpoint | Purpose |
+| Endpoint | Reply / behavior |
 |---|---|
-| `GET /` | the embedded single-file UI |
-| `GET /api/state?since=N` | long-poll; framed binary state |
-| `GET /api/net` | net inspector data (JSON) |
-| `POST /api/control` | `{"cmd":"pause"\|"step"\|"newgame"\|"mode"\|"nodes"\|"delay"\|"position"\|"move"\|"enginecolor", ...}` |
-| `GET /api/health` | liveness |
+| `GET /` | Embedded single-file UI, or a placeholder when built without it. |
+| `GET /api/health` | JSON liveness reply. |
+| `GET /api/state?since=N` | Framed state; waits for a newer sequence or the five-second wait timeout. |
+| `GET /api/net` | Network-inspector JSON. |
+| `POST /api/control` | JSON object with `cmd` and arguments; success is `{"ok":true}`. |
 
-### Security
+State framing is `[uint32 LE header length][UTF-8 JSON header][raw LE buffers]`.
+The header describes names, element types, lengths, game/search state, architecture,
+and auxiliary recording/datagen state. Clients request sequentially, giving
+backpressure. A timeout can return a snapshot without a newer sequence; clients
+must inspect `seq` rather than assuming every reply advances it.
 
-The visualizer is **unauthenticated and exposes engine control**, so it binds
-`127.0.0.1` and refuses to bind anything else. It serves only assets embedded
-in the binary — there is no filesystem path to traverse — and caps request size
-and timeouts. Treat it as a local developer tool.
+| `cmd` | Arguments / effect |
+|---|---|
+| `pause`, `step`, `newgame` | Boolean `value` for pause; advance or reset game. |
+| `nodes`, `threads`, `depth`, `delay`, `variety` | Integer `value`; adjust session search/pacing. |
+| `mode` | String `value`: selfplay, analysis, human, datagen. |
+| `position` | `fen` plus optional `moves` array. |
+| `move` | UCI move in string `value`. |
+| `enginecolor` | Integer color in `value` (White 0, Black 1). |
+| `randomopening` | Boolean `value`. |
+| `comparenet` | File path in string `value`. |
+| `record` | File path in `value`; empty stops recording. |
+| `datagen` | `action`: start, stop, probe. Start accepts output/targets/search/shard/seed settings and optional resume. |
 
-## Building
+Most controls are locked during datagen to preserve row-shaping settings; pause
+and datagen actions remain available. The C++ handler in `src/viz/wire.cpp` is
+the complete argument contract; UI controls can expose a smaller set. Invalid
+controls return an error JSON/HTTP status, not a UCI reply.
 
-The UI is built to a single self-contained `ui/dist/index.html` and **committed**,
-then embedded into the binary with the same `.incbin` / RCDATA mechanism used
-for the net. A C++ build therefore never needs Node.
+The server caps request payloads at 64 KiB and read/write timeouts at ten seconds.
+It is unauthenticated and local. Embedded web assets do not imply no filesystem
+access: network comparison reads files and recording/datagen writes files with
+the process's permissions. Do not expose the server publicly as a hosted service.
+
+## Build and edit the UI
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF
 cmake --build build --target ChessEngine-viz -j
 ```
 
-Only when changing the UI:
+A C++ build needs no Node: `ui/dist/index.html` is committed. To modify the UI,
+use Node 24, matching CI:
 
 ```bash
-cd ui && npm install && npm run build     # regenerates ui/dist/index.html
+cd ui
+npm ci
+npm run typecheck
+npm run dev
 ```
 
-CMake declares the bundle and the net as `OBJECT_DEPENDS` of the embed objects,
-so changing either really does rebuild the binary. (Without that, `npm run
-build` silently appears to do nothing.)
+Run the native viewer separately; Vite on port 5173 proxies `/api` to native port
+7777. The UI probes same-origin `/api/health`; it does not scan localhost ports.
+When finished, run `npm run build` and commit the regenerated HTML with its
+sources. CMake declares the net/bundle embedding dependencies so changes rebuild.
+`ENGINE_VIZ=OFF` removes all native visualization targets and tests.
 
-Disable the visualizer entirely with `-DENGINE_VIZ=OFF` (also skips the
-dependency fetch, useful offline). That tree has no `chess_viz`, no
-`ChessEngine-viz` and no `test_viz`, so the `viz.*` ctest cases are not
-registered rather than reported as not run.
-
-## Browser build (WebAssembly)
-
-The same engine and the same 46 MB net, compiled to WebAssembly and running in
-the tab — not a cut-down demo. The net is downloaded once and kept in the Cache
-API afterwards.
+## Browser engine
 
 ```bash
 source /path/to/emsdk/emsdk_env.sh
-bash tools/build_wasm.sh          # -> ui/dist-wasm/
+bash tools/build_wasm.sh
 python -m http.server -d ui/dist-wasm 8080
 ```
 
-`ui/public/coi-serviceworker.js` (MIT) installs a service worker that supplies
-the `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy` headers a
-static host like GitHub Pages cannot send. That unlocks `SharedArrayBuffer`,
-which is what Emscripten pthreads need, so the browser build gets **real
-multi-threaded search**. Where the shim cannot register, it falls back to a
-single thread and the UI reports the true thread count rather than hiding it.
+Open `http://localhost:8080`. The build copies the page, service-worker shim,
+module, wasm and default net into the deployable directory. Keep all generated
+runtime files together. The net is fetched and cached through Cache Storage;
+use versioned URLs or clear the cache when replacing a file at the same path.
 
-The UI picks its transport at runtime: if a local `ChessEngine-viz` answers
-`/api/health` it uses that, otherwise it loads the WebAssembly engine. Both
-implement the same `EngineSource` interface, and the WASM build reuses the same
-C++ encoder, so the frames are byte-identical either way.
+The pthread build requires SharedArrayBuffer and cross-origin isolation. The
+MIT service-worker shim supplies isolation headers on suitable static hosts;
+registration requires a secure context (localhost or HTTPS). When isolation is
+unavailable, startup explains the failure and offers reload; there is no
+single-thread fallback. Native transport does not require this isolation.
 
-> **Note on SIMD.** The WebAssembly build uses the portable scalar NNUE kernels
-> (compiled with `-msimd128`, so the compiler may still vectorise them). No
-> hand-written `wasm_simd128` kernels have been added: the project's rule is
-> that any SIMD path must first be proven bit-exact against the scalar
-> reference by `test_zobrist`, and that gate needs to run under node in CI
-> before such a path can be trusted.
+The same C++ telemetry encoder serves HTTP and WASM, but the WASM source list is
+maintained explicitly in `tools/build_wasm.sh`. Portable scalar NNUE is compiled
+with `-msimd128`; no separate handwritten WASM integer kernel is claimed. CI
+currently checks the generated files, not a complete browser/runtime parity run.
 
-## Tests
+## Verification
 
-```bash
-ctest --test-dir build -R viz            # telemetry + session driver
-bash tools/viz_smoke.sh build/bin/ChessEngine-viz build/bin/ChessEngine-nnue
-```
-
-`viz.telemetry_exact` proves the captured eval equals `NNUE::Network::evaluate`
-and that each layer's reported attribution sums back to that layer's output.
-`viz.session_selfplay` replays the reported move list and requires it to
-reproduce the reported FEN exactly. `viz_smoke.sh` covers the wire format, the
-control surface, the loopback/no-filesystem posture, and cross-checks the
-streamed eval against the engine's own `eval`.
+Run `ctest --test-dir build -R viz --output-on-failure` plus the native
+`tools/viz_smoke.sh` check. Build a C++ fixture and pass its absolute path as
+`VIZ_FIXTURE` to `npm test` for the decoder contract. See [testing](testing.md).
+Search fingerprints come from `tools/bench_signature.txt`; do not duplicate
+changing count values here. UI/license terms are in [component notices](third-party-notices.md).

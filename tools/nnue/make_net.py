@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import struct
 import subprocess
@@ -27,6 +28,7 @@ from torch import nn
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_stk_data as prep  # noqa: E402
 import halfka_features as hk  # noqa: E402
+from contracts import check_net, copy_file, load_shard, sha256, validate_dataset, write_json  # noqa: E402
 
 FEATURES = 22528
 # Set from --hidden in main(): 1024 = primary net, 128 = dual-net small net.
@@ -144,112 +146,38 @@ class STKNet(nn.Module):
         return positional + psqt_cp
 
 def stage_prep(args: argparse.Namespace, work: Path) -> Path:
-    data_dir = work / "data"
-    manifest = data_dir / "manifest.json"
-    if manifest.exists():
-        total = json.loads(manifest.read_text())["total_samples"]
-        print(f"[prep] complete ({total} samples), skipping")
-        return data_dir
     if not args.input:
-        raise SystemExit("[prep] no shards yet and --input not given")
-    data_dir.mkdir(parents=True, exist_ok=True)
+        raise ValueError("--input is required for preparation; use --data-dir to reuse checked shards")
+    return prep.prepare(args, work / "data")
 
-    progress_path = data_dir / "progress.json"
-    lines_done = shards_done = kept = 0
-    if progress_path.exists():
-        state = json.loads(progress_path.read_text())
-        lines_done, shards_done, kept = state["lines"], state["shards"], state["kept"]
-        print(f"[prep] resuming: {lines_done} lines / {kept} kept / {shards_done} shards")
 
-    w_rows: list[np.ndarray] = []
-    b_rows: list[np.ndarray] = []
-    stm_rows: list[int] = []
-    cp_rows: list[float] = []
-    shards: list[dict[str, Any]] = [
-        {"file": f"stk_shard_{i:05d}.npz", "samples": args.shard_size} for i in range(shards_done)
-    ]
+def training_config(args: argparse.Namespace, manifest_path: Path) -> dict[str, Any]:
+    return {"manifest_sha256": sha256(manifest_path), "hidden": HIDDEN,
+            "init_sha256": sha256(Path(args.init)) if args.init else None,
+            "teacher_sha256": sha256(Path(args.teacher)) if args.teacher else None,
+            **{key: getattr(args, key) for key in (
+                "epochs", "batch_size", "lr", "mix_shards", "teacher", "shard_slice", "seed")}}
 
-    def flush() -> None:
-        nonlocal shards_done
-        if not cp_rows:
-            return
-        name = f"stk_shard_{shards_done:05d}.npz"
-        np.savez_compressed(
-            data_dir / name,
-            white_indices=np.stack(w_rows).astype(np.int32),
-            black_indices=np.stack(b_rows).astype(np.int32),
-            stm=np.asarray(stm_rows, dtype=np.int8),
-            eval_cp=np.asarray(cp_rows, dtype=np.float32),
-        )
-        shards.append({"file": name, "samples": len(cp_rows)})
-        shards_done += 1
-        w_rows.clear()
-        b_rows.clear()
-        stm_rows.clear()
-        cp_rows.clear()
-        progress_path.write_text(json.dumps({"lines": line_no, "shards": shards_done, "kept": kept}))
-
-    # --input is either one file (.jsonl/.zst/.txt) or a directory of '<fen> |
-    # <cp>' .txt shards (e.g. datagen_bulk's output); shards are read in a
-    # stable sorted order so the resume line counter stays valid.
-    input_path = Path(args.input)
-    input_files = (sorted(input_path.glob("*.txt")) if input_path.is_dir()
-                   else [input_path])
-    if not input_files:
-        raise SystemExit(f"[prep] no .txt shards found in {input_path}")
-
-    def _input_lines():
-        for f in input_files:
-            yield from prep.iter_lines(f)
-
-    line_no = 0
-    t0 = time.time()
-    for line in _input_lines():
-        line_no += 1
-        if line_no <= lines_done:
-            continue
-        parsed = prep.parse_line(line, args.min_depth)
-        if parsed is None:
-            continue
-        fen, cp = parsed
-        if abs(cp) > args.max_abs_cp:
-            continue
-        try:
-            w, b, stm = prep.encode(fen)
-        except Exception:
-            continue
-        w_rows.append(w)
-        b_rows.append(b)
-        stm_rows.append(stm)
-        cp_rows.append(cp)
-        kept += 1
-        if kept % 500_000 == 0:
-            rate = kept / max(time.time() - t0, 1e-9)
-            print(f"[prep] kept {kept} ({rate:.0f}/s)")
-        if len(cp_rows) >= args.shard_size:
-            flush()
-        if args.max_samples and kept >= args.max_samples:
-            break
-    flush()
-    manifest.write_text(json.dumps({"total_samples": kept, "shards": shards}, indent=2) + "\n")
-    progress_path.unlink(missing_ok=True)
-    print(f"[prep] done: {kept} samples, {shards_done} shards")
-    return data_dir
-
-def load_shard(path: Path) -> dict[str, np.ndarray]:
-    d = np.load(path)
-    return {k: d[k] for k in ("white_indices", "black_indices", "stm", "eval_cp")}
 
 def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
     ckpt_path = work / "ckpt_latest.pt"
     done_path = work / "train_done.json"
     float_path = work / "model_float.pt"
+    manifest_path = Path(args.dataset_manifest) if args.dataset_manifest else data_dir / "manifest.json"
+    manifest = validate_dataset(manifest_path, args.allow_untagged_shards)
+    config = training_config(args, manifest_path)
     if done_path.exists():
-        print("[train] complete, skipping")
+        if json.loads(done_path.read_text()) != config or not float_path.exists():
+            raise ValueError("completed training settings changed or model missing; use a new workdir")
+        print("[train] checked complete run, skipping")
         return float_path
-
-    manifest = json.loads((data_dir / "manifest.json").read_text())
-    shard_files = [data_dir / s["file"] for s in manifest["shards"]]
+    shard_files = [manifest_path.parent / entry["file"] for entry in manifest["shards"]]
+    if args.shard_slice:
+        fields = args.shard_slice.split(":")
+        if len(fields) != 2:
+            raise ValueError("--shard-slice must be start:stop")
+        begin, end = (int(value) if value else None for value in fields)
+        shard_files = shard_files[slice(begin, end)]
     if not shard_files:
         raise SystemExit("[train] no shards")
 
@@ -286,12 +214,18 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=max(1, round(0.45 * args.epochs)), gamma=0.1)
 
     epoch0, shard0, batch = 1, 0, args.batch_size
-    if ckpt_path.exists():
-        ck = torch.load(ckpt_path, map_location=device, weights_only=False)
+    resume_path = ckpt_path if ckpt_path.exists() else Path(args.resume) if args.resume else None
+    if resume_path is not None:
+        ck = torch.load(resume_path, map_location=device, weights_only=False)
+        if ck.get("config") != config:
+            raise ValueError("resume architecture/dataset/settings changed; use --init for a fresh warm-start")
         model.load_state_dict(ck["model"])
         opt.load_state_dict(ck["opt"])
         sched.load_state_dict(ck["sched"])
         epoch0, shard0, batch = ck["epoch"], ck["next_shard"], ck["batch"]
+        torch.set_rng_state(ck["rng"].cpu())
+        if device.type == "cuda" and ck.get("cuda_rng") is not None:
+            torch.cuda.set_rng_state_all(ck["cuda_rng"])
         print(f"[train] resuming at epoch {epoch0}, shard {shard0}, batch {batch}")
 
     def save_ckpt(epoch: int, next_shard: int) -> None:
@@ -304,6 +238,9 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
                 "epoch": epoch,
                 "next_shard": next_shard,
                 "batch": batch,
+                "config": config,
+                "rng": torch.get_rng_state(),
+                "cuda_rng": torch.cuda.get_rng_state_all() if device.type == "cuda" else None,
             },
             tmp,
         )
@@ -311,7 +248,7 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
 
     print(f"[train] device={device} shards={len(shard_files)} epochs={args.epochs} batch={batch}")
     for epoch in range(epoch0, args.epochs + 1):
-        order = np.random.default_rng(1000 + epoch).permutation(len(shard_files))
+        order = np.random.default_rng(args.seed + epoch).permutation(len(shard_files))
         model.train()
         loss_sum, seen, t0 = 0.0, 0, time.time()
         si = shard0
@@ -324,7 +261,7 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
             d = {k: np.concatenate([x[k] for x in loaded]) for k in loaded[0]}
             del loaded
             n = d["stm"].shape[0]
-            perm = np.random.default_rng(epoch * 100_003 + si).permutation(n)
+            perm = np.random.default_rng(args.seed + epoch * 100_003 + si).permutation(n)
             pos = 0
             while pos < n:
                 sel = perm[pos : pos + batch]
@@ -345,12 +282,16 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
                     opt.zero_grad(set_to_none=True)
                     pred = model(w, b, stm, bucket)
                     loss = torch.mean((torch.sigmoid(pred / CP_SCALE) - torch.sigmoid(target / CP_SCALE)) ** 2)
+                    if not torch.isfinite(loss):
+                        raise ValueError("non-finite training loss")
                     loss.backward()
                     opt.step()
                     model.clip_weights()
                 except torch.cuda.OutOfMemoryError:
                     torch.cuda.empty_cache()
-                    batch = max(1024, batch // 2)
+                    if batch <= 1:
+                        raise
+                    batch = max(1, batch // 2)
                     print(f"[train] CUDA OOM -> batch {batch}")
                     continue
                 pos += len(sel)
@@ -367,12 +308,16 @@ def stage_train(args: argparse.Namespace, work: Path, data_dir: Path) -> Path:
             f"{rate:.0f} pos/s  lr {sched.get_last_lr()[0]:.2e}"
         )
 
-    torch.save({"state_dict": model.state_dict()}, float_path)
-    done_path.write_text(json.dumps({"epochs": args.epochs}) + "\n")
+    temporary = float_path.with_suffix(".tmp")
+    torch.save({"state_dict": model.state_dict(), "format": "STK-HalfKA", "hidden": HIDDEN}, temporary)
+    os.replace(temporary, float_path)
+    write_json(done_path, config)
     print(f"[train] done -> {float_path}")
     return float_path
 
 def quant(t: torch.Tensor, scale: float, lo: int, hi: int, dtype: str) -> np.ndarray:
+    if not torch.isfinite(t).all():
+        raise ValueError("cannot export non-finite weights")
     q = torch.round(t.detach().cpu().float() * scale).clamp(lo, hi)
     return q.numpy().astype(dtype)
 
@@ -393,22 +338,35 @@ def quantize_model(model: STKNet) -> dict[str, np.ndarray]:
     return q
 
 def load_float_model(float_path: Path) -> STKNet:
-    model = STKNet()
-    model.load_state_dict(torch.load(float_path, map_location="cpu", weights_only=False)["state_dict"])
+    checkpoint = torch.load(float_path, map_location="cpu", weights_only=False)
+    state = checkpoint.get("state_dict", checkpoint.get("model", checkpoint))
+    if "ft.weight" not in state or state["ft.weight"].shape[0] != FEATURES + 1:
+        raise ValueError("legacy HalfKP checkpoints cannot become STK-HalfKA weights; retrain from FEN")
+    hidden = state["ft.weight"].shape[1]
+    if hidden not in (128, 1024):
+        raise ValueError("unsupported STK-HalfKA checkpoint width")
+    model = STKNet(hidden=hidden)
+    model.load_state_dict(state)
     model.eval()
     return model
 
+
 def stage_export(work: Path, float_path: Path) -> Path:
-    out = work / f"stk_halfka_{HIDDEN}.nnue"
-    q = quantize_model(load_float_model(float_path))
-    with out.open("wb") as fh:
-        fh.write(struct.pack("<9sIIII", b"STKHALFKA", 1, FEATURES, HIDDEN, BUCKETS))
-        fh.write(q["ft_w"].tobytes())
-        fh.write(q["ft_b"].tobytes())
-        fh.write(q["ft_p"].tobytes())
-        for k in range(BUCKETS):
+    model = load_float_model(float_path)
+    out = work / f"stk_halfka_{model.hidden}.nnue"
+    q = quantize_model(model)
+    temporary = out.with_suffix(".nnue.tmp")
+    with temporary.open("wb") as stream:
+        stream.write(struct.pack("<9sIIII", b"STKHALFKA", 1, FEATURES, model.hidden, BUCKETS))
+        for name in ("ft_w", "ft_b", "ft_p"):
+            stream.write(q[name].tobytes())
+        for bucket in range(BUCKETS):
             for name in ("l1w", "l1b", "l2w", "l2b", "outw", "outb"):
-                fh.write(q[name][k].tobytes())
+                stream.write(q[name][bucket].tobytes())
+    check_net(temporary)
+    os.replace(temporary, out)
+    write_json(out.with_suffix(".nnue.meta.json"), {"format": "STK-HalfKA", "hidden": model.hidden,
+               "sha256": sha256(out), "checkpoint_sha256": sha256(float_path)})
 
     # Worst-case accumulator estimate: ~32 active features of the largest
     # magnitude plus the bias must stay far inside int16.
@@ -444,7 +402,7 @@ def python_eval_int(q: dict[str, np.ndarray], fen: str) -> int:
 
     def pairwise(a: np.ndarray) -> np.ndarray:
         c = np.clip(a, 0, 127)
-        return (c[:PAIR] * c[PAIR:]) >> 7
+        return (c[:len(c) // 2] * c[len(c) // 2:]) >> 7
 
     x = np.concatenate([pairwise(acc[us]), pairwise(acc[them])])
     l1 = np.clip((q["l1b"][bucket] + q["l1w"][bucket].astype(np.int32) @ x) >> 6, 0, 127)
@@ -456,18 +414,17 @@ def python_eval_int(q: dict[str, np.ndarray], fen: str) -> int:
 
 def find_engine(cli: str | None) -> Path | None:
     if cli:
-        return Path(cli)
+        return Path(cli).resolve() if Path(cli).is_file() else None
     for c in ("build-bench/bin/ChessEngine.exe", "build/bin/ChessEngine.exe", "build/bin/ChessEngine"):
         p = Path(c)
         if p.exists():
-            return p
+            return p.resolve()
     return None
 
 def stage_verify(args: argparse.Namespace, float_path: Path, net_path: Path) -> None:
     engine = find_engine(args.engine)
     if engine is None:
-        print("[verify] WARNING: engine binary not found, skipping parity check")
-        return
+        raise ValueError("engine binary required for parity; build it and pass --engine")
     model = load_float_model(float_path)
     q = quantize_model(model)
 
@@ -476,7 +433,7 @@ def stage_verify(args: argparse.Namespace, float_path: Path, net_path: Path) -> 
     # the mirrored position), so the two evals must be exactly equal -- this
     # catches any side-to-move sign bug in training or inference.
     mirrored = [mirror_fen(fen) for fen in BENCH_FENS]
-    option = "EvalFile" if HIDDEN == 1024 else "EvalFileSmall"
+    option = "EvalFile" if model.hidden == 1024 else "EvalFileSmall"
     lines = [f"setoption name {option} value {net_path}"]
     for fen, mfen in zip(BENCH_FENS, mirrored, strict=True):
         lines += [f"position fen {fen}", "eval", f"position fen {mfen}", "eval"]
@@ -485,7 +442,7 @@ def stage_verify(args: argparse.Namespace, float_path: Path, net_path: Path) -> 
         [str(engine)], input="\n".join(lines) + "\n", capture_output=True, text=True, timeout=120, check=False
     )
     scores = [int(tok.split("score:")[1].split("cp")[0]) for tok in res.stdout.splitlines() if "score:" in tok]
-    if f"{option} loaded" not in res.stdout or len(scores) != 2 * len(BENCH_FENS):
+    if res.returncode != 0 or f"{option} loaded" not in res.stdout or len(scores) != 2 * len(BENCH_FENS):
         raise SystemExit(f"[verify] FAIL: engine did not load/evaluate the net\n{res.stdout[-800:]}")
 
     # Engine must match the integer reference exactly (same math, same ints);
@@ -507,12 +464,22 @@ def stage_verify(args: argparse.Namespace, float_path: Path, net_path: Path) -> 
         raise SystemExit(f"[verify] FAIL: colour-mirror asymmetry ({mirror_worst} cp) -- stm sign bug")
     print(f"[verify] PASS: engine == quantized reference (max diff {worst} cp), mirror-symmetric")
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="STK-HalfKA NNUE pipeline (prep/train/export/verify, resumable).")
-    p.add_argument("--input", default=None,
+    p.add_argument("--input", "--data", "--dataset", default=None,
                    help=".jsonl(.zst) lichess evals, a '<fen> | <cp>' .txt file, "
                         "or a directory of such .txt shards (datagen_bulk output)")
     p.add_argument("--workdir", required=True)
+    p.add_argument("--stage", choices=("all", "prep", "train", "export", "verify"), default="all")
+    p.add_argument("--output", default=None, help="copy the verified network to this path")
+    p.add_argument("--float-output", "--out-checkpoint", default=None)
+    p.add_argument("--checkpoint", "--export-only", default=None)
+    p.add_argument("--net", default=None, help="existing network for --stage verify")
+    p.add_argument("--resume", default=None)
+    p.add_argument("--dataset-manifest", default=None)
+    p.add_argument("--allow-untagged-shards", action="store_true", help="only for known older STK-HalfKA shards")
+    p.add_argument("--shard-slice", default=None)
+    p.add_argument("--seed", type=int, default=42)
     p.add_argument("--epochs", type=int, default=20, help="20 x 200M ~= bullet's canonical 4B visits")
     p.add_argument("--hidden", type=int, default=1024, choices=(1024, 128), help="net width (128 = small net)")
     p.add_argument("--init", default=None,
@@ -524,14 +491,17 @@ def main() -> int:
     p.add_argument("--mix-shards", type=int, default=1, help="shards shuffled together per group (8 recommended)")
     p.add_argument("--batch-size", type=int, default=16384)
     p.add_argument("--lr", type=float, default=1e-3)
-    p.add_argument("--shard-size", type=int, default=1_000_000)
-    p.add_argument("--max-samples", type=int, default=0, help="cap kept positions (0 = all)")
-    p.add_argument("--min-depth", type=int, default=0)
-    p.add_argument("--max-abs-cp", type=float, default=6000.0)
+    prep.add_arguments(p)
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--engine", default=None, help="ChessEngine binary for the parity check")
     p.add_argument("--tolerance-cp", type=int, default=1)
-    args = p.parse_args()
+    args = p.parse_args(argv)
+    if min(args.epochs, args.batch_size, args.mix_shards) < 1 or not math.isfinite(args.lr) or args.lr <= 0:
+        p.error("epochs, batch-size, mix-shards and lr must be positive")
+    if args.tolerance_cp < 0:
+        p.error("tolerance-cp must be nonnegative")
+    if args.stage in ("all", "verify") and find_engine(args.engine) is None:
+        p.error("--engine is required for engine parity")
 
     global HIDDEN, PAIR
     HIDDEN = args.hidden
@@ -539,15 +509,35 @@ def main() -> int:
 
     work = Path(args.workdir)
     work.mkdir(parents=True, exist_ok=True)
-    torch.manual_seed(42)
+    torch.manual_seed(args.seed)
 
-    # Reuse an already-prepared shard directory (e.g. the big net's) instead
-    # of re-prepping -- the distillation student ignores the stored labels.
-    data_dir = Path(args.data_dir) if args.data_dir else stage_prep(args, work)
-    float_path = stage_train(args, work, data_dir)
-    net_path = stage_export(work, float_path)
-    stage_verify(args, float_path, net_path)
-    print(f"\nAll stages complete. Net: {net_path}")
+    float_path = Path(args.checkpoint) if args.checkpoint else work / "model_float.pt"
+    if args.stage in ("all", "prep", "train") and not args.checkpoint:
+        data_dir = Path(args.data_dir) if args.data_dir else stage_prep(args, work)
+        if args.stage == "prep":
+            return 0
+        float_path = stage_train(args, work, data_dir)
+        if args.float_output:
+            destination = Path(args.float_output)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if destination.resolve() != float_path.resolve():
+                copy_file(float_path, destination)
+        if args.stage == "train":
+            return 0
+    if args.stage == "verify":
+        model = load_float_model(float_path)
+        net_path = Path(args.net) if args.net else work / f"stk_halfka_{model.hidden}.nnue"
+        check_net(net_path)
+    else:
+        net_path = stage_export(work, float_path)
+    if args.stage in ("all", "verify"):
+        stage_verify(args, float_path, net_path)
+    if args.output and args.stage != "verify":
+        destination = Path(args.output)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.resolve() != net_path.resolve():
+            copy_file(net_path, destination)
+    print(f"\nStages complete. Net: {net_path}")
     return 0
 
 if __name__ == "__main__":

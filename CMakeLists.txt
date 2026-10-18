@@ -442,6 +442,12 @@ set_target_properties(test_zobrist PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
+add_executable(test_diagnostics tests/cpp/test_diagnostics.cpp tests/cpp/perfts.cpp)
+target_include_directories(test_diagnostics PRIVATE tests/cpp)
+target_link_libraries(test_diagnostics chess_core)
+set_target_properties(test_diagnostics PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 if(ENGINE_VARIANTS)
     add_executable(test_variants
             tests/cpp/test_variants.cpp
@@ -503,6 +509,11 @@ add_perft_test(position6_d4 "${FEN_POS6}" 4 3894594)
 
 add_test(NAME "consistency.nnue_simd_bitexact" COMMAND test_zobrist nnue)
 add_test(NAME "consistency.make_unmake_and_movegen" COMMAND test_zobrist games)
+add_test(NAME "diagnostics.perft_divide" COMMAND test_diagnostics divide)
+add_test(NAME "movegen.legal_captures" COMMAND test_diagnostics captures)
+add_test(NAME "state.fullmove_clock" COMMAND test_diagnostics clocks)
+add_test(NAME "datagen.writer_boundaries" COMMAND test_diagnostics shards
+         "${CMAKE_BINARY_DIR}/shard_writer_test")
 
 # Drop variants: reserves, promoted-piece tracking and drop legality, plus the
 # perft anchor that crazyhouse must equal standard chess until drops exist.

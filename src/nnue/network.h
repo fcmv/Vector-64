@@ -597,7 +597,6 @@ template <int H> struct alignas(64) AccumulatorT {
   static_assert(H % 64 == 0, "SIMD paths assume H is a multiple of 64");
   alignas(64) std::array<std::array<int16_t, H>, 2> acc{};
   alignas(64) std::array<std::array<int32_t, Arch::PSQT_BUCKETS>, 2> psqt{};
-  std::array<bool, 2> computed{};
 };
 
 // Per-thread cache of one accumulator half per (perspective, king square):
@@ -623,7 +622,6 @@ struct DirtyMove {
   Core::Square capSq = Core::SQ_NONE;
   Core::Square rookFrom = Core::SQ_NONE, rookTo = Core::SQ_NONE; // castling
   bool kingMoved = false; // mover's king moved (refresh barrier)
-  bool isNull = false;
 };
 
 // Per-eval activation snapshot for the glass-box probe (primary net only).
@@ -741,7 +739,6 @@ public:
   void refresh(const Core::Position &pos, AccumulatorT<H> &a) const {
     refresh_perspective(pos, Core::WHITE, a);
     refresh_perspective(pos, Core::BLACK, a);
-    a.computed = {true, true};
   }
 
   // Cached refresh: diff against the accumulator last built for this king
@@ -848,43 +845,12 @@ public:
     return dm;
   }
 
-  // Apply one DirtyMove's changes to a single perspective in place. Only
-  // valid when the perspective's king did not move across the step.
-  void apply_dirty(Core::Color persp, Core::Square ksq, const DirtyMove &dm,
-                   AccumulatorT<H> &a) const {
-    using namespace Core;
-    if (dm.isNull)
-      return;
-    const HalfKA::Orient o = HalfKA::make_orient(persp, ksq);
-    int added[4], removed[4];
-    int na = 0, nr = 0;
-    const auto push = [&](int *arr, int &n, Color c, PieceType t, Square s) {
-      const int f = HalfKA::feature_index(o, c, t, s);
-      if (f >= 0)
-        arr[n++] = f;
-    };
-    push(removed, nr, dm.mover, dm.removedType, dm.from);
-    push(added, na, dm.mover, dm.movedNow, dm.to);
-    if (dm.capType != NO_PIECE_TYPE)
-      push(removed, nr, ~dm.mover, dm.capType, dm.capSq);
-    if (dm.rookFrom != SQ_NONE) {
-      push(removed, nr, dm.mover, ROOK, dm.rookFrom);
-      push(added, na, dm.mover, ROOK, dm.rookTo);
-    }
-    apply_delta(persp, added, na, removed, nr, a);
-  }
-
   // Incremental changes require the perspective's king/orientation to stay
   // fixed. Refresh after a king move, using the cache when table is supplied.
   void apply_dirty_fused(Core::Color persp, Core::Square ksq,
                          const DirtyMove &dm, const AccumulatorT<H> &parent,
                          AccumulatorT<H> &child) const {
     using namespace Core;
-    if (dm.isNull) {
-      child.acc[persp] = parent.acc[persp];
-      child.psqt[persp] = parent.psqt[persp];
-      return;
-    }
     const HalfKA::Orient o = HalfKA::make_orient(persp, ksq);
     const int16_t *adds[2];
     const int16_t *subs[2];
@@ -953,7 +919,6 @@ public:
           push(subC[pc], nr[pc], -1, dm.mover, ROOK, dm.rookFrom);
           push(addC[pc], na[pc], +1, dm.mover, ROOK, dm.rookTo);
         }
-        child.computed[persp] = true;
       }
       detail::acc_fused2<H>(child.acc[WHITE].data(), parent.acc[WHITE].data(),
                             addC[WHITE], na[WHITE], subC[WHITE], nr[WHITE],
@@ -974,7 +939,6 @@ public:
         apply_dirty_fused(persp, lsb(after.pieces(KING, persp)), dm, parent,
                           child);
       }
-      child.computed[persp] = true;
     }
     STK_PROF_END(updKingCyc, updKing);
   }

@@ -64,7 +64,29 @@ def feature_index(orient: tuple[int, bool, int], piece_color: int, pt: int, sq: 
 def parse_fen_pieces(fen: str) -> tuple[list[tuple[int, int, int]], int]:
     """Return ([(sq, color, type)], side_to_move)."""
     parts = fen.strip().split()
+    if len(parts) != 6 or parts[1] not in ("w", "b"):
+        raise ValueError("expected six FEN fields and w/b side to move")
     board_field, stm_field = parts[0], parts[1]
+    ranks = board_field.split("/")
+    if len(ranks) != 8:
+        raise ValueError("expected eight FEN ranks")
+    if parts[2] != "-" and (any(c not in "KQkq" for c in parts[2]) or len(set(parts[2])) != len(parts[2])):
+        raise ValueError("invalid castling rights")
+    if parts[3] != "-" and (len(parts[3]) != 2 or parts[3][0] not in "abcdefgh" or parts[3][1] not in "36"):
+        raise ValueError("invalid en passant square")
+    if int(parts[4]) < 0 or int(parts[5]) < 1:
+        raise ValueError("invalid FEN clocks")
+    for row in ranks:
+        width = 0
+        for token in row:
+            if token in "12345678":
+                width += int(token)
+            elif token.lower() in _PIECE_TYPE:
+                width += 1
+            else:
+                raise ValueError("unsupported FEN piece")
+        if width != 8:
+            raise ValueError("FEN rank must contain eight squares")
     pieces: list[tuple[int, int, int]] = []
     rank, file = 7, 0
     for ch in board_field:
@@ -78,6 +100,8 @@ def parse_fen_pieces(fen: str) -> tuple[list[tuple[int, int, int]], int]:
             color = WHITE if ch.isupper() else BLACK
             pieces.append((rank * 8 + file, color, pt))
             file += 1
+    if len(pieces) > 32 or any(sum(c == side and t == KING for _, c, t in pieces) != 1 for side in (WHITE, BLACK)):
+        raise ValueError("expected both kings and at most 32 pieces")
     stm = WHITE if stm_field == "w" else BLACK
     return pieces, stm
 

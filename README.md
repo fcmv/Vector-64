@@ -1,149 +1,139 @@
 # STK-Vector-64
 
-Status: Ongoing
+A C++20 chess engine with UCI search, an integer STK-HalfKA neural evaluator,
+crazyhouse and bughouse board support, and Vector Scope for inspecting the
+network while the engine plays.
 
-Production-grade C++20 chess engine focused on fast legal move generation, UCI search, and a Vector-64 NNUE-ready architecture path.
+[Releases](https://github.com/soumik15630m/Vector-64/releases) ·
+[Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md) ·
+[Known limitations](LIMITATIONS.md)
 
-## Highlights
+The standard engine uses bitboards, legal move generation, iterative-deepening
+alpha-beta search, a transposition table, and optional Syzygy tablebases.
+The shipped network has 22,528 features per perspective and a 1024-wide
+accumulator. Its architecture and binary contract are documented in
+[STK-HalfKA](docs/vector64-spec.md). Drop variants use classical evaluation.
 
-- Bitboard-based board representation
-- Magic-bitboard sliding attacks
-- Bitwise legal-move validator with occupancy simulation
-- Zobrist hashing for position identity and repetition checks
-- EPD-driven perft verification harness
-- UCI loop with iterative deepening negamax alpha-beta search
+## Choose a binary
 
-## Architecture Targets
+Each release asset starts with its platform and CPU profile. The suffix selects
+the engine's capabilities; `.exe` is last on Windows.
 
-- Current implementation notes: `docs/architecture.md`
-- NNUE live visualizer (Vector Scope): `docs/visualizer.md`
-- Production target profile: `docs/vector64-spec.md`
-- Variant support (crazyhouse + bughouse): `docs/variants.md`
-  (`ChessEngine-all` = standard chess with NNUE + both drop variants in one binary)
-- Host/game-server integration surface: `docs/engine-integration-response.md`
+| Binary / suffix | Use |
+|---|---|
+| `ChessEngine` / no suffix | Standard chess with classical evaluation; can load a network with `EvalFile`. |
+| `ChessEngine-nnue` / `-nnue` | Standard chess with the default network embedded. Start here for ordinary chess. |
+| `ChessEngine-all` / `-all` | Embedded NNUE for standard chess; classical evaluation for crazyhouse and bughouse. |
+| `ChessEngine-variants` / `-variants` | Standard chess and drop variants, without an embedded network. |
+| `ChessEngine-validator` / `-validator` | Legal moves, position updates, and status queries; search commands are refused. |
+| `ChessEngine-viz` / `-viz` | Vector Scope: local browser UI, network telemetry, analysis, and self-play. |
 
-## Build
+Linux `x86-64-v3` needs the x86-64-v3 instruction set, including AVX2/BMI2;
+`x86-64-v2` targets an older baseline. Windows release binaries require AVX2.
+`arm64-dotprod` requires ARMv8.2 dot-product support; plain `arm64` is the
+baseline ARM build. See [installation and first use](docs/getting-started.md).
 
-### Windows (MSVC)
+## First UCI session
+
+A UCI chess GUI launches the engine and owns the board and clocks. Add the
+`-nnue` executable as a UCI engine in your GUI, or start it directly. It reads
+commands from standard input and writes replies to standard output.
+
+Enter `uci` and wait for `uciok`, then `isready` and wait for `readyok`.
+Then enter:
+
+```text
+ucinewgame
+position startpos moves e2e4 e7e5
+go depth 6
+```
+
+Wait for `bestmove` before sending `quit`. The exact move and scores are not
+part of this example's contract. [UCI reference](docs/uci.md) explains options,
+time controls, and process lifetime. A runnable standard-library Python client
+is in [examples/uci_client.py](examples/uci_client.py).
+
+## Build from source
+
+Commands throughout the documentation run from the repository root unless
+stated otherwise. CMake 3.15 or newer and a C++20 compiler are required.
+
+Linux with GCC or Clang:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+./build/bin/ChessEngine-nnue
+```
+
+Windows, from a Visual Studio developer shell with C++ build tools installed:
 
 ```powershell
 cmake -S . -B build
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+.\build\bin\Release\ChessEngine-nnue.exe
 ```
 
-### Linux (GCC/Clang)
+The default build includes the visualizer and fetches two hash-pinned headers
+on first configure. Use `-DENGINE_VIZ=OFF` for an engine-only/offline build.
+C++ builds embed the committed UI and do not require Node or Python.
+[Building](docs/building.md) covers MSYS2, macOS, portable builds, and options.
+
+## Check a position or inspect the network
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
+./build/bin/ChessEngine --perft
+./build/bin/ChessEngine-viz --headless
 ```
 
-## Run
+The visualizer serves its UI at `http://127.0.0.1:7777`. See
+[Vector Scope](docs/visualizer.md) for native and WebAssembly use.
+[Host integration](docs/engine-integration-response.md) covers worker lifecycle
+and application responsibilities; [validator queries](docs/validator.md) use JSON.
+The [variant guide](docs/variants.md) explains drops, reserves, and host responsibilities.
 
-From the `build` directory:
+## Train the existing NNUE architecture
 
-```bash
-./bin/ChessEngine
-```
+The PyTorch entry points share the STK-HalfKA model, feature encoder, exporter,
+and integer oracle. Both implemented accumulator widths, 1024 and 128, use the
+same contract. The fixed architecture baseline is the published v1.0.0 Windows
+`-nnue.exe`; its embedded model matches the local shipped network byte for byte.
+The [network contract](docs/vector64-spec.md) records that release identity.
 
-On Windows:
+Start with the [CPU training walkthrough](docs/nnue-training.md), which includes
+a tiny dataset, export, and engine parity. Large datasets and Bullet training
+have separate instructions. Older 81,920-feature HalfKP checkpoints cannot be
+loaded into this engine.
 
-```powershell
-.\bin\Release\ChessEngine.exe
-```
+## Development and scope
 
-The executable starts in UCI mode by default.
+[Architecture](docs/architecture.md) is the subsystem map;
+[engineering](docs/implementation/engineering.md) connects it to code and tests.
+[Testing](docs/testing.md) and [BENCHMARK.md](BENCHMARK.md) distinguish correctness,
+search fingerprints, performance, and playing strength.
 
-Run the perft EPD suite explicitly with:
+The validator currently has a mating-material adjudication defect, and failed
+network replacement is not transactional. Read [LIMITATIONS.md](LIMITATIONS.md)
+before depending on those interfaces. Bughouse support is for one board with
+host-supplied reserves; it is not a complete partner-coordination system.
 
-```bash
-./bin/ChessEngine --perft
-```
+This documentation describes the checkout. `--perft-divide` and the shared
+training CLI are development changes relative to v1.0.0. Use documentation from
+the corresponding tag when working with a released binary.
 
-On Windows:
+Questions and reproducible bugs go through [SUPPORT.md](SUPPORT.md).
+Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). Compatibility boundaries
+are in [STABILITY.md](STABILITY.md).
 
-```powershell
-.\bin\Release\ChessEngine.exe --perft
-```
+[ROADMAP.md](ROADMAP.md) records priorities, completion criteria and candidate
+features within the released NNUE architecture.
 
-You can also provide a custom EPD file path:
+## License
 
-```bash
-./bin/ChessEngine --perft <path-to-standard.epd>
-```
-
-Perft mode returns non-zero on mismatch/failure.
-
-Run NNUE incremental consistency diagnostics with:
-
-```bash
-./bin/ChessEngine --nnue-consistency [games] [max-plies] [seed]
-```
-
-## UCI NNUE Loading
-
-The UCI loop exposes:
-
-```text
-setoption name EvalFile value <path-to-network.nnue>
-```
-
-`EvalFile` expects the `VECTOR64_NNUE` binary layout described in `docs/vector64-spec.md`.
-
-## NNUE Export Tools
-
-Scripts are provided in `tools/nnue/`:
-
-- Validate a `.nnue` file layout:
-```powershell
-python .\tools\nnue\check_vector64.py .\test_data\vector64_dummy.nnue
-```
-
-- Export from a PyTorch checkpoint to `VECTOR64_NNUE`:
-```powershell
-python .\tools\nnue\export_vector64.py `
-  --checkpoint .\path\to\checkpoint.pt `
-  --output .\test_data\vector64_model.nnue
-```
-
-Default key mapping expected in the checkpoint:
-- `feature_transform.weight`, `feature_transform.bias`
-- `dense1.weight`, `dense1.bias`
-- `dense2.weight`, `dense2.bias`
-- `output.weight`, `output.bias`
-
-## NNUE Training (PyTorch)
-
-Training is done offline in PyTorch, then exported to `VECTOR64_NNUE`.
-
-- Full guide and dataset schema: `docs/nnue-training.md`
-- Lichess eval JSONL -> HalfKP NPZ converter: `tools/nnue/build_halfkp_npz.py`
-- Training script (baseline/recommended): `tools/nnue/train_vector64.py`
-- Pure RL self-play script (experimental): `tools/nnue/rl_train_vector64.py`
-
-Example workflow:
-
-```powershell
-# 1) Train float checkpoint from HalfKP dataset (.npz)
-python .\tools\nnue\train_vector64.py `
-  --dataset .\path\to\train_halfkp.npz `
-  --out-checkpoint .\artifacts\vector64_ckpt.pt `
-  --epochs 3 `
-  --batch-size 1024 `
-  --lr 1e-3 `
-  --result-blend 0.2
-
-# 2) Export to engine binary format
-python .\tools\nnue\export_vector64.py `
-  --checkpoint .\artifacts\vector64_ckpt.pt `
-  --output .\artifacts\vector64.nnue
-
-# 3) Validate binary layout
-python .\tools\nnue\check_vector64.py .\artifacts\vector64.nnue
-```
-
-Then load in UCI:
-
-```text
-setoption name EvalFile value <path-to-network.nnue>
-```
+The repository root carries [Apache-2.0](LICENSE). The UI declares
+GPL-3.0-or-later and includes Chessground; Fathom and other components retain
+their own terms. [Third-party notices](THIRD_PARTY_NOTICES.md) describes these
+boundaries. The embedded model's available provenance is recorded in its
+[model card](nets/model-card.md).

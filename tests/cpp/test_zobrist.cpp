@@ -63,6 +63,26 @@ bool check_movegen_equivalence(Position &pos, std::mt19937_64 &rng, int game,
   MoveList full;
   generate_legal_moves(pos, full);
 
+  MoveList legalCaptures;
+  generate_legal_captures(pos, legalCaptures);
+  int expectedCaptures = 0;
+  for (int i = 0; i < full.size(); ++i) {
+    if (full[i].is_capture()) {
+      ++expectedCaptures;
+      if (!list_contains(legalCaptures, full[i])) {
+        std::printf(
+            "FAIL game %d ply %d: capture generator missed a capture\n%s\n",
+            game, ply, pos.toFEN().c_str());
+        return false;
+      }
+    }
+  }
+  if (legalCaptures.size() != expectedCaptures) {
+    std::printf("FAIL game %d ply %d: wrong legal capture count\n%s\n", game,
+                ply, pos.toFEN().c_str());
+    return false;
+  }
+
   MoveList captures;
   MoveList quiets;
   generate_pseudo_captures(pos, captures);
@@ -163,6 +183,8 @@ int main(int argc, char **argv) {
       const int matBefore = pos.material_wb();
       const int psqtBefore = pos.psqt_wb();
       const std::string fenBefore = pos.toFEN();
+      const int fullmoveBefore = pos.fullmove_number();
+      const Color mover = pos.side_to_move();
 
       if (!check_movegen_equivalence(pos, rng, game, ply))
         return 1;
@@ -172,6 +194,12 @@ int main(int argc, char **argv) {
 
       UndoInfo undo{};
       pos.make_move(move, undo);
+      if (pos.fullmove_number() != fullmoveBefore + (mover == BLACK)) {
+        std::printf(
+            "FAIL game %d ply %d: fullmove clock advanced incorrectly\n", game,
+            ply);
+        return 1;
+      }
       if (pos.hash() != predicted) {
         std::printf("FAIL game %d ply %d: key_after != post-move hash\n%s\n",
                     game, ply, pos.toFEN().c_str());
@@ -182,7 +210,8 @@ int main(int argc, char **argv) {
 
       pos.unmake_move(move, undo);
       if (pos.hash() != hashBefore || pos.material_wb() != matBefore ||
-          pos.psqt_wb() != psqtBefore || pos.toFEN() != fenBefore) {
+          pos.psqt_wb() != psqtBefore || pos.toFEN() != fenBefore ||
+          pos.fullmove_number() != fullmoveBefore) {
         std::printf("FAIL game %d ply %d: unmake did not restore state\n%s\n",
                     game, ply, fenBefore.c_str());
         return 1;

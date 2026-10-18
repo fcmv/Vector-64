@@ -9,10 +9,13 @@
 param(
   [int]$Nodes = 25000,
   [int]$Games = 6000,
-  [int]$Conc  = 10
+  [int]$Conc  = 10,
+  [Parameter(Mandatory=$true)][string]$Arbiter
+
 )
 
 $ErrorActionPreference = "Stop"
+if (-not (Test-Path -LiteralPath $Arbiter)) { throw "validator not found: $Arbiter" }
 $root   = Split-Path -Parent $PSScriptRoot
 $net    = Join-Path $root "runs\v2\stk_halfka_1024.nnue"
 $bin    = Join-Path $root "sprt"
@@ -47,10 +50,10 @@ python (Join-Path $root "tools\nnue\match.py") `
   --engine (Join-Path $bin "conthist.exe") --base-engine (Join-Path $bin "allfeat.exe") `
   --net $net --base-net $net `
   --sprt 0 5 --games $Games --nodes $Nodes `
-  --concurrency $Conc --seed 606060 2>&1 | Tee-Object -FilePath $log
+  --arbiter $Arbiter --concurrency $Conc --seed 606060 2>&1 | Tee-Object -FilePath $log
 
 $sw.Stop()
 Write-Host "--------------------------------------------------------------------"
 Write-Host ("  finished in {0:n1} min. Full log: {1}" -f $sw.Elapsed.TotalMinutes, $log)
-Write-Host "  Paste the final: line back to me and I'll merge or revert."
+Write-Host "  Compare the final LLR against the historical result."
 Write-Host "===================================================================="

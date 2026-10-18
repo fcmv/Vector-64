@@ -1,0 +1,81 @@
+site_name: Vector-64
+site_description: Chess engine use, integration, architecture and verification
+repo_url: https://github.com/soumik15630m/Vector-64
+repo_name: soumik15630m/Vector-64
+edit_uri: edit/main/docs/
+site_dir: artifacts/docs-site
+strict: true
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/weather-sunny, name: Light mode}
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+
+plugins:
+  - search
+hooks:
+  - tools/docs/site_hooks.py
+markdown_extensions:
+  - tables
+  - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+validation:
+  nav:
+    omitted_files: warn
+  links:
+    anchors: warn
+
+nav:
+  - Start here:
+      - Documentation: index.md
+      - Getting started: getting-started.md
+      - Building: building.md
+      - Troubleshooting: troubleshooting.md
+      - Runnable examples: examples.md
+  - Engine interfaces:
+      - UCI: uci.md
+      - Validator: validator.md
+      - Variants: variants.md
+      - Vector Scope: visualizer.md
+      - Host integration: engine-integration-response.md
+  - Architecture and evaluation:
+      - Architecture: architecture.md
+      - Engineering guide: implementation/engineering.md
+      - Engine contract: spec/engine-contract.md
+      - STK-HalfKA contract: vector64-spec.md
+      - Training: nnue-training.md
+      - Bullet adapter: bullet.md
+      - Shipped model: model-card.md
+      - Syzygy vendoring: syzygy.md
+      - Glossary: glossary.md
+  - Verification:
+      - Testing: testing.md
+      - Benchmarks: benchmark.md
+      - Limitations: limitations.md
+      - Historical variant experiments: experiments/variant-search.md
+      - Decisions: adr/index.md
+      - Separate variant cores: adr/0001-separate-variant-cores.md
+      - STK-HalfKA baseline: adr/0002-stk-halfka-contract.md
+      - Telemetry boundary: adr/0003-telemetry-boundary.md
+  - Project:
+      - Contributing: contributing.md
+      - Compatibility: stability.md
+      - Release procedure: releasing.md
+      - Roadmap: roadmap.md
+      - Support: support.md
+      - Security: security.md
+      - Component notices: third-party-notices.md

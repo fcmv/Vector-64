@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Legacy HalfKP self-play trainer for tools/nnue/export_vector64.py checkpoints.
+"""Replay-based STK-HalfKA self-play trainer with validator-supplied chess rules.
 
 ChessEngine-validator supplies rules and one-ply child positions; FEN decoding
 is shared with halfka_features. Requires torch and numpy.
@@ -9,34 +9,27 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import halfka_features as hkf
 import numpy as np
 import torch
 import torch.nn.functional as F
+from build_stk_data import encode
+from make_net import BUCKETS, CP_SCALE, STKNet, load_float_model
 from match import Arbiter
-from train_vector64 import Vector64NNUE
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-KING_TYPE = 6
-
-PIECE_BUCKET = {
-    1: 0,
-    2: 1,
-    3: 2,
-    4: 3,
-    5: 4,
-}
-
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Pure RL self-play trainer for Vector-64 NNUE.")
+    p = argparse.ArgumentParser(description="Replay-based STK-HalfKA self-play trainer.")
     p.add_argument("--out-checkpoint", required=True, help="Final checkpoint path (.pt)")
-    p.add_argument("--resume", default=None, help="Optional checkpoint to resume from")
-    p.add_argument("--arbiter", default="build/bin/ChessEngine-validator",
+    p.add_argument("--resume", "--init", default=None, help="Warm-start STKNet weights with a fresh replay buffer")
+    p.add_argument("--hidden", type=int, choices=(128, 1024), default=1024)
+    validator = "build/bin/ChessEngine-validator" + (".exe" if os.name == "nt" else "")
+    p.add_argument("--arbiter", default=validator,
                    help="validator binary supplying the chess rules")
 
     p.add_argument("--games", type=int, default=2000, help="Number of self-play games")
@@ -63,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--min-lr", type=float, default=1e-5)
     p.add_argument("--amp", action="store_true", help="Enable AMP on CUDA")
 
-    p.add_argument("--max-features", type=int, default=64, help="Padded feature slots per position (>=30)")
+    p.add_argument("--max-features", type=int, default=32, help="Padded feature slots per position (>=31)")
     p.add_argument("--seed", type=int, default=1337)
     p.add_argument("--device", choices=("auto", "cuda", "cpu"), default="auto")
     p.add_argument("--log-every-games", type=int, default=25)
@@ -104,41 +97,9 @@ def terminal_white_score(terminal: str, side_to_move: str) -> float:
         return -1.0 if side_to_move == "w" else 1.0
     return 0.0
 
-def encode_halfkp(fen: str, max_features: int):
-    """Legacy HalfKP indices using shared FEN decoding.
+def encode_halfka(fen: str, max_features: int):
+    return encode(fen, max_features)
 
-    Squares use a1=0, WHITE=0 and PAWN=1..KING=6.
-    """
-    pieces, stm = hkf.parse_fen_pieces(fen)
-
-    white_king_sq = next(
-        (sq for sq, c, t in pieces if t == KING_TYPE and c == hkf.WHITE), None)
-    black_king_sq = next(
-        (sq for sq, c, t in pieces if t == KING_TYPE and c == hkf.BLACK), None)
-    if white_king_sq is None or black_king_sq is None:
-        raise ValueError("Invalid board without both kings.")
-
-    white_idx = np.full((max_features,), -1, dtype=np.int32)
-    black_idx = np.full((max_features,), -1, dtype=np.int32)
-
-    k = 0
-    for sq, color, pt in pieces:
-        if pt == KING_TYPE:
-            continue
-        bucket_base = PIECE_BUCKET.get(pt)
-        if bucket_base is None:
-            continue
-        bucket = bucket_base + (5 if color == hkf.BLACK else 0)
-        if k >= max_features:
-            raise ValueError(
-                f"max_features={max_features} is too small for this position; increase --max-features."
-            )
-
-        white_idx[k] = (((white_king_sq * 10 + bucket) * 64 + sq) * 2) + 0
-        black_idx[k] = (((black_king_sq * 10 + bucket) * 64 + sq) * 2) + 1
-        k += 1
-
-    return white_idx, black_idx, stm
 
 def model_infer_cp(
     model: torch.nn.Module,
@@ -153,7 +114,9 @@ def model_infer_cp(
         b = torch.from_numpy(black_idx).to(device, non_blocking=True).long()
         s = torch.from_numpy(stm).to(device, non_blocking=True).long()
         with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
-            pred = model(w, b, s)
+            pred = model(w, b, s, torch.clamp((w >= 0).sum(dim=1) // 4, 0, BUCKETS - 1))
+    if not torch.isfinite(pred).all():
+        raise ValueError("non-finite self-play evaluation")
     return pred.detach().cpu().numpy().astype(np.float32, copy=False)
 
 def choose_selfplay_move(
@@ -188,7 +151,7 @@ def choose_selfplay_move(
             white_score = terminal_white_score(kid["terminal"], kid["sideToMove"])
             move_scores[i] = white_score * result_scale if stm_is_white else -white_score * result_scale
         else:
-            w, b, s = encode_halfkp(kid["fen"], max_features)
+            w, b, s = encode_halfka(kid["fen"], max_features)
             pending_idx.append(i)
             pending_w.append(w)
             pending_b.append(b)
@@ -260,7 +223,7 @@ def generate_selfplay_game(
         if terminal != "none":
             break
 
-        w, b, s = encode_halfkp(fen, max_features)
+        w, b, s = encode_halfka(fen, max_features)
         states_w.append(w)
         states_b.append(b)
         states_stm.append(s)
@@ -288,7 +251,7 @@ def generate_selfplay_game(
     white_score = terminal_white_score(terminal, side_to_move)
 
     if (not terminated) and bootstrap_truncated and states_stm:
-        w, b, s = encode_halfkp(fen, max_features)
+        w, b, s = encode_halfka(fen, max_features)
         cp = float(
             model_infer_cp(
                 model,
@@ -419,8 +382,11 @@ def train_step(
     optimizer.zero_grad(set_to_none=True)
 
     with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
-        pred = model(batch["white_idx"], batch["black_idx"], batch["stm"])
-        loss = F.mse_loss(pred, batch["target_cp"])
+        bucket = torch.clamp((batch["white_idx"] >= 0).sum(dim=1) // 4, 0, BUCKETS - 1)
+        pred = model(batch["white_idx"], batch["black_idx"], batch["stm"], bucket)
+        loss = F.mse_loss(torch.sigmoid(pred / CP_SCALE), torch.sigmoid(batch["target_cp"] / CP_SCALE))
+    if not torch.isfinite(loss):
+        raise ValueError("non-finite replay loss")
 
     if scaler is not None:
         scaler.scale(loss).backward()
@@ -430,6 +396,9 @@ def train_step(
         loss.backward()
         optimizer.step()
 
+    if not isinstance(model, STKNet):
+        raise TypeError("replay training requires STKNet")
+    model.clip_weights()
     if scheduler is not None:
         scheduler.step()
 
@@ -450,6 +419,7 @@ def save_checkpoint(
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "state_dict": model.state_dict(),
+        "format": "STK-HalfKA",
         "optimizer_state_dict": optimizer.state_dict(),
         "meta": {
             "project": "Vector-64",
@@ -462,14 +432,20 @@ def save_checkpoint(
             "saved_at_unix": time.time(),
         },
     }
-    torch.save(payload, path)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    torch.save(payload, temporary)
+    os.replace(temporary, path)
 
 def main() -> int:
     args = parse_args()
     if not 0.0 <= args.gamma <= 1.0:
         raise ValueError("--gamma must be in [0, 1]")
-    if args.max_features < 30:
-        raise ValueError("--max-features must be >= 30 for full chess material.")
+    if args.max_features < 31:
+        raise ValueError("--max-features must be >= 31 for full chess material.")
+    if min(args.batch_size, args.inference_batch, args.replay_capacity, args.warmup_samples) <= 0:
+        raise ValueError("batch sizes, replay capacity and warmup must be positive")
+    if args.updates_per_game < 0 or not 0 < args.lr or not 0 < args.result_scale:
+        raise ValueError("invalid updates, learning rate or result scale")
     if args.epsilon_decay_games < 0:
         raise ValueError("--epsilon-decay-games must be >= 0")
     if not (0.0 <= args.epsilon_start <= 1.0 and 0.0 <= args.epsilon_end <= 1.0):
@@ -490,12 +466,13 @@ def main() -> int:
     amp_enabled = bool(args.amp and device.type == "cuda")
     scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled) if amp_enabled else None
 
-    model = Vector64NNUE().to(device)
+    model = STKNet(hidden=args.hidden).to(device)
     if args.resume:
-        ckpt = torch.load(args.resume, map_location=device)
-        state = ckpt.get("state_dict", ckpt)
-        model.load_state_dict(state, strict=True)
-        print(f"Resumed model from: {args.resume}")
+        initial = load_float_model(Path(args.resume))
+        if initial.hidden != args.hidden:
+            raise ValueError("warm-start width differs from --hidden")
+        model.load_state_dict(initial.state_dict())
+        print(f"Warm-started model from: {args.resume}")
     model.eval()
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -525,110 +502,112 @@ def main() -> int:
     # same process serves every game.
     arbiter = Arbiter(args.arbiter)
 
-    for game in range(1, args.games + 1):
-        epsilon = linear_decay(
-            args.epsilon_start,
-            args.epsilon_end,
-            step=game - 1,
-            horizon=args.epsilon_decay_games,
-        )
+    try:
+        for game in range(1, args.games + 1):
+            epsilon = linear_decay(
+                args.epsilon_start,
+                args.epsilon_end,
+                step=game - 1,
+                horizon=args.epsilon_decay_games,
+            )
 
-        generated = generate_selfplay_game(
-            model,
-            arbiter,
-            epsilon=epsilon,
-            max_game_plies=args.max_game_plies,
-            gamma=args.gamma,
-            result_scale=args.result_scale,
-            max_features=args.max_features,
-            device=device,
-            amp_enabled=amp_enabled,
-            inference_batch=args.inference_batch,
-            bootstrap_truncated=args.bootstrap_truncated,
-        )
-        replay.add_batch(
-            generated.white_idx,
-            generated.black_idx,
-            generated.stm,
-            generated.target_cp,
-        )
+            generated = generate_selfplay_game(
+                model,
+                arbiter,
+                epsilon=epsilon,
+                max_game_plies=args.max_game_plies,
+                gamma=args.gamma,
+                result_scale=args.result_scale,
+                max_features=args.max_features,
+                device=device,
+                amp_enabled=amp_enabled,
+                inference_batch=args.inference_batch,
+                bootstrap_truncated=args.bootstrap_truncated,
+            )
+            replay.add_batch(
+                generated.white_idx,
+                generated.black_idx,
+                generated.stm,
+                generated.target_cp,
+            )
 
-        running_results.append(generated.white_score)
-        running_plies.append(generated.plies)
+            running_results.append(generated.white_score)
+            running_plies.append(generated.plies)
 
-        if len(replay) >= args.warmup_samples and args.updates_per_game > 0:
-            for _ in range(args.updates_per_game):
-                loss, mae = train_step(
+            if len(replay) >= args.warmup_samples and args.updates_per_game > 0:
+                for _ in range(args.updates_per_game):
+                    loss, mae = train_step(
+                        model,
+                        optimizer,
+                        scheduler,
+                        replay,
+                        batch_size=args.batch_size,
+                        device=device,
+                        amp_enabled=amp_enabled,
+                        scaler=scaler,
+                    )
+                    running_losses.append(loss)
+                    running_maes.append(mae)
+                model.eval()
+
+            if args.log_every_games > 0 and game % args.log_every_games == 0:
+                elapsed = max(time.time() - started, 1e-6)
+                gps = game / elapsed
+                avg_loss = float(np.mean(running_losses[-200:])) if running_losses else float("nan")
+                avg_mae = float(np.mean(running_maes[-200:])) if running_maes else float("nan")
+                avg_res = float(np.mean(running_results[-200:])) if running_results else 0.0
+                avg_plies = float(np.mean(running_plies[-200:])) if running_plies else 0.0
+                lr = scheduler.get_last_lr()[0]
+                print(
+                    f"[game {game:5d}/{args.games}] eps={epsilon:.3f} replay={len(replay):7d} "
+                    f"loss={avg_loss:9.3f} mae_cp={avg_mae:8.2f} "
+                    f"result_w={avg_res:+.3f} plies={avg_plies:6.1f} lr={lr:.6g} gps={gps:.2f}"
+                )
+
+            if args.save_every_games > 0 and game % args.save_every_games == 0:
+                snap = out_path.with_name(f"{out_path.stem}.g{game}{out_path.suffix}")
+                avg_loss = float(np.mean(running_losses[-200:])) if running_losses else float("nan")
+                avg_mae = float(np.mean(running_maes[-200:])) if running_maes else float("nan")
+                save_checkpoint(
+                    snap,
                     model,
                     optimizer,
-                    scheduler,
-                    replay,
-                    batch_size=args.batch_size,
-                    device=device,
-                    amp_enabled=amp_enabled,
-                    scaler=scaler,
+                    args,
+                    game_idx=game,
+                    replay_size=len(replay),
+                    avg_loss=avg_loss,
+                    avg_mae=avg_mae,
                 )
-                running_losses.append(loss)
-                running_maes.append(mae)
-            model.eval()
+                print(f"Saved snapshot: {snap}")
 
-        if args.log_every_games > 0 and game % args.log_every_games == 0:
-            elapsed = max(time.time() - started, 1e-6)
-            gps = game / elapsed
-            avg_loss = float(np.mean(running_losses[-200:])) if running_losses else float("nan")
-            avg_mae = float(np.mean(running_maes[-200:])) if running_maes else float("nan")
-            avg_res = float(np.mean(running_results[-200:])) if running_results else 0.0
-            avg_plies = float(np.mean(running_plies[-200:])) if running_plies else 0.0
-            lr = scheduler.get_last_lr()[0]
-            print(
-                f"[game {game:5d}/{args.games}] eps={epsilon:.3f} replay={len(replay):7d} "
-                f"loss={avg_loss:9.3f} mae_cp={avg_mae:8.2f} "
-                f"result_w={avg_res:+.3f} plies={avg_plies:6.1f} lr={lr:.6g} gps={gps:.2f}"
-            )
+        final_loss = float(np.mean(running_losses[-500:])) if running_losses else float("nan")
+        final_mae = float(np.mean(running_maes[-500:])) if running_maes else float("nan")
+        save_checkpoint(
+            out_path,
+            model,
+            optimizer,
+            args,
+            game_idx=args.games,
+            replay_size=len(replay),
+            avg_loss=final_loss,
+            avg_mae=final_mae,
+        )
+        print(f"Saved final checkpoint: {out_path}")
 
-        if args.save_every_games > 0 and game % args.save_every_games == 0:
-            snap = out_path.with_name(f"{out_path.stem}.g{game}{out_path.suffix}")
-            avg_loss = float(np.mean(running_losses[-200:])) if running_losses else float("nan")
-            avg_mae = float(np.mean(running_maes[-200:])) if running_maes else float("nan")
-            save_checkpoint(
-                snap,
-                model,
-                optimizer,
-                args,
-                game_idx=game,
-                replay_size=len(replay),
-                avg_loss=avg_loss,
-                avg_mae=avg_mae,
-            )
-            print(f"Saved snapshot: {snap}")
-
-    final_loss = float(np.mean(running_losses[-500:])) if running_losses else float("nan")
-    final_mae = float(np.mean(running_maes[-500:])) if running_maes else float("nan")
-    save_checkpoint(
-        out_path,
-        model,
-        optimizer,
-        args,
-        game_idx=args.games,
-        replay_size=len(replay),
-        avg_loss=final_loss,
-        avg_mae=final_mae,
-    )
-    print(f"Saved final checkpoint: {out_path}")
-
-    meta = {
-        "checkpoint": str(out_path),
-        "games": args.games,
-        "replay_size": len(replay),
-        "final_avg_loss": final_loss,
-        "final_avg_mae_cp": final_mae,
-        "device": str(device),
-        "amp": amp_enabled,
-    }
-    meta_path = out_path.with_suffix(out_path.suffix + ".meta.json")
-    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-    print(f"Wrote meta: {meta_path}")
-    arbiter.quit()
+        meta = {
+            "checkpoint": str(out_path),
+            "games": args.games,
+            "replay_size": len(replay),
+            "final_avg_loss": final_loss,
+            "final_avg_mae_cp": final_mae,
+            "device": str(device),
+            "amp": amp_enabled,
+        }
+        meta_path = out_path.with_suffix(out_path.suffix + ".meta.json")
+        meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote meta: {meta_path}")
+    finally:
+        arbiter.quit()
     return 0
 
 if __name__ == "__main__":

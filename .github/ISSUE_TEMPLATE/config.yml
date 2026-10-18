@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Support and reporting guidance
+    url: https://github.com/soumik15630m/Vector-64/blob/main/SUPPORT.md
+    about: Information to include in an engine report; security reports need a private channel.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Emscripten pthreads require SharedArrayBuffer and COOP/COEP. The service
-# worker shim supplies isolation on static hosts; unsupported hosts use one thread.
+# worker shim supplies isolation on static hosts; the UI reports unsupported hosts.
 #
 # Usage: source /path/to/emsdk/emsdk_env.sh
 #        bash tools/build_wasm.sh [output-dir]

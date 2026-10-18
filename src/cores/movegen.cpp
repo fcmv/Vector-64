@@ -542,6 +542,12 @@ void generate_legal_moves(Position &pos, MoveList &moves) {
 void generate_legal_captures(Position &pos, MoveList &moves) {
   generate_pseudos<GEN_CAPTURES>(pos, moves);
   filter_legal(pos, moves);
+  int count = 0;
+  for (int i = 0; i < moves.size(); ++i) {
+    if (moves[i].is_capture())
+      moves.moves[count++] = moves[i];
+  }
+  moves.count = count;
 }
 
 #if defined(ENGINE_VARIANTS)

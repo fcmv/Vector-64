@@ -1,654 +1,133 @@
-# STK-Vector-64 Variant Support
+# Variants
 
-Status: Crazyhouse and bughouse board mechanics and the host integration
-surface implemented. The evaluation now counts reserves and the shipping
-binary no longer runs a net it has disabled -- the two together are worth more
-than everything else on the tuning list combined (section 13). Further search
-and evaluation tuning outstanding (section 13.2).
+Runtime variants are `chess`, `crazyhouse`, and `bughouse`. Select them with
+`setoption name UCI_Variant value ...` in a variant-capable binary. Chess960,
+atomic, horde, four-player chess, and other geometries are not implemented
+runtime choices.
 
-Selected at runtime with `setoption name UCI_Variant value crazyhouse|bughouse`.
+## Binary and evaluation boundaries
 
-Two binaries carry it: **`ChessEngine-all`** (standard chess with the embedded
-NNUE net *plus* both drop variants -- the one to ship) and
-`ChessEngine-variants` (the same without a net, used for SPRT so both sides of
-a test run the classical evaluation). In `ChessEngine-all` a drop variant
-automatically falls back to the classical evaluation and returns to NNUE when
-`UCI_Variant` goes back to `chess`; its standard bench signature is identical
-to `ChessEngine-nnue`.
+`ChessEngine-all` embeds the standard-chess NNUE and supports all three choices.
+`ChessEngine-variants` supports the same rules without an embedded net.
+`ChessEngine-validator` exposes rule queries and refuses search. The ordinary
+`ChessEngine` and `ChessEngine-nnue` targets do not contain variant state.
 
-Related: `docs/architecture.md` (current implementation), `docs/vector64-spec.md`
-(production profile).
+Drop variants automatically use classical evaluation, even with a standard
+network loaded. The current STK-HalfKA network has no reserve features or drop
+accumulator path. Its feature set and topology remain the current architecture;
+a different variant network is not part of this documentation update. Returning
+to `chess` restores the loaded standard network.
 
-## 1. Purpose
+Keep `SyzygyPath` empty for drop-variant search. The tablebase data describes
+standard chess, but the current search lacks a runtime-variant probing guard.
+Changing `UCI_Variant` does not unload tables. See
+[tablebase limitations](limitations.md#tablebase-search).
 
-This document specifies how variant play is added to STK-Vector-64. It defines
-the staging order, the move-encoding and position-state changes drops require,
-which search techniques stay valid and which must be retuned or disabled, the
-NNUE feature-set extension, and the module boundary that keeps multi-variant
-work off the standard engine's hot path.
+## Drops and reserves
 
-## 2. Prime Directive
+A drop places a reserve piece on an empty square. Pawns cannot be dropped on
+ranks 1 or 8; kings cannot be held or dropped. Existing pawns on a file do not
+prevent another pawn drop. A checking drop and drop-mate are allowed by this
+rules implementation. UCI notation uses an uppercase piece letter regardless
+of mover: `P@e4`, `N@f7`.
 
-The standard engine is the product. Every variant change is subject to:
+A drop cannot remove a blocker shielding its own king. When in single slider
+check, it may block between king and checker. Knight/pawn checks and double
+checks cannot be answered by a drop. The generator and legal filter enforce
+these conditions.
 
-- **Bench signature is unchanged.** `ChessEngine` bench 5935930 and
-  `ChessEngine-nnue` bench 2704705 must hold before and after any variant
-  commit. A changed bench is a bug, not a rebaseline.
-- **No NPS regression.** Variant state may not be tested in the standard
-  make/unmake, movegen, or accumulator-update paths.
-- **`cores/` stays 64-square and two-colour.** Geometries that break either
-  assumption live in a separate module (section 9, Tier B).
+| Behavior | Crazyhouse | Bughouse board |
+|---|---|---|
+| A local capture | Adds the reverted captured type to the capturer's reserve. | Adds nothing to either local reserve; the host transfers it to the partner board. |
+| A drop | Spends from the mover's reserve. | Spends from the host-supplied mover's reserve. |
+| Partner board / sitting | Not applicable. | Not implemented by this engine. |
+| Default repetition/fifty-move checks | Enabled. | Disabled. |
+| Neural evaluation | Suppressed. | Suppressed. |
 
-These are enforced by construction rather than by measurement: every line of
-variant code sits behind `#if defined(ENGINE_VARIANTS)` and compiles into a
-*separate* core library (section 9). The standard binary therefore contains no
-reserve state, no branches in `move_piece`/`remove_piece`, and a 256-entry
-`MoveList` exactly as before.
+A promoted piece captured in either drop variant becomes a pawn for transfer.
+The `capturedDropType` reply already performs this reversion.
 
-## 3. Staging
+## FEN and persistence
 
-Bughouse is not one project. It decomposes into a search problem and a
-partner-coordination problem, and the search problem is *crazyhouse*.
+The board field carries reserves in brackets and promoted pieces with `~`:
 
-| Stage | Deliverable | Nature of the work | State |
-|---|---|---|---|
-| 1 | Drop mechanics | Reserves, drops, promoted tracking, hashing, FEN, UCI | **Done** |
-| 2 | Search + eval tuning | Retuned pruning, drop-aware SEE, drop-checks in qsearch | Outstanding |
-| 3 | Bughouse partner layer | Protocol, incoming-material model, sitting | Outstanding |
-| 4 | Variant NNUE | Hand-feature block, self-play net | Outstanding |
-| 5 | Tier B variants | Separate module, new geometry, new search paradigm | Not planned |
-
-Crazyhouse and bughouse share every board mechanic, so stage 1 delivered both
-at once: they differ only in where the reserve comes from and in the draw
-rules. Crazyhouse is a complete, shippable variant on its own -- Lichess
-supports it, it speaks UCI with `UCI_Variant`, and a bot can play it today.
-
-Stage 2 adds almost no search code. A bughouse board *is* a crazyhouse board;
-what differs is that the hand is supplied stochastically by the partner board,
-and that time and sitting become first-class strategic resources. Those are
-policy layers above the search, and they are where bughouse stops being a pure
-engine problem.
-
-## 4. Move Encoding
-
-`Core::Move` (`src/cores/move.h`) packs `from | to << 6 | flag << 12` into a
-single `uint16_t`. The field layout is full, but the flag space is not: `QUIET`
-through `CAPTURE` use `0b0000`-`0b0100` and promotions use `0b1000`-`0b1111`,
-leaving **`0b0101`, `0b0110`, `0b0111` unused**.
-
-A drop needs a destination square and a dropped piece type (pawn, knight,
-bishop, rook, queen -- five values, three bits). It has no origin square. So:
-
-```
-DROP = 0b0101
-  bits 0-5   : dropped PieceType (reusing the from_sq field)
-  bits 6-11  : destination square
-  bits 12-15 : DROP
-```
-
-This keeps `Move` at 16 bits, so the transposition table, PV array, killer
-tables, and every `Move`-sized buffer in the engine are untouched. `Move::none()`
-is `data == 0` and a drop always has a nonzero flag nibble, so the
-none-move sentinel stays sound.
-
-Required audit -- every site that interprets `from_sq()` as a square:
-
-- `MoveOrdering` and continuation history, keyed on `(piece, to)`. Drops supply
-  the piece type directly, so the key is well-defined; the *lookup* is fine, the
-  code path that derives the piece from `piece_on(from_sq())` is not.
-- `is_pseudo_legal()` (`src/cores/movegen.h:72`) -- see section 6.
-- NNUE incremental update, which reads the moving piece off the origin square.
-- `move_to_uci()` (`src/uci/uci_util.h`), which unconditionally formats four
-  squares.
-
-UCI notation follows the crazyhouse convention: `P@e4`, `N@f7`. Uppercase piece
-letter, `@`, destination. The parser and formatter both need the case.
-
-## 5. Position State
-
-### 5.1 Hands
-
-```cpp
-uint8_t hand[COLOR_NB][PIECE_TYPE_NB];   // PAWN..QUEEN used; KING never
-```
-
-### 5.2 Promoted-piece tracking
-
-A promoted piece that is captured returns to the capturer's hand **as a pawn**,
-not as the piece it had become. This is the rule most easily missed and it is
-worth material every game. It requires one bitboard:
-
-```cpp
-Bitboard promoted;   // squares holding a piece that was promoted
-```
-
-Set on promotion, cleared on capture and on move-out, carried across
-`move_piece`. `UndoInfo` gains a `capturedWasPromoted` flag; the hand deltas
-themselves are derivable from the move plus `capturedPiece`, so hands do not
-need to be stored wholesale in the undo record.
-
-### 5.3 Zobrist
-
-Hands are part of position identity -- the same board with different hands is a
-different position, and a TT that ignores this will return catastrophically
-wrong scores. `src/cores/zobrist.h` gains:
-
-```cpp
-extern Key hand[COLOR_NB][PIECE_TYPE_NB][MAX_IN_HAND + 1];
-extern Key promotedSq[64];
-```
-
-Hashing hands by *count* (rather than XOR-ing one key per piece) keeps the
-update to a single XOR-out/XOR-in pair per drop or capture.
-
-`key_after()` (`src/cores/position.h:60`), which the search uses to prefetch the
-child TT bucket, must be extended in lockstep -- its contract is that it equals
-`hash()` after `make_move`, and the invariant check should assert that for drops
-too.
-
-### 5.4 FEN
-
-Crazyhouse FEN appends the hand to the board field in brackets:
-
-```
+```text
 rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR[] w KQkq - 0 1
 ```
 
-with e.g. `[QPpp]` for a white queen and pawn plus two black pawns. Promoted
-pieces are conventionally marked with a trailing `~` on the board field.
-`setFromFEN`/`toFEN` handle both; the standard parser must reject the bracket
-form so a crazyhouse FEN cannot be silently mis-loaded into a standard search.
+Uppercase reserve letters belong to White, lowercase to Black: `[QPpp]` means
+White has a queen/pawn and Black has two pawns. Empty reserve is `[]`.
+A promoted queen is written `Q~` in the board field. Persist this marker:
+without it, a later capture cannot know that the piece must revert to a pawn.
+The standard parser rejects bracketed variant FEN rather than discarding hands.
 
-### 5.5 Draw rules
+A host should persist the FEN emitted after `apply`, plus the move history
+needed by its repetition policy. Replacing a board with a new FEN does not
+preserve earlier occurrences automatically. Reserves and promoted markers
+participate in the variant hash.
 
-`is_repetition()` (`src/cores/position.cpp:549`) keys on the Zobrist hash, so
-once hands are hashed it is *correct for crazyhouse* with no further change.
+## Worked crazyhouse capture
 
-For bughouse it must be **disabled entirely** -- a repeated position on your
-board is not a repeated game state, because the other board has moved on. Same
-for the fifty-move rule. This is a variant trait, not a code change.
+```text
+setoption name UCI_Variant value crazyhouse
+position startpos moves e2e4 d7d5 e4d5
+apply d8d5
+```
 
-## 6. Move Generation
+```json
+{"ok":true,"legal":true,"fen":"rnb1kbnr/ppp1pppp/8/3q4/8/8/PPPP1PPP/RNBQKBNR[Pp] w KQkq - 0 3","sideToMove":"w","inCheck":false,"terminal":"none","capturedDropType":"p"}
+```
 
-### 6.1 Drop generation
+White's pawn captured on d5 supplied White's reserve. Black's queen then
+captured that pawn and supplied Black's reserve. In bughouse neither capture
+would add to the current board's reserve; the server would route each transfer.
 
-For each piece type with a nonzero hand count, for each empty square; pawns
-excluded from ranks 1 and 8. There are no further restrictions -- unlike shogi,
-crazyhouse and bughouse permit drop-mate and dropping a pawn on a file that
-already has one.
+## Draw profile and game lifecycle
 
-### 6.2 Drop legality is cheap
+`DrawRules=variant` uses the defaults above. `DrawRules=standard` forces the
+implemented repetition/fifty-move checks on, including for bughouse boards.
+Stalemate and the current material predicate are still reported in either
+bughouse setting. These per-board statuses are not a complete cross-board
+bughouse game result.
 
-A drop can never expose your own king, since it only ever *adds* a blocker.
-Therefore:
+The [validator limitations](validator.md#terminal-status-and-adjudication-limits)
+apply to all rule profiles. Legality queries are separate from the host's game
+termination, flag adjudication, and claim policy.
 
-- Not in check -> every drop is legal, no test needed.
-- Single check by a slider -> legal drop targets are exactly the squares between
-  king and checker (`Attacks::between_bb`).
-- Single check by a knight or pawn, or any double check -> **no drop is legal.**
+## Search and measured defaults
 
-This collapses to a single precomputed mask ANDed against the empty squares,
-and it fits `NodeLegality` (`src/cores/movegen.h:14`) naturally.
+The classical variant evaluation accounts for board material/PSQT, reserve
+material, adjusted variant piece values, and reserve-related king danger.
+Drop history has its own ordering table. Null-move pruning remains enabled by
+default. Checking drops can be generated in quiescence under a compile-time
+experiment switch, but its default depth is zero after the reported self-play
+experiments. Do not describe that disabled path as a missing generator.
 
-Implementing it surfaced a **pre-existing bug in `compute_between`**
-(`src/cores/attacks.cpp`). It normalized the file/rank deltas to -1/0/1 and
-*then* tested `abs(df) != abs(dr)` to reject non-aligned square pairs -- a test
-that can never fire once both values are unit steps. `Between[s1][s2]` for
-non-aligned squares therefore held a diagonal ray walking off the edge of the
-board instead of the empty set. `compute_line` had the identical defect.
-
-Nothing in standard chess noticed, because every existing caller passes
-aligned squares by construction (`ensure_pins` derives its snipers from slider
-attacks radiating out of the king square). Drop legality is the first caller
-that can pass a non-aligned pair -- king versus a knight or pawn checker -- and
-it read `between_bb` as "no square blocks this check". The garbage ray made
-knight checks appear blockable, so a drop could answer a knight check, leaving
-the king en prise and the opponent free to capture it a ply later.
-
-Both functions now test alignment on the raw deltas before normalizing. The
-tables are only consulted for aligned pairs by existing code, so the standard
-engine's behaviour and bench signature are unaffected -- verified.
-
-### 6.3 MoveList overflow -- a real risk
-
-`MoveList::MAX_MOVES` is 256 (`src/cores/move.h:89`). A crazyhouse position with
-a full hand generates board moves *plus* up to five piece types x ~40 empty
-squares. Documented crazyhouse positions exceed 256 legal moves. **Raise to 512
-for variant builds** (via the variant traits, so the standard build keeps its
-smaller, cache-friendlier list) and convert the `assert` in `push_back` into a
-hard check under variant builds.
-
-### 6.4 Pseudo-legality
-
-`is_pseudo_legal()` exists so a hash collision or torn TT entry can never
-corrupt `make_move`. Drops raise the stakes: an unvalidated drop decrements a
-hand counter that may be zero, corrupting position state permanently rather than
-just producing a bad move. Drop validation must check hand count > 0, target
-square empty, and pawn-rank legality.
-
-## 7. Search
-
-Each crazyhouse board -- and each bughouse board -- is a two-player zero-sum
-game. **Negamax and alpha-beta remain valid in full.** This is the entire reason
-bughouse is the cheap variant. What needs attention is the pruning heuristics,
-all of which encode assumptions about *chess* that crazyhouse violates.
-
-| Technique | Location | Verdict |
+| CMake variable | Default | Purpose |
 |---|---|---|
-| Alpha-beta, TT, iterative deepening | throughout | Valid unchanged |
-| Mate scores | `search.cpp:467` | Valid unchanged |
-| Null-move pruning | `search.cpp:653` | Measured: keep it ON |
-| Reverse futility | `search.cpp:637` | Retune margins |
-| LMR | `search.cpp:770` | Retune; do not reduce drop-checks |
-| SEE / MVV-LVA | `move_ordering.cpp` | **Semantically broken** |
-| Quiescence | `search.cpp:857` | **Must include drop-checks** |
-
-Three of these deserve elaboration.
-
-**SEE is wrong, not just mistuned.** A capture hands the captured piece to the
-opponent's reserve. Winning a rook for a knight can lose on the spot if the
-knight in their hand mates you. Static exchange evaluation must charge the
-capturer for the material it donates. Until that is modelled, capture ordering
-should fall back to a crazyhouse-specific table rather than reusing MVV-LVA
-unchanged.
-
-**Quiescence was predicted to determine playing strength here, and it does
-not.** The reasoning was that crazyhouse tactics are drop sequences, not
-capture sequences, so a captures-only qsearch would hang forced mates. The
-generator was built (`generate_drop_checks`, verified exact against brute
-force) and measured twice, and it loses Elo both times -- see section 13.1.
-
-**Null move was predicted to be the standard crazyhouse footgun, and it is
-not.** The reasoning was that attacks develop so fast, and tempo is so
-valuable, that "if I pass and I'm still winning, I'm winning" fails routinely,
-so the advice was to ship with it off. Measured on top of reserve material,
-turning it off costs **-16.1 Elo +/- 10.9 over 3850 games** (H0 accepted,
-LLR -3.00). It stays on. The zugzwang guard still does not see reserves, so
-the narrower experiment -- null move only when the opponent's hand is empty --
-remains untested and may yet be worth something.
-
-Every one of these is an SPRT question, not an opinion, and the two that have
-been measured both came back against the prediction. The existing self-play and
-SPRT tooling applies unchanged, since the game is still scalar and zero-sum;
-`tools/sprt_variant.ps1` flips one compile-time knob per run.
-
-## 8. Evaluation
-
-### 8.1 Interim classical
-
-The drop variants evaluate as `material + psqt + variant_eval`, where
-`variant_eval` (`src/search/search.cpp`) holds everything the board-only
-classical score cannot express. All of it is white-minus-black and compiles to
-nothing outside a variant build.
-
-**Reserve material is the term that had to exist.** `materialWb` is maintained
-by `put_piece`/`remove_piece`, so before this a piece in hand was worth
-literally nothing while the same piece on the board was worth `PieceValue`.
-Every drop therefore appeared to win a full piece out of nowhere -- eval went
-+9 to +912 on a single `Q@e4`, and from a stocked reserve the engine's PV was
-`Q@b3 R@g3 N@d3`, the whole hand dumped in the first three moves and preferred
-to any developing move. `Position` now keeps `handMaterialWb` incrementally
-beside `materialWb`, valued by a `HandValue` table (`src/cores/types.h`).
-
-The default `HandValue` *is* `PieceValue`, which makes a drop exactly
-material-neutral and leaves the piece-square table to judge the destination.
-That is deliberate: any departure from neutrality is a tuning claim and belongs
-to an SPRT, not to a default. Crazyhouse convention says a pawn in hand is
-worth well over a pawn on the board; `-DENGINE_HAND_VALUES=...` tests it.
-
-It is kept separate from `materialWb` rather than folded into it so that the
-NNUE lazy-eval and small-net gates, which read `material_wb()` as "material on
-the board", keep their existing meaning and the standard bench signature.
-
-**King danger scales with the opponent's reserve**, not with the pieces on the
-board: a hand turns every empty square beside a king into a potential attacker
-with no approach march. The term is deliberately O(1) -- empty king-ring
-squares times a capped weighted count of the opponent's hand -- because it runs
-at every evaluated node. `-DENGINE_KING_DANGER_SCALE=N` weights it in eighths.
-
-**Board piece values** compress in a drop variant, since nothing is ever traded
-off the board for good and the endgame scaling that sets the chess values never
-arrives. `-DENGINE_PIECE_VALUES=...` applies a correction inside
-`variant_eval` rather than retuning `PieceValue`, which also drives
-`materialWb`'s incremental update and `see()` -- retuning it directly would
-move standard chess inside `ChessEngine-all`, which must hold bench 2704705.
-
-### 8.2 NNUE
-
-STK-HalfKA (`src/nnue/halfka.h`) survives structurally -- 64 squares, two
-colours, one king anchor per perspective, scalar stm-relative output. It needs
-one addition: a hand block appended to the 22528 board features.
-
-```
-hand feature = (side_relative, piece_type, count_bucket)
-             = 2 x 5 x B  additional features per perspective
-```
-
-with counts bucketed (0, 1, 2, 3+) rather than one-hot to bound the block.
-Incremental update on a drop is one board-feature add plus one hand-feature
-swap -- the existing accumulator machinery handles both without structural
-change. Promoted status needs no feature; a promoted queen evaluates as a queen,
-and the distinction only matters at capture time.
-
-The important consequence: **the training pipeline is reusable as-is.** The
-target is still a single stm-relative scalar, so datagen, the bullet port, and
-the Vector Scope visualizer all work with a feature-set swap rather than a
-rewrite. There is no crazyhouse corpus to warm-start from, so the net trains
-from self-play -- but that is a compute cost, not an engineering one.
-
-## 9. Multi-Variant Architecture
-
-The roadmap goal is "support all variants." The design constraint is that a
-generic engine is a slower engine, and the standard engine is the product. The
-resolution is two tiers with a hard boundary between them.
-
-### Tier A -- 64 squares, two players
-
-Crazyhouse and bughouse today; chess960, atomic, horde, king-of-the-hill,
-three-check and racing kings would join on the same terms.
-
-All reuse `cores/` wholesale, differing in a movegen delta, terminal-condition
-predicates, and evaluation. The mechanism is a single build flag:
-
-- `option(ENGINE_VARIANTS)` compiles `${CORE_SOURCES}` a second time into
-  `chess_core_variants` with `-DENGINE_VARIANTS`, and links the extra binary
-  `ChessEngine-variants` against it.
-- `chess_core` and the two tournament binaries are built from the same sources
-  *without* the define, so every variant construct -- the `Variant` enum member,
-  the reserve arrays, the promoted bitboard, the `DROP` handling in
-  make/unmake, the drop generator, the wider `MoveList` -- is preprocessed away.
-- Within a variant build, the specific variant is a runtime field on
-  `Position`, because crazyhouse and bughouse differ only in draw rules, not in
-  any hot-path mechanic.
-
-Compiling the core twice costs build time and nothing else, and it makes the
-prime directive structural: the standard binary cannot regress from variant
-work, because it never sees it.
-
-### Tier B -- different geometry or player count
-
-Four-player chess (14x14, 160 squares), chaturaji (8x8, four armies).
-
-These break the two invariants `cores/` is built on. `Bitboard` is `uint64_t`
-and every magic table, shift mask, and the `sq ^ 56` / `sq ^ 7` NNUE orientation
-depends on 64 squares; `Color` is `{WHITE, BLACK}` with `operator~` as `c ^ 1`.
-More fundamentally, four independent players are not zero-sum, so negamax and
-alpha-beta do not generalize -- the options are max^n (correct, prunes almost
-nothing) or paranoid search (treats all opponents as a coalition, keeps
-alpha-beta, plays pessimistically).
-
-**Tier B is a sibling module with its own binary.** Do not template `Position`
-over board size and colour count to accommodate it. That refactor puts the
-standard engine's NPS at risk in order to serve a variant nobody can distribute --
-4PC has no engine protocol and no bot platform. Chaturaji is the better Tier B
-entry point if the goal is the interesting problem, because 8x8 preserves the
-entire bitboard and attack layer and isolates the work to search.
-
-## 10. Bughouse Layer (Stage 2)
-
-Once crazyhouse works, bughouse adds three things, none of them search.
-
-**Protocol.** UCI has no bughouse. FICS's is the only established one. The
-minimal extension is a `partner` command carrying the partner board's FEN and
-both clocks, alongside the normal `position` for our own board. This should be
-specified in this repo and documented, since nothing standard exists to conform
-to.
-
-**Incoming-material model.** The partner board tells us which pieces are likely
-to arrive in our hand and which will arrive in our opponent's. v1 should use a
-static model -- count what our partner is likely to capture -- rather than
-searching the partner board. Searching both boards jointly is a research
-project; searching one board with a good supply prior is a strong bot.
-
-**Time and sitting.** Refusing to move while waiting for a piece is a core
-bughouse skill and it is a time-management policy, not a search result. Out of
-scope for v1; the engine plays its own board well and moves promptly.
-
-## 11. Testing
-
-`tests/cpp/test_variants.cpp`, registered as the ctest case
-`variants.drops_state_and_perft` and therefore already covered by the CI
-matrix's `ctest` step. It runs four checks:
-
-- **Perft anchors, no external table needed.** From the start position no
-  reserve can be non-empty until a capture has happened, so crazyhouse perft
-  must equal standard chess *exactly* through depth 4 and must exceed it at
-  depth 5, where the first drops appear. Measured: depths 1-4 match, and
-  depth 5 gives 4888832 against chess's 4865609 -- 23223 extra drop
-  continuations. (4888832 is also the published crazyhouse figure, so this
-  agrees with the external reference as well.)
-- **State consistency over random games.** 150 crazyhouse and 150 bughouse
-  games verify after every ply that the incremental hash, reserves,
-  promoted-piece mask, mailbox, material and psqt all match a from-scratch
-  rebuild via `toFEN`/`setFromFEN`; that `key_after()` equals the real
-  post-move hash; and that `unmake_move` restores state exactly. The run
-  asserts it actually played drops, so it cannot pass vacuously.
-- **Movegen equivalence and hardening.** The staged generators plus the fast
-  legality path must reproduce `generate_legal_moves` exactly, and
-  `is_pseudo_legal` is fuzzed with random 16-bit words to confirm it never
-  accepts a move the generators do not produce -- a false accept on a drop
-  would decrement a reserve counter that may be zero.
-- **Isolation.** A standard-mode `Position` must reject a bracketed variant
-  FEN rather than silently loading the board and discarding the reserves.
-
-The standard gates are unchanged and still pass: both bench signatures, the
-six-position perft suite, and `consistency.make_unmake_and_movegen`.
-
-## 12. Host Integration Surface
-
-A host that treats the engine as the single source of chess truth needs more
-than UCI: it must be able to read a position back, enumerate legal moves, and
-get structured terminal and error information. That surface lives in
-`src/uci/validator.h` and is available in any `ENGINE_VARIANTS` build.
-
-Every reply is one line of compact JSON, hand-built so `cores/` gains no
-third-party dependency. The position is whatever the preceding `position`
-command established, so a worker holds no game identity and any worker can
-answer any request.
-
-| Command | Reply |
-|---|---|
-| `getfen` | `{"ok":true,"fen":...,"variant":...,"drawRules":...}` |
-| `legalmoves` | `{"ok":true,"count":N,"moves":[...]}` -- exact UCI, promotions and drops enumerated |
-| `apply <uci>` | `{"ok":true,"legal":true,"fen":...,"sideToMove":...,"inCheck":...,"terminal":...,"capturedDropType":...}` |
-| `status` | `{"ok":true,"sideToMove":...,"inCheck":...,"terminal":...,"legalCount":N,"repetitions":k}` |
-| `canmate <w\|b>` | `{"ok":true,"side":...,"canMate":...}` |
-
-`terminal` is one of `none`, `checkmate`, `stalemate`, `draw_fifty_move`,
-`draw_threefold`, `draw_insufficient_material`.
-
-Failures carry a fixed taxonomy the host can branch on, never collapsed into
-one signal: `illegal_move` (well-formed, not legal here), `malformed_request`
-(unparseable move or argument), `internal_error` (engine fault; evict the
-worker).
-
-### 12.1 Two tiers
-
-`ChessEngine-validator` is the lean tier: one thread, a 1 MB table, no net, and
-`go`/`bench` refused outright so a validator can never queue behind a search.
-`ChessEngine-variants --validator` gives the same mode from the full binary.
-Search requests go to `ChessEngine-variants` in its normal mode.
-
-`isready`/`readyok` is the health probe. Startup allocates a 1 MB table and the
-attack tables, nothing else.
-
-### 12.2 Reserves are the host's to move
-
-This is the one place the engine deliberately does *less* than crazyhouse.
-
-- **Crazyhouse:** a capture enters the capturer's own reserve. The engine does
-  this itself.
-- **Bughouse:** a capture enters the **partner's** reserve on the *other*
-  board, which this engine cannot see. So a bughouse capture adds nothing to
-  either reserve here; the engine reports `capturedDropType` and the host
-  injects it into the partner board's position. `Position::captures_fill_hand()`
-  is the switch, set from the variant.
-
-A bughouse position therefore only gains material through an injected FEN,
-which is exactly the `[...]` reserve field. There is no separate hand-injection
-call because the position already carries it.
-
-### 12.3 Draw rules
-
-Real bughouse has neither a repetition nor a fifty-move draw, because the
-partner board keeps the game state moving. A host that adjudicates draws per
-board may want them anyway, so the policy is selectable independently of the
-variant: `setoption name DrawRules value variant|standard`. `variant` (the
-default) gives each variant its own rules; `standard` forces threefold and
-fifty-move on for every variant.
-
-`repetition_count()` reports occurrences within the fifty-move window, so the
-host gets true threefold (count >= 2) rather than the twofold convention the
-search uses internally. Repetition is detected from the moves supplied on the
-`position ... moves ...` command, so the host passes history as a move list.
-
-### 12.4 Determinism
-
-Identical `(position, moves, variant, draw rules)` always yields an identical
-validator result -- none of that surface searches. **Search** results are
-deterministic only at `Threads 1`; lazy SMP is non-deterministic by design.
-
-## 13. Remaining Work
-
-The board mechanics were already correct; what follows is what changed once the
-*evaluation* was measured rather than assumed. Two bugs dominated everything on
-the original list.
-
-### 13.0 The two fixed bugs
-
-**The shipping binary was running a net it had disabled.**
-`set_nnue_enabled(false)` gated `EngineSearch::evaluate()`, which the UCI `eval`
-command calls and nothing else does. The search's own path, `eval_pos()`, fell
-through to `eval_->evaluate(pos)`, and with a net loaded that rebuilds both
-accumulator perspectives from scratch on every call. So `ChessEngine-all` in a
-drop variant paid a full accumulator refresh *per node* in order to score
-reserves with a net that cannot see them, while printing `info string ... using
-the classical evaluation`. Crazyhouse startpos, 1 thread, 3s: **0.61M -> 3.32M
-nps, depth 13 -> 16**. The two binaries now produce bit-identical variant
-searches at fixed nodes, which is what section 2 always claimed.
-
-**A piece in hand was worth nothing.** Covered in section 8.1. Measured **+502
-Elo over 57 games** (+54 =0 -3, H1 accepted, LLR +3.65). The error bar is
-unbounded at that score -- read the verdict, not the point estimate -- but the
-direction is not in question.
-
-### 13.1 Measured, and settled
-
-All crazyhouse, 25k nodes, H0 elo<=0 / H1 elo>=5, via `tools/sprt_variant.ps1`.
-
-| Change | Result | Games | Verdict |
-|---|---|---|---|
-| reserve material ON vs OFF | +502 Elo | 57 | H1 accepted |
-| drop history ON vs OFF | +51.3 +/- 18.2 | 1406 | H1 accepted |
-| null move OFF vs ON | -16.1 +/- 10.9 | 3850 | H0 accepted |
-| drop-checks qdepth 2 vs 0 | -21.4 +/- 12.5 | 2960 | H0 accepted |
-
-**Drop history** is new and on by default. Drops cannot use the main history
-table, which is keyed `[from][to]` -- a drop's `from_sq` field carries a piece
-type, so it would alias with real moves out of b1..f1 -- and they are often the
-majority of the quiet moves at a node, so they had been ordered by continuation
-history alone. A dedicated `[color][droppedPiece][to]` table costs ~3 KB.
-
-**Null move stays on**, against the prediction in section 7.
-
-**Drop-checks in quiescence stay off, and the original explanation survives.**
-The obvious suspicion was that the first measurement had been confounded by the
-hand-material bug: with a piece in hand worth nothing, every checking drop also
-looked like it won a piece, so quiescence could manufacture material and the
-corruption would grow with qdepth exactly as the original numbers did. It was
-re-run on top of the fixed evaluation and came back **-21.4 +/- 12.5**, against
-the original -20.8 +/- 12.4. Statistically the same number. The confounding
-hypothesis was wrong and the node-cost explanation stands.
-
-### 13.1b Evaluation terms, and a bughouse trap
-
-Two evaluation terms were added on top of reserve material and measured
-against the term switched off:
-
-| Change | Result | Games | Verdict |
-|---|---|---|---|
-| crazyhouse piece values | +30.6 +/- 13.6 | 2512 | H1 accepted |
-| king danger, scale 6 | + 9.5 +/-  8.7 | 6000 | cap, positive |
-| king danger, scale 14 | +10.3 +/-  8.7 | 6000 | cap, positive |
-| both together vs neither | +25.2 +/- 12.3 | 3061 | H1 accepted |
-
-King danger is consistently positive and essentially weight-insensitive
-between 6 and 14, but reached the SPRT bound at neither weight on its own.
-Scale 6 is the default because that is the combination validated jointly with
-the piece values in the last row.
-
-**The bughouse trap.** The piece values were measured in crazyhouse and,
-applied unconditionally, cost **-66 Elo in bughouse**. The cause is that a
-`--variant bughouse` match from the start position is degenerate: a bughouse
-capture feeds the *partner* board, which a single-board match does not have,
-so no reserve ever fills and **not one drop occurs from beginning to end**.
-Such a game is ordinary chess with the repetition and fifty-move draws
-switched off, and crazyhouse piece values are simply wrong for it.
-
-The correction is therefore gated on the position being drop-dynamic --
-crazyhouse always is, bughouse only once the host has injected something:
-
-```cpp
-if (pos.captures_fill_hand() || pos.has_any_in_hand(WHITE)
-                             || pos.has_any_in_hand(BLACK))
-```
-
-Crazyhouse behaviour is bit-identical to what was measured, and a bughouse
-board with no partner feed is now bit-identical to the pre-change engine
-(same node count, score and PV at fixed nodes) rather than 66 Elo worse.
-
-The general lesson is worth keeping: **a single-board bughouse match tests
-almost nothing about drop play.** Bughouse strength is crazyhouse strength
-plus the partner layer, so crazyhouse is where variant tuning must be
-measured, and a bughouse-specific number should be treated as a regression
-check on the no-reserve path rather than as evidence about drops.
-
-### 13.1c Total
-
-`ChessEngine-variants`, this branch versus the previous tip, 25k nodes:
-
-- **crazyhouse: +676 Elo over 50 games (+49 =0 -1), H1 accepted, LLR +8.74.**
-- bughouse with no partner feed: bit-identical, by construction.
-
-On a dead-symmetric bughouse position -- identical boards, identical reserves
-for both sides -- the old engine scored **+337 for White** and answered with
-`Q@d4 Q@f6 B@e5 R@a4`, both sides emptying their reserves. White only looked
-winning because it drops first and so cashes more phantom material inside the
-horizon. The same position now scores **+20** and the engine develops.
-
-### 13.2 Open, in priority order
-
-1. **Drop-aware SEE.** The *correctness* half is done: `see()` is never called
-   on a drop, drops stay out of the `[from][to]` history, and every site that
-   needs a moving piece type goes through `moved_piece()`. The *modelling* half
-   is still open -- a capture donates the victim to a reserve and the exchange
-   evaluation does not account for it. This is now unblocked, because
-   `HandValue` puts a number on material in hand.
-2. **Remaining pruning retune.** Reverse futility (`80 * depth`), quiet
-   futility (`100 + 120 * depth`), movecount (`3 + depth*depth`) and the
-   qsearch delta margin (975) are all chess-tuned against a game where one drop
-   swings hundreds of centipawns. Each is an SPRT question and none has been
-   asked yet.
-3. **Evaluation depth.** The variant evaluation is still only material, psqt,
-   reserve material and a king-danger term. No mobility, no pawn structure, no
-   defended-square test in the king ring (the term counts empty ring squares
-   without asking whether we defend them, which is the obvious next refinement
-   and was left out because it costs an `attackers_to` per square).
-4. **NNUE.** No net is trained for drops. A net without the hand-feature block
-   would evaluate reserves as invisible, and the accumulator update has no drop
-   path, so drop variants run the classical evaluation even in a binary that
-   embeds a net. Out of scope by decision, not oversight (section 8.2).
-5. **Bughouse partner layer.** Protocol, incoming-material model, sitting
-   (section 10). Until this exists, bughouse mode is crazyhouse with the
-   repetition and fifty-move draws switched off.
-
-## 14. Open Questions
-
-- Does drop-check quiescence need its own depth limit, or does the existing
-  quiescence depth cap suffice once the drop subset is bounded?
-- Hand count bucketing for NNUE: is 3+ enough resolution, or does crazyhouse
-  need exact counts up to 5?
-- Is a crazyhouse-tuned SEE worth building, or is a static capture table plus
-  deeper search the better return?
-- For bughouse: is the partner board worth any search at all, or is a static
-  supply prior the right permanent answer?
+| `ENGINE_DROP_CHECK_QDEPTH` | `0` | Checking-drop quiescence depth. |
+| `ENGINE_VARIANT_HAND_MATERIAL` | `1` | Include reserve material. |
+| `ENGINE_HAND_VALUES` | empty | Override reserve piece values; empty uses board `PieceValue`. |
+| `ENGINE_KING_DANGER_SCALE` | `6` | Reserve-related king-danger weight in eighths. |
+| `ENGINE_PIECE_VALUES` | `0,100,340,320,450,800,0` | Variant board-value correction. |
+| `ENGINE_VARIANT_NULLMOVE` | `1` | Permit null-move pruning in drop variants. |
+| `ENGINE_VARIANT_DROP_HISTORY` | `1` | Dedicated drop history. |
+
+The SEE model does not fully account for material entering reserves. The
+no-reserve bughouse path is not representative of partner-fed play. A standalone
+bughouse match from start position receives no partner pieces and therefore
+cannot measure real drop strength. See [benchmark methodology](benchmark.md)
+for experiment requirements; this page does not assign an absolute Elo rating.
+
+Historical [variant experiment notes](experiments/variant-search.md) retain the
+reported W/D/L and tuning comparisons, with their provenance limitations.
+
+## Verification
+
+`variants.drops_state_and_perft` checks reserve/promoted/hash state, legal/drop
+move generation, make/unmake, and the crazyhouse start-position perft anchors.
+Depths 1-4 match standard chess; depth 5 is 4,888,832 instead of 4,865,609.
+The standard and variant cores are compiled separately to avoid runtime variant
+branches in the standard engine. A semantics-preserving variant change should
+preserve standard search signatures; deliberate search changes need their own
+justification and regenerated baselines.

@@ -1,3 +1,6 @@
+#include "cores/attacks.h"
+#include "cores/position.h"
+#include "cores/zobrist.h"
 #include "datagen/datagen.h"
 #include "perfts.h"
 #include "uci/uci.h"
@@ -60,6 +63,31 @@ int main(int argc, char **argv) {
   try {
     if (argc > 1 && std::string(argv[1]) == "datagen") {
       return Datagen::run(argc, argv);
+    }
+
+    if (argc > 1 && std::string(argv[1]) == "--perft-divide") {
+      int depth = -1;
+      if (argc != 4) {
+        std::cerr << "[ERROR] Usage: --perft-divide \"<fen>\" <depth>\n";
+        return 2;
+      }
+      const std::string depthText = argv[3];
+      const auto parsed = std::from_chars(
+          depthText.data(), depthText.data() + depthText.size(), depth);
+      if (parsed.ec != std::errc() ||
+          parsed.ptr != depthText.data() + depthText.size() || depth < 0) {
+        std::cerr << "[ERROR] perft depth must be a nonnegative integer\n";
+        return 2;
+      }
+      Core::Attacks::init();
+      Core::Zobrist::init();
+      Core::Position position;
+      if (!position.setFromFEN(argv[2])) {
+        std::cerr << "[ERROR] invalid FEN\n";
+        return 2;
+      }
+      perft_divide(position, depth, std::cout);
+      return 0;
     }
 
     if (argc >= 5 && std::string(argv[1]) == "--perft-one") {

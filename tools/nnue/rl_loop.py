@@ -84,13 +84,15 @@ def run(cmd: list[str], log, allow_fail: bool = False) -> str:
     proc.wait()
     # match.py exits non-zero when SPRT rejects/is inconclusive -- that is a
     # verdict, not a crash, so the caller opts into tolerating it.
-    if proc.returncode != 0 and not allow_fail:
+    if proc.returncode != 0 and not (allow_fail and proc.returncode in (1, 2)
+                                      and "SPRT:" in "".join(out_lines)):
         raise SystemExit(f"command failed ({proc.returncode}): {' '.join(cmd)}")
     return "".join(out_lines)
 
 def main() -> int:
     p = argparse.ArgumentParser(description="RL self-play loop.")
     p.add_argument("--engine", required=True)
+    p.add_argument("--arbiter", required=True, help="ChessEngine-validator binary for SPRT")
     p.add_argument("--init-net", required=True, help="starting best .nnue")
     p.add_argument("--init-float", required=True, help="starting best model_float.pt")
     p.add_argument("--root", default="runs/rl")
@@ -119,6 +121,12 @@ def main() -> int:
                    help="positions per generation's training set (self-play + mix)")
     p.add_argument("--seed", type=int, default=777)
     args = p.parse_args()
+    if not 0 <= args.mix_frac < 1 or min(args.max_train, args.games, args.epochs, args.concurrency) <= 0:
+        p.error("mix-frac must be in [0,1), and training/game counts positive")
+    if not Path(args.engine).is_file() or not Path(args.arbiter).is_file():
+        p.error("engine and arbiter must exist")
+    from contracts import check_net, write_json
+    check_net(Path(args.init_net))
     rng = random.Random(args.seed)
 
     root = Path(args.root)
@@ -196,7 +204,7 @@ def main() -> int:
 
         t = time.time()
         out = run([py, str(HERE / "match.py"), "--engine", args.engine,
-                   "--base-engine", args.engine, "--net", str(new_net),
+                   "--base-engine", args.engine, "--arbiter", args.arbiter, "--net", str(new_net),
                    "--base-net", state["best_net"], "--sprt", "0", "5",
                    "--games", str(args.sprt_games), "--nodes", str(args.sprt_nodes),
                    "--concurrency", str(args.concurrency),
@@ -221,7 +229,7 @@ def main() -> int:
             state["best_float"] = str((gdir / "model_float.pt").resolve())
         state["history"].append(entry)
         state["gen"] = gen + 1
-        state_path.write_text(json.dumps(state, indent=2))
+        write_json(state_path, state)
 
         verdict = "ACCEPTED -> new best" if accepted else "rejected (best unchanged)"
         print(f"\n  gen {gen} {verdict}   elo {elo}   "

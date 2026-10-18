@@ -12,6 +12,7 @@ import { Controls } from "./components/Controls";
 import { NeuronField } from "./components/NeuronField";
 import { NetInspector } from "./components/NetInspector";
 import { DatagenPanel } from "./components/Datagen";
+import { BootScreen } from "./components/BootScreen";
 import { Ablation, EvalGraph, SearchTree } from "./components/Analysis";
 import { Recorder } from "./components/Recorder";
 import { useGameHistory } from "./engine/history";
@@ -29,6 +30,7 @@ export default function App() {
   // otherwise the WebAssembly build. Nothing below this line knows which.
   const [source, setSource] = useState<EngineSource | null>(null);
   const [boot, setBoot] = useState<BootProgress | null>(null);
+  const [bootError, setBootError] = useState<string | null>(null);
   const [state, setState] = useState<EngineState | null>(null);
   const [conn, setConn] = useState<ConnectionState>("connecting");
   const [hoverMove, setHoverMove] = useState<string | null>(null);
@@ -79,7 +81,12 @@ export default function App() {
         setSource(s);
         setBoot(null);
       })
-      .catch(() => alive && setConn("error"));
+      .catch((error: unknown) => {
+        if (!alive) return;
+        setBoot(null);
+        setBootError(error instanceof Error ? error.message : "The engine could not start.");
+        setConn("error");
+      });
     return () => {
       alive = false;
     };
@@ -134,6 +141,7 @@ export default function App() {
     return (await res.json()) as DatagenProbe;
   };
 
+  if (bootError) return <BootScreen error={bootError} />;
   if (boot) return <BootScreen p={boot} />;
 
   return (
@@ -427,43 +435,6 @@ function BigBoard({
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function BootScreen({ p }: { p: BootProgress }) {
-  const pct = p.total > 0 ? Math.round((p.loaded / p.total) * 100) : 0;
-  return (
-    <div
-      style={{
-        height: "100%",
-        display: "grid",
-        placeItems: "center",
-        gap: 14,
-      }}
-    >
-      <div style={{ width: 420, maxWidth: "80vw", textAlign: "center" }}>
-        <div className="brand" style={{ fontSize: 13, marginBottom: 18 }}>
-          STK<span>�</span>Vector-64 <span>/</span> Vector Scope
-        </div>
-        <div className="evalbar" style={{ height: 6 }}>
-          <div
-            className="fill"
-            style={{ left: 0, width: `${pct}%`, transition: "width .2s linear" }}
-          />
-        </div>
-        <div
-          className="num"
-          style={{ marginTop: 10, fontSize: 11, color: "var(--fg-dim)" }}
-        >
-          {p.phase === "net" ? "network" : "engine"} � {pct}%
-        </div>
-        {p.note && (
-          <div style={{ marginTop: 6, fontSize: 11, color: "var(--fg-faint)" }}>
-            {p.note}
-          </div>
-        )}
       </div>
     </div>
   );

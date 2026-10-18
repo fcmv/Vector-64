@@ -3,12 +3,14 @@
 #include "cores/movegen.h"
 #include "cores/position.h"
 #include "cores/zobrist.h"
+#include "uci/uci_util.h"
 #include <chrono>
 #include <fstream>
 #include <future>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -70,25 +72,26 @@ uint64_t perft_multithreaded(Core::Position &pos, int depth) {
   return total_nodes;
 }
 
-void run_deep_debug(const std::string &fen, const std::string &name) {
-  std::cout << "[DEBUG] Analyzing: " << name << "\n";
-  Position pos;
-  pos.setFromFEN(fen);
+uint64_t perft_divide(Core::Position &pos, int depth, std::ostream &out) {
+  if (depth < 0)
+    throw std::invalid_argument("perft depth must be nonnegative");
+  if (depth == 0) {
+    out << "Total: 1\n";
+    return 1;
+  }
   MoveList moves;
   generate_legal_moves(pos, moves);
-}
-
-struct PerftTest {
-  std::string name;
-  std::string fen;
-  int depth;
-  uint64_t expected_nodes;
-};
-
-void run_perft_suite() {
-  Core::Attacks::init();
-  Core::Zobrist::init();
-  std::cout << "[INFO] Legacy perft suite executed.\n";
+  uint64_t total = 0;
+  for (int i = 0; i < moves.size(); ++i) {
+    UndoInfo undo{};
+    pos.make_move(moves[i], undo);
+    const uint64_t nodes = perft(pos, depth - 1);
+    pos.unmake_move(moves[i], undo);
+    out << UCI::move_to_uci(moves[i]) << ": " << nodes << '\n';
+    total += nodes;
+  }
+  out << "Total: " << total << '\n';
+  return total;
 }
 
 int run_perft_one(const std::string &fen, int depth, uint64_t expected) {

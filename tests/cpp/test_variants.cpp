@@ -62,6 +62,7 @@ bool check_against_rebuild(const Position &pos, Variant v) {
     return false;
   }
   for (int c = WHITE; c <= BLACK; ++c) {
+    int expectedHand = 0;
     for (int pt = PAWN; pt <= QUEEN; ++pt) {
       const Color col = static_cast<Color>(c);
       const PieceType type = static_cast<PieceType>(pt);
@@ -69,6 +70,12 @@ bool check_against_rebuild(const Position &pos, Variant v) {
         fail("reserve count drifted", fen);
         return false;
       }
+      expectedHand += rebuilt.in_hand(col, type);
+    }
+    if (pos.hand_size(static_cast<Color>(c)) != expectedHand ||
+        rebuilt.hand_size(static_cast<Color>(c)) != expectedHand) {
+      fail("total hand count disagrees with piece counts", fen);
+      return false;
     }
   }
   return true;
@@ -86,6 +93,23 @@ bool list_contains(const MoveList &list, Move m) {
 bool check_movegen(Position &pos, std::mt19937_64 &rng) {
   MoveList full;
   generate_legal_moves(pos, full);
+
+  MoveList legalCaptures;
+  generate_legal_captures(pos, legalCaptures);
+  int expectedCaptures = 0;
+  for (int i = 0; i < full.size(); ++i) {
+    if (full[i].is_capture()) {
+      ++expectedCaptures;
+      if (!list_contains(legalCaptures, full[i])) {
+        fail("capture generator missed a legal variant capture", pos.toFEN());
+        return false;
+      }
+    }
+  }
+  if (legalCaptures.size() != expectedCaptures) {
+    fail("capture generator included a drop or quiet move", pos.toFEN());
+    return false;
+  }
 
   MoveList captures;
   MoveList quiets;
@@ -251,11 +275,18 @@ bool run_games(Variant v, const char *label, const char *startFen, int games,
       const int psqtBefore = pos.psqt_wb();
       const int handMatBefore = pos.hand_material_wb();
       const int handBefore = total_in_hand(pos);
+      const int fullmoveBefore = pos.fullmove_number();
+      const Color mover = pos.side_to_move();
 
       const uint64_t predicted = pos.key_after(move);
 
       UndoInfo undo{};
       pos.make_move(move, undo);
+
+      if (pos.fullmove_number() != fullmoveBefore + (mover == BLACK)) {
+        fail("variant fullmove clock advanced incorrectly", pos.toFEN());
+        return false;
+      }
 
       if (pos.opponent_in_check()) {
         std::printf("FAIL: move left the mover's king in check "

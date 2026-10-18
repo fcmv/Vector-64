@@ -1,0 +1,23 @@
+name: Engine bug
+description: Report a reproducible rules, search, integration, training or UI defect.
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Expected and actual behavior
+      description: Include an independent rule/count reference where available.
+    validations: {required: true}
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal FEN, move history and commands
+      description: Include exact input/output. For UI failures include native/WASM and console errors.
+      render: text
+    validations: {required: true}
+  - type: textarea
+    id: environment
+    attributes:
+      label: Binary and environment
+      description: Version/commit, executable suffix, OS/CPU, compiler flags, net hash, options, budget and reset state.
+    validations: {required: true}

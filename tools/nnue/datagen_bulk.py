@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Deprecated: use native ChessEngine datagen or ChessEngine-viz datagen mode.
+"""Resumable position-capped batches of native STK-HalfKA self-play.
 
-Both share src/datagen/selfplay.h. This compatibility wrapper remains for old
-commands and is not maintained for new datasets.
+A completed chunk is recorded atomically; interrupted chunks are regenerated.
 """
 
 from __future__ import annotations
@@ -13,6 +12,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+from contracts import check_net, sha256, write_json
 
 HERE = Path(__file__).resolve().parent
 
@@ -59,13 +60,29 @@ def main() -> int:
     p.add_argument("--seed-base", type=int, default=100_000)
     args = p.parse_args()
 
+    if min(args.target_positions, args.chunk_games, args.nodes, args.concurrency) <= 0:
+        p.error("position, game, node and concurrency limits must be positive")
+    if not Path(args.engine).is_file():
+        p.error("engine binary not found")
+    check_net(Path(args.net))
+    config = {"engine": str(Path(args.engine).resolve()), "net_sha256": sha256(Path(args.net)),
+              "nodes": args.nodes, "lam": args.lam, "emit": args.emit, "concurrency": args.concurrency,
+              "chunk_games": args.chunk_games, "seed_base": args.seed_base}
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     state_path = out / "bulk_state.json"
     if state_path.exists():
         state = json.loads(state_path.read_text())
+        if state.get("config") != config:
+            raise ValueError("datagen resume settings changed; use a new output directory")
+        for chunk in state["chunks"]:
+            if sha256(out / chunk["file"]) != chunk["sha256"]:
+                raise ValueError("completed datagen chunk changed")
     else:
-        state = {"chunks": [], "positions": 0}
+        state = {"chunks": [], "positions": 0, "config": config}
+        if list(out.glob("shard_*.txt")):
+            raise ValueError("unregistered datagen chunks; use a new directory")
+        write_json(state_path, state)
     log = open(out / "datagen_bulk.log", "a", encoding="utf-8")
 
     t_start = time.time()
@@ -86,9 +103,11 @@ def main() -> int:
                "--seed", str(seed), "--out", str(shard)]
         run_chunk(cmd, log)
         got = count_lines(shard)
-        state["chunks"].append({"file": shard.name, "seed": seed, "positions": got})
+        if got == 0:
+            raise ValueError("datagen produced no positions; refusing an endless empty-chunk loop")
+        state["chunks"].append({"file": shard.name, "seed": seed, "positions": got, "sha256": sha256(shard)})
         state["positions"] += got
-        state_path.write_text(json.dumps(state, indent=2))
+        write_json(state_path, state)
 
         el = time.time() - t_start
         made = state["positions"] - done0

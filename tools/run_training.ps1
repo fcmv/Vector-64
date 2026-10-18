@@ -1,100 +1,29 @@
-$epochs = 14
-$checkpoint = "artifacts/vector64_80m_final.pt"
-$stateFile = "artifacts/training_state.txt"
-
-# 8 slices of 20 shards (Low RAM mode ~3GB per load)
-$slices = @(
-    "0:20", "20:40",
-    "40:60", "60:80",
-    "80:100", "100:120",
-    "120:140"
+param(
+  [Parameter(Mandatory=$true)][string]$Data,
+  [string]$Workdir = "runs\training",
+  [string]$Engine = "build\bin\ChessEngine.exe",
+  [int]$Epochs = 20,
+  [int]$BatchSize = 4096,
+  [ValidateSet(128, 1024)][int]$Hidden = 1024,
+  [string]$Device = "cuda",
+  [string]$Init = ""
 )
 
-New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-
-$startEpoch = 1
-$startSliceIdx = 0
-$resume_flag = ""
-
-if ((Test-Path $checkpoint) -and (Test-Path $stateFile)) {
-    Write-Host "Found previous training state..." -ForegroundColor Yellow
-
-    # Read the file. Format is expected to be "EPOCH,SLICE_INDEX"
-    $savedState = Get-Content $stateFile
-    $parts = $savedState -split ","
-
-    if ($parts.Length -eq 2) {
-        $startEpoch = [int]$parts[0]
-        $startSliceIdx = [int]$parts[1]
-        $resume_flag = "--resume $checkpoint"
-
-        Write-Host "Resuming from EPOCH $startEpoch, SLICE INDEX $startSliceIdx (" $slices[$startSliceIdx] ")" -ForegroundColor Yellow
-    }
-} elseif (Test-Path $checkpoint) {
-    Write-Host "Found checkpoint but no state file. Resuming weights, but starting Epoch logic from 1." -ForegroundColor Magenta
-    $resume_flag = "--resume $checkpoint"
+$ErrorActionPreference = "Stop"
+$root = Split-Path -Parent $PSScriptRoot
+$trainArgs = @(
+  (Join-Path $root "tools\nnue\make_net.py"),
+  "--workdir", $Workdir, "--engine", $Engine,
+  "--epochs", $Epochs, "--batch-size", $BatchSize,
+  "--hidden", $Hidden, "--device", $Device
+)
+if (Test-Path -LiteralPath (Join-Path $Data "manifest.json")) {
+  $trainArgs += "--data-dir", $Data
+} elseif ((Split-Path $Data -Leaf) -eq "manifest.json") {
+  $trainArgs += "--data-dir", (Split-Path $Data -Parent)
+} else {
+  $trainArgs += "--input", $Data
 }
-
-for ($e = 1; $e -le $epochs; $e++) {
-
-    if ($e -lt $startEpoch) { continue }
-
-    Write-Host "========================================" -ForegroundColor Green
-    Write-Host "STARTING EPOCH $e / $epochs" -ForegroundColor Green
-    Write-Host "========================================" -ForegroundColor Green
-
-    for ($i = 0; $i -lt $slices.Count; $i++) {
-
-        if ($e -eq $startEpoch -and $i -lt $startSliceIdx) {
-            Write-Host "  [Skipping completed slice " $slices[$i] "]" -ForegroundColor Gray
-            continue
-        }
-
-        $slice = $slices[$i]
-        Write-Host "  > Training on shards $slice..." -ForegroundColor Cyan
-
-        # Use an argument array so PowerShell preserves each CLI argument.
-        $cmdArgs = @(
-            "tools/nnue/train_vector64.py",
-            "--dataset", "my_dataset_strict_80m/manifest.json",
-            "--out-checkpoint", $checkpoint,
-            "--epochs", "1",
-            "--batch-size", "4096",
-            "--lr", "1e-6",
-            "--num-workers", "0",
-            "--shard-slice", $slice
-        )
-
-        if ($resume_flag -ne "") {
-            $cmdArgs += "--resume"
-            $cmdArgs += $checkpoint
-        }
-
-        python @cmdArgs
-
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "CRITICAL ERROR: Training crashed on Epoch $e, Slice $slice" -ForegroundColor Red
-            Write-Host "Fix the error and re-run this script. It will resume right here." -ForegroundColor Red
-            exit
-        }
-
-        $nextSliceIdx = $i + 1
-        $nextEpoch = $e
-        if ($nextSliceIdx -ge $slices.Count) {
-            $nextSliceIdx = 0
-            $nextEpoch = $e + 1
-        }
-        "$nextEpoch,$nextSliceIdx" | Set-Content $stateFile
-
-        Write-Host "  [Cooling down GPU for 60 seconds...]" -ForegroundColor Gray
-        Start-Sleep -Seconds 60
-
-        $resume_flag = "yes"
-    }
-
-    $startSliceIdx = 0
-}
-
-Write-Host "Training Complete!" -ForegroundColor Green
-
-Write-Host "Training Complete!" -ForegroundColor Green
+if ($Init) { $trainArgs += "--init", $Init }
+python @trainArgs
+exit $LASTEXITCODE

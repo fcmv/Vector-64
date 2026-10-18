@@ -10,10 +10,13 @@ param(
   [int]$SmallThreshold = 300,
   [int]$Nodes          = 8000,
   [int]$Games          = 3000,
-  [int]$Conc           = 10
+  [int]$Conc           = 10,
+  [Parameter(Mandatory=$true)][string]$Arbiter
+
 )
 
 $ErrorActionPreference = "Stop"
+if (-not (Test-Path -LiteralPath $Arbiter)) { throw "validator not found: $Arbiter" }
 $root = Split-Path -Parent $PSScriptRoot
 $big  = Join-Path $root "runs\v2\stk_halfka_1024.nnue"
 $sml  = Join-Path $root "runs\small2\stk_halfka_128.nnue"
@@ -48,7 +51,7 @@ python (Join-Path $root "tools\nnue\match.py") `
   --net $big --net-small $sml --uci-new $uci `
   --base-net $big `
   --sprt -4 0 --games $Games --nodes $Nodes `
-  --concurrency $Conc --seed 515151 2>&1 | Tee-Object -FilePath $log
+  --arbiter $Arbiter --concurrency $Conc --seed 515151 2>&1 | Tee-Object -FilePath $log
 
 $sw.Stop()
 Write-Host "--------------------------------------------------------------------"

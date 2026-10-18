@@ -271,7 +271,7 @@ def play_game(white: Engine, black: Engine, arbiter: Arbiter, opening: str,
         moves.append(move)
         state = reply
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Fixed-node match / SPRT runner.")
     p.add_argument("--engine", required=True, help="binary for the 'new' side")
     p.add_argument("--base-engine", default=None,
@@ -301,7 +301,9 @@ def main() -> int:
                    help="opening-book seed (fixed seed = reproducible run)")
     p.add_argument("--sprt", nargs=2, type=float, metavar=("ELO0", "ELO1"),
                    default=None, help="run as SPRT with H0 elo<=ELO0, H1 elo>=ELO1")
-    args = p.parse_args()
+    args = p.parse_args(argv)
+    if min(args.games, args.nodes, args.max_plies, args.concurrency) <= 0:
+        p.error("game, node, ply and concurrency counts must be positive")
 
     arbiter_bin = args.arbiter
     if arbiter_bin is None:
@@ -332,6 +334,8 @@ def main() -> int:
     tally = Tally()
     lock = threading.Lock()
     stop = threading.Event()
+    failures: list[str] = []
+    decision: str | None = None
 
     def report(final: bool = False) -> None:
         elo, half = tally.elo()
@@ -343,12 +347,15 @@ def main() -> int:
         print(("final: " if final else "") + line, flush=True)
 
     def worker() -> None:
-        new_eng = Engine(args.engine, args.net, args.net_small, args.uci_new,
-                         args.variant)
-        base_eng = Engine(args.base_engine or args.engine, args.base_net,
-                          args.base_net_small, args.uci_base, args.variant)
-        referee = Arbiter(arbiter_bin, args.variant)
+        nonlocal decision
+        new_eng: Engine | None = None
+        base_eng: Engine | None = None
+        referee: Arbiter | None = None
         try:
+            new_eng = Engine(args.engine, args.net, args.net_small, args.uci_new, args.variant)
+            base_eng = Engine(args.base_engine or args.engine, args.base_net,
+                              args.base_net_small, args.uci_base, args.variant)
+            referee = Arbiter(arbiter_bin, args.variant)
             while not stop.is_set():
                 op = jobs.get()
                 if op is None:
@@ -372,17 +379,23 @@ def main() -> int:
                         if args.sprt and tally.n >= 20 and not stop.is_set():
                             llr = tally.llr(*args.sprt)
                             if llr >= LLR_BOUND:
+                                decision = "H1"
                                 print("SPRT: H1 accepted (change is a gain)",
                                       flush=True)
                                 stop.set()
                             elif llr <= -LLR_BOUND:
+                                decision = "H0"
                                 print("SPRT: H0 accepted (no gain / a loss)",
                                       flush=True)
                                 stop.set()
+        except Exception as error:
+            with lock:
+                failures.append(str(error))
+                stop.set()
         finally:
-            new_eng.quit()
-            base_eng.quit()
-            referee.quit()
+            for participant in (new_eng, base_eng, referee):
+                if participant is not None:
+                    participant.quit()
 
     threads = [threading.Thread(target=worker) for _ in range(args.concurrency)]
     for t in threads:
@@ -390,22 +403,18 @@ def main() -> int:
     for t in threads:
         t.join()
 
+    if failures:
+        print("match worker failed: " + "; ".join(failures), file=sys.stderr)
+        return 3
     report(final=True)
     if args.sprt:
+        if decision is not None:
+            return 0 if decision == "H1" else 1
         llr = tally.llr(*args.sprt)
         if llr >= LLR_BOUND:
             return 0
         if llr <= -LLR_BOUND:
             return 1
-        # The bound may have been crossed mid-run and then drifted back while
-        # the in-flight games of the other workers drained. That is still a
-        # decision -- the stop fired -- so report it as one instead of
-        # contradicting the "H1 accepted" line already printed.
-        if stop.is_set():
-            print(f"SPRT: bound was crossed during the run "
-                  f"(final LLR {llr:+.2f} after in-flight games drained)",
-                  flush=True)
-            return 0
         print("SPRT: inconclusive at game cap", flush=True)
         return 2
     return 0

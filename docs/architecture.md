@@ -1,302 +1,108 @@
-# STK-Vector-64 Architecture Specification
-
-Status: Ongoing
-
-Target production profile: `docs/vector64-spec.md`
-
-## 1. Purpose
-
-This document defines the architecture of STK-Vector-64 as currently implemented. It specifies module boundaries, data layout, move-generation flow, legality validation, hashing strategy, search behavior, and test execution behavior.
-
-## 2. Engine Boundaries
-
-The repository implements an engine core with a UCI search stack and perft verification harness.
-
-In scope:
-- Board representation and state transitions
-- Pseudo-legal and legal move generation
-- Attack generation (precomputed + magic-bitboard)
-- Incremental Zobrist hashing
-- UCI command loop and time controls
-- Iterative-deepening alpha-beta search with move ordering
-- Perft validation from EPD input
-
-Out of scope:
-- NNUE training pipeline
-- Opening book / endgame tablebase integration
-
-## 3. Source Topology
-
-Core modules:
-- `src/cores/types.h`: primitive enums and square/rank/file helpers
-- `src/cores/bitboard.h`: bitboard constants and bit operations
-- `src/cores/move.h`: 16-bit move packing and move list container
-- `src/cores/position.h`, `src/cores/position.cpp`: position state and make/unmake
-- `src/cores/attacks.h`, `src/cores/attacks.cpp`: attack tables + magic lookups
-- `src/cores/movegen.h`, `src/cores/movegen.cpp`: pseudo/legal move generation
-- `src/cores/zobrist.h`, `src/cores/zobrist.cpp`: zobrist key initialization
-- `src/cores/invariants.h`: debug-time consistency guard
-
-Support modules:
-- `src/uci/uci.h`, `src/uci/uci.cpp`: protocol loop, options, and search scheduling
-- `src/search/search.h`, `src/search/search.cpp`: iterative deepening negamax alpha-beta
-- `src/search/transposition_table.h`, `src/search/transposition_table.cpp`: depth-preferred TT
-- `src/search/move_ordering.h`, `src/search/move_ordering.cpp`: TT move/MVV-LVA/killer/history ordering
-- `src/search/evaluator.h`, `src/search/evaluator.cpp`: blended NNUE + PSQT evaluation
-- `src/nnue/nnue.h`, `src/nnue/nnue.cpp`: quantized NNUE runtime and HalfKP accumulator scaffolding
-- `src/utils/debug.h`, `src/utils/debug.cpp`: bitboard visualization helper
-- `tests/perfts.h`, `tests/perfts.cpp`: perft and EPD suite runner
-- `tests/nnue_consistency.h`, `tests/nnue_consistency.cpp`: NNUE incremental-vs-full rebuild consistency check
-- `main.cpp`: executable entry point (default UCI mode; explicit debug/test flags)
-
-## 4. Fundamental Types
-
-### 4.1 Bitboard
-
-`Bitboard` is `uint64_t` with little-endian square indexing:
-- `SQ_A1 = 0`
-- `SQ_H8 = 63`
-
-This mapping aligns directional deltas to simple arithmetic:
-- North `+8`
-- South `-8`
-- East `+1`
-- West `-1`
-
-### 4.2 Color and Piece Domain
-
-`Color`: `WHITE`, `BLACK`
-
-`PieceType` includes:
-- `PAWN`, `KNIGHT`, `BISHOP`, `ROOK`, `QUEEN`, `KING`
-- `NO_PIECE_TYPE` sentinel
-
-### 4.3 Move Encoding
-
-`Move` packs into `uint16_t`:
-- bits `[0..5]`: from square
-- bits `[6..11]`: to square
-- bits `[12..15]`: flag nibble
-
-Flag space encodes:
-- quiet, double push, castling, en passant
-- captures
-- promotions (quiet/capture variants)
-
-## 5. Position State Model
-
-`Position` stores board state as orthogonal bitboards:
-- `byColor[2]`
-- `byType[PIECE_TYPE_NB]`
-
-Derived occupancy:
-- `occupancy() = byColor[WHITE] | byColor[BLACK]`
-
-Game-state fields:
-- `sideToMove`
-- `castlingRights` bitmask
-- `epSquare`
-- `halfmoveClock`
-- `fullmoveNumber`
-- `zobristHash`
-- repetition history ring/array (`history`, `gamePly`)
-
-### 5.1 Castling Rights Decay
-
-`CastlingSpoilers[64]` masks rights when king/rook moves or target rook is captured. Rights are updated incrementally in `make_move` and restored via undo state in `unmake_move`.
-
-### 5.2 FEN IO
-
-`setFromFEN` parses:
-- board occupancy
-- active color
-- castling rights
-- en passant target
-- half/full move counters
-
-`toFEN` reserializes full state from current position.
-
-## 6. Attack Subsystem
-
-## 6.1 Non-sliding attacks
-
-Precomputed arrays:
-- `PawnAttacks[color][sq]`
-- `KnightAttacks[sq]`
-- `KingAttacks[sq]`
-
-Computed once in `Attacks::init()`.
-
-## 6.2 Sliding attacks via magics
-
-Magic tables are generated at startup:
-- `RookMagics[64]`
-- `BishopMagics[64]`
-- shared `AttackTable`
-
-For each square:
-1. Build occupancy mask of relevant blocker squares.
-2. Enumerate all blocker combinations.
-3. Compute ground-truth ray attacks.
-4. Search sparse magic constant producing collision-safe mapping.
-
-Runtime lookup:
-- mask occupancy
-- multiply by magic
-- shift
-- index prebuilt attack table
-
-## 6.3 Geometry tables
-
-Precomputed:
-- `Between[s1][s2]`
-- `Line[s1][s2]`
-
-These support line/ray relations and are available for legality and future search heuristics.
-
-## 7. Move Generation Pipeline
-
-## 7.1 Pseudo-legal generation
-
-`generate_pseudo_legal_moves` dispatches by side:
-- pawns (pushes, captures, promotions, en passant)
-- knights
-- bishops
-- rooks
-- queens
-- king
-- castling candidates
-
-Generation is bitboard-driven and avoids branch-heavy piece loops where possible.
-
-## 7.2 Legal filtering
-
-`generate_legal_moves` performs:
-1. pseudo-legal generation into `MoveList`
-2. context precompute (`LegalityContext`)
-3. in-place compaction of legal moves only
-
-This avoids:
-- repeated board make/unmake for legality checks
-- extra move-list allocations/copies
-
-## 8. Bitwise Legality Validator
-
-Legal validation uses occupancy simulation, not full board mutation.
-
-For a candidate move:
-1. Remove moving piece from source square in simulated occupancy.
-2. If capture, remove captured square (special case en passant capture square).
-3. Add moving piece at destination.
-4. For castling, additionally simulate rook displacement and validate start/intermediate king squares.
-5. Compute king square after move (destination for king moves, original otherwise).
-6. Query `is_square_attacked_by_enemy` against simulated occupancy.
-
-Move is legal iff king is not attacked in simulated result.
-
-This path is O(1) for attack queries due to precomputed tables + magic lookups.
-
-## 9. Move Make/Unmake
-
-`make_move` responsibilities:
-- capture removal (incl. en passant)
-- piece displacement
-- promotion replacement
-- castling rook shift
-- castling rights decay
-- en passant setup/clear
-- half/full move clock updates
-- side-to-move flip
-- incremental zobrist update
-- history append
-
-`unmake_move` restores full prior state from `UndoInfo` plus reverse piece transforms.
-
-Undo struct includes:
-- prior castling rights
-- prior en passant square
-- prior halfmove clock
-- captured piece type
-- zobrist delta
-
-## 10. Zobrist Hashing
-
-Random keys initialized once for:
-- `psq[color][piece][square]`
-- `enpassant[file]`
-- `castling[0..15]`
-- `side`
-
-Hash is maintained incrementally to avoid full recompute.
-
-Repetition detection scans same-side history window bounded by halfmove clock.
-
-## 11. Invariants and Defensive Checks
-
-`ASSERT_CONSISTENCY(pos)` is active in debug builds and validates:
-- color bitboards are disjoint
-- exactly one king per side
-- en passant rank validity relative to side to move
-
-These checks protect move/unmove integrity during development and perft debugging.
-
-## 12. Test and Verification Surface
-
-`main.cpp` defaults to the UCI loop.
-
-Explicit diagnostic modes:
-- `--perft [path]`: loads EPD input (default `test_data/standard.epd`) and validates expected node counts
-- `--nnue-consistency [games] [max-plies] [seed]`: compares incremental accumulator updates against full rebuilds on random legal playouts and fails fast on mismatch
-
-`tests/perfts.cpp` provides:
-- recursive perft
-- optional multithreaded branch fan-out for benchmark comparison
-- pass/fail reporting against EPD expected node counts
-
-## 13. CI Behavior
-
-Workflow: `.github/workflows/ci.yml`
-
-Matrix:
-- `ubuntu-latest`
-- `windows-latest`
-
-Per platform:
-- configure with CMake
-- build engine target
-- run executable so perft suite acts as correctness gate
-
-## 14. Performance Characteristics
-
-Current design focuses on high throughput in movegen/perft workloads:
-- bitboard arithmetic throughout critical path
-- O(1) sliding attack lookups with magics
-- legal filter by occupancy simulation
-- in-place legal list compaction
-- depth-1 perft bulk counting
-
-Observed benchmark outputs in this repository have reported >100 MNPS single-thread in release configuration on target hardware.
-
-## 15. Known Architectural Constraints
-
-- Magic initialization is runtime-generated, increasing startup cost.
-- Search currently evaluates NNUE by full rebuild at each node (incremental eval path is not yet integrated into search).
-- Multithread perft currently spawns per-branch async tasks; this is benchmark-oriented and not a search scheduler.
-
-## 16. High-Risk Components
-
-Current high-risk areas that require continuous verification:
-- Accumulator correctness across make/unmake sequences
-- TT interaction with NNUE evaluation semantics
-- Thread-local NNUE state design for parallel search
-- Cache-line alignment sensitivity with hidden size 512 data layout
-- Quantization contract drift between Python export and C++ runtime inference
-
-## 17. Extension Points
-
-Natural extension points without breaking core structure:
-- integrate thread-local incremental NNUE state into search nodes
-- add automated quantization parity checks (PyTorch float vs exported int runtime)
-- add dedicated stress suites for TT + eval interaction under time controls
-- add stronger CI coverage for NNUE loader corruption cases
-
+# Architecture
+
+This page maps the current engine. The [engineering guide](implementation/engineering.md)
+connects each boundary to its code and tests; the [engine contract](spec/engine-contract.md)
+and [STK-HalfKA contract](vector64-spec.md) specify observable behavior.
+
+## Build boundaries
+
+```mermaid
+flowchart TD
+    core[Core sources] --> standard[chess_core]
+    core --> variant[chess_core_variants / ENGINE_VARIANTS]
+    standard --> classical[ChessEngine]
+    standard --> nnue[ChessEngine-nnue + embedded net]
+    variant --> drop[ChessEngine-variants]
+    variant --> all[ChessEngine-all + embedded net]
+    variant --> validator[ChessEngine-validator]
+    standard --> viz[chess_viz / telemetry and session]
+    viz --> server[ChessEngine-viz / HTTP + embedded UI and net]
+```
+
+`chess_core` contains position/move generation, UCI, search, NNUE, native datagen,
+and the Syzygy wrapper plus vendored Fathom. It has no HTTP or JSON dependency.
+Variant sources compile a second time with `ENGINE_VARIANTS`, so standard
+binaries keep their standard position layout and smaller move buffers.
+
+`chess_viz` links the standard core. Its telemetry, session driver, HTTP server,
+and UI are separate from tournament binaries. `ENGINE_VIZ=OFF` omits its
+libraries, executables, downloaded headers, and tests.
+
+## Position and move flow
+
+```mermaid
+flowchart LR
+    input[FEN + optional move history] --> pos[Position]
+    pos --> attacks[Attack tables / occupancy queries]
+    attacks --> moves[Move generation + legal filtering]
+    moves --> make[Make move / UndoInfo]
+    make --> state[Board + clocks + hash + history]
+    state --> undo[Unmake / restore state]
+```
+
+Board state uses 64-bit bitboards and a mailbox. Moves are 16-bit values with
+source, destination, and flags. The variant encoding reuses the source field
+for a dropped piece type. Position updates maintain material, piece-square
+score, Zobrist identity, and history incrementally. Special moves require
+additional deltas: castling moves a rook, en passant removes a pawn off the
+capture destination, and promotion changes the moving piece type.
+
+Legal filtering uses attack/occupancy information rather than making every
+candidate on a full board copy. King moves, pins, check evasion, and castling
+need their corresponding occupancy context. Variant drops add blockers and
+have separate legality and reserve handling.
+
+## Search and ownership
+
+The UCI loop owns a resident position and an asynchronous search thread. A
+search receives a root copy. `stop` joins that search and permits its final
+`bestmove`; `quit` shuts it down. A worker process should serve one client
+request sequence at a time.
+
+Search uses iterative deepening, negamax alpha-beta, principal variations,
+move ordering, transposition-table bounds, pruning/reductions, and quiescence.
+The TT has four 16-byte entries per 64-byte bucket. Replacement considers
+stored depth and generation. The static evaluation is cached with search
+entries where applicable.
+
+Lazy SMP helpers share the TT and read-only evaluator weights. Each helper
+owns its own position, move-ordering state, accumulator stack, refresh tables,
+and search counters. The master publishes search information. Scheduling and
+wall-clock budgets make multi-threaded runs nondeterministic.
+
+## Evaluation
+
+The fixed current network is STK-HalfKA: 22,528 features per perspective,
+H=1024 or H=128, pairwise clipped activations, eight dense output buckets, and
+an integrated PSQT side output. Its integer score is relative to the mover.
+
+The search maintains big-network accumulators incrementally and resolves
+refresh barriers as needed. A loaded small net can answer at nodes where the
+classical estimate exceeds `SmallNetThreshold`; `LazyEvalMargin` can skip the
+network entirely for sufficiently large estimates. These are selection policies
+around the existing architecture. The standalone `eval` command rebuilds an
+accumulator and prefers the loaded big net, then small net, then classical eval.
+
+Drop variants suppress NNUE without unloading it. Their classical evaluation
+includes board material/PSQT, reserve material, and variant evaluation terms.
+Returning to standard chess restores the loaded network. Syzygy uses external
+standard-chess tables; root DTZ ranking is master-only. The current probing path
+lacks a runtime-variant guard, so keep `SyzygyPath` empty for drop-variant search.
+See the [tablebase limitations](limitations.md#tablebase-search).
+
+## Training and visualization
+
+Python preparation, training, quantization, and export share the feature encoder
+and `STKNet`. Dataset labels are white-relative; the model output is mover-relative.
+The integer Python oracle checks exported inference against the C++ engine.
+Bullet trains floating-point weights and transfers them into the same exporter.
+
+Vector Scope captures a separate forward pass outside search's hot path. The
+session driver publishes snapshots; the binary wire encoder feeds HTTP and
+WASM transports. React/TypeScript renders them without implementing engine
+rules. WASM is linked by `tools/build_wasm.sh`, which explicitly lists its
+telemetry/session sources; it does not reuse the native `chess_viz` target.
+
+The [limitations](limitations.md) document states the current failure boundaries.
+Neither this architecture map nor the consistency tests establish complete
+rule adjudication or race freedom for every concurrent search interleaving.
