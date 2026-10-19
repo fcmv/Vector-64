@@ -29,7 +29,7 @@ interrupt command. `--help` lists the executable's flags:
 | `--hash` | 32 MB. |
 | `--delay` | 300 ms between self-play moves. |
 | `--seed` | Opening seed. |
-| `--record` | Write frame summaries to JSONL, replacing an existing file. |
+| `--record` | Write frame summaries to JSONL, truncating an existing file; the CLI help's append wording is inaccurate. |
 | `--no-browser`, `--headless` | Serve without opening the browser. |
 | `--terminal` | Console view instead of HTTP. |
 

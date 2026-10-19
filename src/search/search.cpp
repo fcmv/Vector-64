@@ -492,7 +492,8 @@ int EngineSearch::eval_pos(const Core::Position &pos, int ply) {
 
     if (smallActive_ &&
         (simple > smallNetThreshold_ || simple < -smallNetThreshold_)) {
-      // The big accumulator is already maintained; skip only its forward pass.
+      // On-demand small eval: a couple of finny diffs, and the big
+      // accumulator stays unresolved for this whole subtree branch.
       PROF_T0;
       eval_->small().refresh_perspective(pos, Core::WHITE, smallScratch_,
                                          *smallRefreshTable_);
@@ -1117,8 +1118,9 @@ uint64_t EngineSearch::total_nodes() const {
 }
 
 // Lazy SMP: helper threads run the same iterative deepening on their own
-// move ordering state while sharing the transposition table. TT accesses are
-// unsynchronized; key and move checks do not establish race freedom.
+// move ordering state while sharing the transposition table. Entries may
+// tear under concurrent writes; the 32-bit key check plus legal-move
+// matching keeps a torn entry from doing more than costing a few nodes.
 Result EngineSearch::search(Core::Position root, const Limits &limits,
                             const Callbacks &callbacks) {
   tt_->new_search();

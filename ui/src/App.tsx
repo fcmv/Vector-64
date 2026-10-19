@@ -26,7 +26,8 @@ import {
 } from "./components/Panels";
 
 export default function App() {
-  // State and ordinary controls use HTTP or WASM; datagen probing below needs HTTP.
+  // One transport-agnostic source: a local ChessEngine-viz if one is running,
+  // otherwise the WebAssembly build. Nothing below this line knows which.
   const [source, setSource] = useState<EngineSource | null>(null);
   const [boot, setBoot] = useState<BootProgress | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
