@@ -23,7 +23,7 @@ contracts, code, and tests is a defect to resolve explicitly.
 | Ordering/history/SEE | `src/search/move_ordering.{h,cpp}` |
 | Network ownership and non-search evaluation | `src/search/evaluator.{h,cpp}` |
 | Feature indexing, integer kernels, accumulators | `src/nnue/halfka.h`, `network.{h,cpp}` |
-| Syzygy adapter and vendored prober | `src/search/syzygy.{h,cpp}`, `src/syzygy/` |
+| Syzygy adapter and vendored prober | `src/search/syzygy.{h,cpp}`, `third_party/fathom/` |
 | Native self-play and shard output | `src/datagen/` |
 | Pure telemetry, session, wire and transport | `src/viz/` |
 | UI, decoder and source adapters | `ui/src/` |

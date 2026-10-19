@@ -1,13 +1,9 @@
 """STK-HalfKA feature contract independent of PyTorch."""
 from __future__ import annotations
 
-import pathlib
-import sys
-
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools" / "nnue"))
-import halfka_features as hk
+from tools.nnue import halfka_features as hk
 
 START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 

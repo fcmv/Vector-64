@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import argparse
 import copy
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
-import benchmark as bench
-import benchmark_matrix as matrix
+from tools.bench import benchmark as bench
+from tools.bench import benchmark_matrix as matrix
 
 
 def workload(**overrides):

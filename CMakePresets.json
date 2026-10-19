@@ -1,0 +1,46 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {"major": 3, "minor": 21, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "ENGINE_NATIVE": false,
+        "BUILD_TESTING": true
+      }
+    },
+    {"name": "portable-release", "inherits": "base", "displayName": "Portable release with tests"},
+    {"name": "native-release", "inherits": "base", "cacheVariables": {"ENGINE_NATIVE": true}},
+    {"name": "debug", "inherits": "base", "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug", "ENGINE_LTO": false}},
+    {
+      "name": "engine-only",
+      "inherits": "base",
+      "cacheVariables": {"ENGINE_VIZ": false, "ENGINE_VARIANTS": false, "BUILD_TESTING": false}
+    },
+    {
+      "name": "windows-mingw-release",
+      "inherits": "base",
+      "generator": "MinGW Makefiles",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows"},
+      "cacheVariables": {"CMAKE_MAKE_PROGRAM": "mingw32-make", "CMAKE_CXX_COMPILER": "g++"}
+    }
+  ],
+  "buildPresets": [
+    {"name": "portable-release", "configurePreset": "portable-release"},
+    {"name": "native-release", "configurePreset": "native-release"},
+    {"name": "debug", "configurePreset": "debug"},
+    {"name": "engine-only", "configurePreset": "engine-only"},
+    {"name": "windows-mingw-release", "configurePreset": "windows-mingw-release"}
+  ],
+  "testPresets": [
+    {"name": "portable-release", "configurePreset": "portable-release", "output": {"outputOnFailure": true}},
+    {"name": "native-release", "configurePreset": "native-release", "output": {"outputOnFailure": true}},
+    {"name": "debug", "configurePreset": "debug", "output": {"outputOnFailure": true}},
+    {"name": "windows-mingw-release", "configurePreset": "windows-mingw-release", "output": {"outputOnFailure": true}}
+  ]
+}

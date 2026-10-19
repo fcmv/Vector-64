@@ -22,17 +22,22 @@ Verify (optional): pass --bullet-evals <file> with lines `EVAL<i> <raw> <fen>`
 
 from __future__ import annotations
 
-import argparse
-import sys
 from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.bullet.transfer_to_stknet", "ARGV0": __file__}, run_name="__main__")
+
+import argparse
 
 import numpy as np
 import torch
 
+from ..nnue import halfka_features as hk
+from ..nnue import make_net as mk
+
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "nnue"))
-import halfka_features as hk  # noqa: E402
-import make_net as mk  # noqa: E402
 
 FT = 22528
 NIN = FT + 1

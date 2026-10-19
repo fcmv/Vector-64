@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import make_net
+from . import make_net
 
 
 def training_main(argv: list[str] | None = None, stage: str = "all", workdir: str = "runs/pipeline") -> int:

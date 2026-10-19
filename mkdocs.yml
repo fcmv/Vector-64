@@ -60,6 +60,7 @@ nav:
       - Host integration: engine-integration-response.md
   - Architecture and evaluation:
       - Architecture: architecture.md
+      - Repository layout: repository-layout.md
       - Engineering guide: implementation/engineering.md
       - Search internals: search.md
       - Engine contract: spec/engine-contract.md

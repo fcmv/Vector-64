@@ -6,14 +6,20 @@ A completed chunk is recorded atomically; interrupted chunks are regenerated.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.datagen_bulk", "ARGV0": __file__}, run_name="__main__")
+
 import argparse
 import json
 import subprocess
 import sys
 import time
-from pathlib import Path
 
-from contracts import check_net, sha256, write_json
+from .contracts import check_net, sha256, write_json
 
 HERE = Path(__file__).resolve().parent
 

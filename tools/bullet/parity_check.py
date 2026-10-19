@@ -18,9 +18,15 @@ Python reference's `W`/`B` lines.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.bullet.parity_check", "ARGV0": __file__}, run_name="__main__")
+
 import subprocess
 import sys
-from pathlib import Path
 
 # Must match the FEN list in tools/bullet/stk_halfka.rs.
 FENS = [

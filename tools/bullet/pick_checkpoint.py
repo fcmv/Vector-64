@@ -18,21 +18,25 @@ checkpoint => train longer; bottomed then rose => overfit, use the min. With
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.bullet.pick_checkpoint", "ARGV0": __file__}, run_name="__main__")
+
 import argparse
 import random
 import subprocess
 import sys
-from pathlib import Path
 
 import numpy as np
 import torch
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parent / "nnue"))
-import halfka_features as hk  # noqa: E402
+from ..nnue import halfka_features as hk
+from . import transfer_to_stknet as tr
 
-sys.path.insert(0, str(HERE))
-import transfer_to_stknet as tr  # noqa: E402
+HERE = Path(__file__).resolve().parent
 
 
 def load_val(path: Path, k: int, seed: int, wdl_frac: float, scale: float):

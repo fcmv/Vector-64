@@ -2,7 +2,7 @@
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-extend-exclude = ["build", "build-*", "cmake-build-*", "artifacts", "tools/data"]
+extend-exclude = ["build", "build-*", "cmake-build-*", "out", "artifacts", "tools/data", "third_party"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "C4"]
@@ -24,5 +24,6 @@ follow_imports = "skip"
 ignore_errors = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests/python"]
+testpaths = ["tests/python", "tests/docs"]
+pythonpath = ["."]
 addopts = "-q"

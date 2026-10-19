@@ -21,6 +21,12 @@ NNUE executable. See [version selection](docs/versions.md).
 
 ### Changed
 
+- Shared perft diagnostics now live in `src/perft/`, vendored Fathom in
+  `third_party/fathom/`, and build definitions in focused `cmake/` modules.
+  Presets place new builds under `out/build/`; `BUILD_TESTING=OFF` omits tests.
+- Benchmark and experiment implementations are grouped under `tools/bench/`
+  and `tools/experiments/`. Python tools use package imports while existing
+  file commands and launchers remain supported.
 - Training entry points share feature, label-perspective, dataset and export
   contracts. Legacy switches and incompatible HalfKP data are rejected; see
   [training migration](docs/nnue-training.md#migration).

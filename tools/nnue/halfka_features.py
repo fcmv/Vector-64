@@ -10,6 +10,13 @@ Colours: WHITE=0, BLACK=1. Piece types: PAWN=1..KING=6.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.halfka_features", "ARGV0": __file__}, run_name="__main__")
+
 import sys
 
 KING_BUCKETS = 32

@@ -6,9 +6,10 @@
 
 #include <string>
 
-// Thin C++ front-end over the vendored Fathom Syzygy prober (src/syzygy). All
-// tablebase state is global (Fathom owns it); this namespace just marshals a
-// Core::Position into Fathom's bitboard call and maps the result back.
+// Thin C++ front-end over the vendored Fathom Syzygy prober
+// (third_party/fathom). All tablebase state is global (Fathom owns it); this
+// namespace just marshals a Core::Position into Fathom's bitboard call and maps
+// the result back.
 namespace Search::Syzygy {
 
 // Game-theoretic value for a tablebase win, from the side to move. Sits above

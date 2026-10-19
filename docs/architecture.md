@@ -4,6 +4,9 @@ This page maps the current engine. The [engineering guide](implementation/engine
 connects each boundary to its code and tests; the [engine contract](spec/engine-contract.md)
 and [STK-HalfKA contract](vector64-spec.md) specify observable behavior.
 
+The [repository layout](repository-layout.md) identifies build modules, packaged
+tools, shared diagnostics and the vendored dependency boundary.
+
 ## Build boundaries
 
 ```mermaid

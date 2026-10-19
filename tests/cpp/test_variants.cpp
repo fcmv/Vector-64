@@ -8,7 +8,7 @@
 #include "cores/movegen.h"
 #include "cores/position.h"
 #include "cores/zobrist.h"
-#include "perfts.h"
+#include "perft/perft.h"
 #include "uci/validator.h"
 
 #include <cstdio>

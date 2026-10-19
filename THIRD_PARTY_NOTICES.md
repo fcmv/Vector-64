@@ -14,7 +14,7 @@ not merely a pointer to this inventory.
 | chess.js | 1.4.0 in the lockfile | BSD-2-Clause. |
 | React and React DOM | UI dependency lockfile | MIT. |
 | PixiJS | UI dependency lockfile | MIT. |
-| Fathom | Vendored commit `c9c6fef0dddc05d2e242c183acf5833149ab676d` | MIT; [vendoring record](src/syzygy/README.md) and [license](src/syzygy/LICENSE). |
+| Fathom | Vendored commit `c9c6fef0dddc05d2e242c183acf5833149ab676d` | MIT; [vendoring record](third_party/fathom/README.md) and [license](third_party/fathom/LICENSE). |
 | nlohmann/json | v3.11.3, SHA256-pinned native fetch in CMake | MIT; used by visualization. |
 | cpp-httplib | v0.18.3, SHA256-pinned native fetch in CMake | MIT; native visualizer HTTP. |
 | coi-serviceworker | v0.1.7 banner in `ui/public/coi-serviceworker.js` | MIT; Guido Zuidhof and contributors. |

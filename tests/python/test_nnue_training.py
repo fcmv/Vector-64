@@ -2,19 +2,16 @@ from __future__ import annotations
 
 import argparse
 import os
-import pathlib
-import sys
 
 import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools" / "nnue"))
-import build_stk_data as prep
-import export_vector64 as exporter
-import make_net as mk
-import rl_train_vector64 as rl
-from contracts import check_net, sha256
+from tools.nnue import build_stk_data as prep
+from tools.nnue import export_vector64 as exporter
+from tools.nnue import make_net as mk
+from tools.nnue import rl_train_vector64 as rl
+from tools.nnue.contracts import check_net, sha256
 
 START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -25,6 +22,14 @@ def cpu_threads():
     torch.set_num_threads(2)
     yield
     torch.set_num_threads(previous)
+
+
+def test_engine_discovery_accepts_preset_output(tmp_path, monkeypatch):
+    engine = tmp_path / "out/build/portable-release/bin/ChessEngine.exe"
+    engine.parent.mkdir(parents=True)
+    engine.write_bytes(b"")
+    monkeypatch.chdir(tmp_path)
+    assert mk.find_engine(None) == engine.resolve()
 
 
 def test_replay_encoder_matches_training_and_counts_enemy_king():

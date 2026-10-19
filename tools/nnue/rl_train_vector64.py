@@ -7,20 +7,27 @@ is shared with halfka_features. Requires torch and numpy.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.rl_train_vector64", "ARGV0": __file__}, run_name="__main__")
+
 import argparse
 import json
 import os
 import random
 import time
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from build_stk_data import encode
-from make_net import BUCKETS, CP_SCALE, STKNet, load_float_model
-from match import Arbiter
+
+from .build_stk_data import encode
+from .make_net import BUCKETS, CP_SCALE, STKNet, load_float_model
+from .match import Arbiter
 
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 def parse_args() -> argparse.Namespace:

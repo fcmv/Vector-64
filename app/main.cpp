@@ -2,7 +2,7 @@
 #include "cores/position.h"
 #include "cores/zobrist.h"
 #include "datagen/datagen.h"
-#include "perfts.h"
+#include "perft/perft.h"
 #include "uci/uci.h"
 #ifdef STK_EMBED_NNUE
 #include "nnue/embedded_net.h"

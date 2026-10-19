@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "nnue"))
-import build_stk_data as prep  # noqa: E402
-import make_net as mk  # noqa: E402
-from contracts import check_net, validate_dataset  # noqa: E402
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parent / "_entrypoint.py"),
+                   init_globals={"MODULE": "tools.smoke_test", "ARGV0": __file__}, run_name="__main__")
+
+from .nnue import build_stk_data as prep
+from .nnue import make_net as mk
+from .nnue.contracts import check_net, validate_dataset
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -10,25 +10,29 @@ CUDA batches halve on OOM. Re-running the command resumes saved prep/training st
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.make_net", "ARGV0": __file__}, run_name="__main__")
+
 import argparse
 import json
 import math
 import os
 import struct
 import subprocess
-import sys
 import time
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 from torch import nn
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import build_stk_data as prep  # noqa: E402
-import halfka_features as hk  # noqa: E402
-from contracts import check_net, copy_file, load_shard, sha256, validate_dataset, write_json  # noqa: E402
+from . import build_stk_data as prep
+from . import halfka_features as hk
+from .contracts import check_net, copy_file, load_shard, sha256, validate_dataset, write_json
 
 FEATURES = 22528
 # Set from --hidden in main(): 1024 = primary net, 128 = dual-net small net.
@@ -415,9 +419,13 @@ def python_eval_int(q: dict[str, np.ndarray], fen: str) -> int:
 def find_engine(cli: str | None) -> Path | None:
     if cli:
         return Path(cli).resolve() if Path(cli).is_file() else None
-    for c in ("build-bench/bin/ChessEngine.exe", "build/bin/ChessEngine.exe", "build/bin/ChessEngine"):
+    candidates = ["build-bench/bin/ChessEngine.exe", "build/bin/ChessEngine.exe", "build/bin/ChessEngine"]
+    for preset in ("portable-release", "windows-mingw-release", "native-release", "engine-only", "debug"):
+        candidates.extend(f"out/build/{preset}/{binary}" for binary in (
+            "bin/ChessEngine", "bin/ChessEngine.exe", "bin/Release/ChessEngine.exe"))
+    for c in candidates:
         p = Path(c)
-        if p.exists():
+        if p.is_file():
             return p.resolve()
     return None
 

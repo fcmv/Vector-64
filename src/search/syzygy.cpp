@@ -3,8 +3,9 @@
 #include "../cores/bitboard.h"
 
 // Fathom's public header (extern "C" internally). Its own quoted includes
-// (tbconfig.h) resolve via the src/syzygy include directory added in CMake.
-#include "syzygy/tbprobe.h"
+// (tbconfig.h) resolve via the third_party/fathom include directory added in
+// CMake.
+#include "tbprobe.h"
 
 #include <algorithm>
 #include <cstdint>

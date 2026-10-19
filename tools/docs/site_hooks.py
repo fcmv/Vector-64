@@ -25,7 +25,7 @@ CANONICAL = {
     "third-party-notices.md": "THIRD_PARTY_NOTICES.md",
     "model-card.md": "nets/model-card.md",
     "bullet.md": "tools/bullet/README.md",
-    "syzygy.md": "src/syzygy/README.md",
+    "syzygy.md": "third_party/fathom/README.md",
     "examples.md": "examples/README.md",
 }
 SOURCE_TO_PAGE = {(ROOT / source).resolve(): page for page, source in CANONICAL.items()}

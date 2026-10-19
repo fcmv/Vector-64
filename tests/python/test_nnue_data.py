@@ -3,14 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
-import sys
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools" / "nnue"))
-import build_stk_data as prep
-import contracts as contract
+from tools.nnue import build_stk_data as prep
+from tools.nnue import contracts as contract
 
 START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 BLACK = START.replace(" w ", " b ")

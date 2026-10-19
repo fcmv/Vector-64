@@ -2,6 +2,13 @@
 """Prepare resumable, checked STK-HalfKA shards from labelled FEN positions."""
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.build_stk_data", "ARGV0": __file__}, run_name="__main__")
+
 import argparse
 import hashlib
 import io
@@ -9,16 +16,13 @@ import json
 import math
 import os
 import sqlite3
-import sys
 from collections import Counter
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import halfka_features as hk  # noqa: E402
-from contracts import DATA_FORMAT, FEATURES, sha256, validate_dataset, write_json  # noqa: E402
+from . import halfka_features as hk
+from .contracts import DATA_FORMAT, FEATURES, sha256, validate_dataset, write_json
 
 MAX_FEATURES = 32
 MATE_CP = 8000.0

@@ -1,5 +1,34 @@
 # Building
 
+## Build presets
+
+CMake 3.21 or newer supports the committed presets. The general presets use
+Ninja; install it and make the selected compiler available in your shell.
+The existing explicit configure commands below retain the CMake 3.15 minimum.
+
+```bash
+cmake --preset portable-release
+cmake --build --preset portable-release -j2
+ctest --preset portable-release
+```
+
+Use `native-release` to tune for the build machine, `debug` for the Debug
+configuration, or `engine-only` for standard engine binaries without tests,
+visualization or variant targets. Outputs go to `out/build/<preset>/bin/`.
+On Windows with MSYS2 UCRT64 GCC and `mingw32-make` on PATH:
+
+```powershell
+cmake --preset windows-mingw-release
+cmake --build --preset windows-mingw-release -j2
+ctest --preset windows-mingw-release
+```
+
+Supply personal overrides in the ignored `CMakeUserPresets.json`. To omit tests
+with an explicit configure command, add `-DBUILD_TESTING=OFF`. Perft remains
+available in engine binaries. See [repository layout](repository-layout.md).
+Existing wrapper defaults remain compatible with earlier build paths; pass the
+preset's binary path with `--engine` or `-Engine` where appropriate.
+
 All commands run from the repository root. Use a separate build directory when
 changing compiler, generator, or architecture. A configured CMake tree cannot
 be reused across incompatible generators.
@@ -67,6 +96,7 @@ than assuming Windows' `bash.exe` is the intended shell.
 |---|---|---|
 | `ENGINE_NATIVE` | `ON` | `-march=native` on applicable non-MSVC native builds. Disable for redistribution. |
 | `ENGINE_LTO` | `ON` | Interprocedural/link-time optimization. Disable when a toolchain or diagnostic build needs it. |
+| `BUILD_TESTING` | `ON` | Test executables and CTest registration; perft remains part of the engine. |
 | `ENGINE_VIZ` | `ON` | Visualizer targets, dependencies, and `viz.*` tests. |
 | `ENGINE_VARIANTS` | `ON` | Separate variant core, variant/validator binaries, and variant tests. |
 | `EMBED_NNUE` | `nets/stk-vector-64.nnue` | Network embedded in `-nnue`, `-all`, and the visualizer. |

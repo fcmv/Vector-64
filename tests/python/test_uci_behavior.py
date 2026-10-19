@@ -19,6 +19,9 @@ def _find_engine() -> str | None:
         return env
     root = pathlib.Path(__file__).resolve().parents[2]
     for pattern in (
+        "out/build/*/bin/ChessEngine",
+        "out/build/*/bin/ChessEngine.exe",
+        "out/build/*/bin/Release/ChessEngine.exe",
         "build*/bin/ChessEngine",
         "build*/bin/ChessEngine.exe",
         "build*/bin/Release/ChessEngine.exe",

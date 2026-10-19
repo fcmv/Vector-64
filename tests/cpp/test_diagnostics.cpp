@@ -3,7 +3,7 @@
 #include "cores/position.h"
 #include "cores/zobrist.h"
 #include "datagen/selfplay.h"
-#include "perfts.h"
+#include "perft/perft.h"
 #include "uci/uci_util.h"
 
 #include <filesystem>

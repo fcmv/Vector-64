@@ -8,13 +8,19 @@ Lichess labels anchors training against self-play drift.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.rl_loop", "ARGV0": __file__}, run_name="__main__")
+
 import argparse
 import json
 import random
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
@@ -45,10 +51,10 @@ def reservoir_sample(paths: list[Path], k: int, rng: random.Random) -> list[str]
 def extract_lichess_pool(jsonl: str, out_path: Path, cap: int) -> int:
     """Extract '<fen> | <cp>' (deepest, white-perspective) from a Lichess eval
     jsonl(.zst) into a plain-text anchor pool, up to `cap` positions."""
-    sys.path.insert(0, str(HERE))
+
     import json as _json
 
-    from build_stk_data import extract_cp, iter_lines  # type: ignore
+    from .build_stk_data import extract_cp, iter_lines  # type: ignore
 
     n = 0
     with out_path.open("w", encoding="utf-8") as w:
@@ -125,7 +131,7 @@ def main() -> int:
         p.error("mix-frac must be in [0,1), and training/game counts positive")
     if not Path(args.engine).is_file() or not Path(args.arbiter).is_file():
         p.error("engine and arbiter must exist")
-    from contracts import check_net, write_json
+    from .contracts import check_net, write_json
     check_net(Path(args.init_net))
     rng = random.Random(args.seed)
 

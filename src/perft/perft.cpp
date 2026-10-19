@@ -1,4 +1,4 @@
-#include "perfts.h"
+#include "perft/perft.h"
 #include "cores/attacks.h"
 #include "cores/movegen.h"
 #include "cores/position.h"

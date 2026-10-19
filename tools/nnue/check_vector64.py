@@ -2,10 +2,16 @@
 """Validate both supported STK-HalfKA binary network widths."""
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
-from contracts import check_net
+if __name__ == "__main__" and not __package__:
+    import runpy
+    runpy.run_path(str(Path(__file__).resolve().parents[1] / "_entrypoint.py"),
+                    init_globals={"MODULE": "tools.nnue.check_vector64", "ARGV0": __file__}, run_name="__main__")
+
+import argparse
+
+from .contracts import check_net
 
 
 def main(argv: list[str] | None = None) -> int:

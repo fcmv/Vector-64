@@ -1,13 +1,10 @@
 from __future__ import annotations
 
 import builtins
-import pathlib
-import sys
 
 import pytest
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools" / "nnue"))
-import match
+from tools.nnue import match
 
 
 def test_worker_failure_is_an_error_not_a_rejected_candidate(tmp_path, monkeypatch, capsys):
