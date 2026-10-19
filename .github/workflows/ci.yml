@@ -2,151 +2,77 @@ name: CI
 
 on:
   push:
+    branches: ['**']
   pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  # Reuse one build so correctness checks run the same binaries.
   build:
     name: build · linux release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       # ENGINE_NATIVE=OFF: this artifact is downloaded and executed by the
       # correctness jobs below, which land on *different* runner CPUs. A
       # -march=native build would bake in the build runner's ISA and SIGILL on
       # any older downstream runner. The portable baseline (magic bitboards +
       # scalar NNUE via the compile-time fallbacks) runs everywhere and keeps
       # the same deterministic node counts.
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF && cmake --build build -j
-      - uses: actions/upload-artifact@v7
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF -DBUILD_TESTING=ON -DENGINE_VARIANTS=ON -DENGINE_VIZ=ON && cmake --build build -j
+      - name: Full native correctness suite
+        run: ctest --test-dir build --output-on-failure --no-tests=error --timeout 180
+      - name: Both deterministic search fingerprints
+        run: |
+          bash tools/bench_signature.sh build/bin/ChessEngine
+          bash tools/bench_signature.sh build/bin/ChessEngine-nnue nnue
+      - name: Visualizer HTTP, control surface and independent evaluation
+        run: bash tools/viz_smoke.sh build/bin/ChessEngine-viz build/bin/ChessEngine-nnue
+      - name: Tournament binaries stay independent of visualizer dependencies
+        run: |
+          for target in ChessEngine ChessEngine-nnue; do
+            if grep -qE 'chess_viz|httplib|nlohmann' "build/CMakeFiles/$target.dir/link.txt"; then
+              echo "$target picked up a visualizer dependency"
+              cat "build/CMakeFiles/$target.dir/link.txt"
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: engine-linux
+          if-no-files-found: error
+          retention-days: 7
           path: |
             build/bin/ChessEngine
             build/bin/ChessEngine-nnue
-            build/bin/test_zobrist
+            build/bin/ChessEngine-validator
 
-  perft-startpos:
-    name: perft · startpos
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          ./ChessEngine --perft-one "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" 1 20
-          ./ChessEngine --perft-one "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" 3 8902
-          ./ChessEngine --perft-one "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" 5 4865609
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: viz-wire-fixture
+          path: build/viz_frame.bin
+          if-no-files-found: error
+          retention-days: 7
 
-  perft-kiwipete:
-    name: perft · kiwipete
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          ./ChessEngine --perft-one "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1" 3 97862
-          ./ChessEngine --perft-one "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1" 5 193690690
-
-  perft-position3:
-    name: perft · position 3 (endgame)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          ./ChessEngine --perft-one "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1" 5 674624
-          ./ChessEngine --perft-one "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1" 6 11030083
-
-  perft-position4:
-    name: perft · position 4 (promotions)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          ./ChessEngine --perft-one "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1" 4 422333
-          ./ChessEngine --perft-one "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1" 5 15833292
-
-  perft-position5:
-    name: perft · position 5
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          ./ChessEngine --perft-one "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8" 4 2103487
-
-  perft-position6:
-    name: perft · position 6
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          ./ChessEngine --perft-one "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10" 4 3894594
-
-  nnue-bitexact:
-    name: nnue · simd == scalar
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: chmod +x test_zobrist && ./test_zobrist nnue
-
-  state-consistency:
-    name: state · make/unmake + movegen
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: chmod +x test_zobrist && ./test_zobrist games
-
-  bench-signature:
-    name: search · bench signature
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: chmod +x ChessEngine && bash tools/bench_signature.sh ./ChessEngine
-
-  bench-signature-nnue:
-    name: search · bench signature (nnue binary)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      # The NNUE binary embeds nets/stk-vector-64.nnue; its bench node count is
-      # a fingerprint of (search + that net). SIMD==scalar bit-exactness makes it
-      # build-independent, like the classical signature.
-      - run: chmod +x ChessEngine-nnue && bash tools/bench_signature.sh ./ChessEngine-nnue nnue
-
-  # Real ARM runners exercise SDOT; x86 jobs cannot cover the NEON kernels.
   arm-neon-nnue:
     name: arm · neon nnue (simd==scalar) + bench
     runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       # +dotprod defines __ARM_FEATURE_DOTPROD so the SDOT dot() path is built
       # (ARMv8.2+; the CI runners are Graviton/Ampere-class).
       - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF -DCMAKE_CXX_FLAGS="-march=armv8.2-a+dotprod" && cmake --build build -j
@@ -156,66 +82,6 @@ jobs:
         run: bash tools/bench_signature.sh ./build/bin/ChessEngine
       - name: nnue bench signature (build-independent)
         run: bash tools/bench_signature.sh ./build/bin/ChessEngine-nnue nnue
-
-  uci-protocol:
-    name: uci · protocol
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          python -m pip install pytest
-          ENGINE_BIN=$PWD/ChessEngine python -m pytest tests/python/test_uci_behavior.py -v -k "handshake or isready or ucinewgame or startpos_returns"
-
-  uci-mates:
-    name: uci · mate / stalemate
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          python -m pip install pytest
-          ENGINE_BIN=$PWD/ChessEngine python -m pytest tests/python/test_uci_behavior.py -v -k "mate or stalemate or checkmate"
-
-  uci-rules:
-    name: uci · rules (promotion / searchmoves / illegal)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          python -m pip install pytest
-          ENGINE_BIN=$PWD/ChessEngine python -m pytest tests/python/test_uci_behavior.py -v -k "illegal or promotion or searchmoves"
-
-  uci-limits:
-    name: uci · search limits
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - uses: actions/download-artifact@v8
-        with: { name: engine-linux }
-      - run: |
-          chmod +x ChessEngine
-          python -m pip install pytest
-          ENGINE_BIN=$PWD/ChessEngine python -m pytest tests/python/test_uci_behavior.py -v -k "nodes_limit or bench_signature"
 
   portability:
     name: portability · ${{ matrix.id }}
@@ -227,84 +93,56 @@ jobs:
           - { os: macos-latest,                            id: macos-arm64 }
           - { os: windows-latest,                          id: windows-msvc }
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - name: Configure & build (Unix)
         if: runner.os != 'Windows'
         run: |
-          EXTRA=""
-          if [ -n "${{ matrix.cxx }}" ]; then EXTRA="-DCMAKE_C_COMPILER=${{ matrix.cc }} -DCMAKE_CXX_COMPILER=${{ matrix.cxx }}"; fi
-          if [ "${{ runner.os }}" = "macOS" ]; then EXTRA="$EXTRA -DENGINE_NATIVE=OFF"; fi
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release $EXTRA
+          EXTRA=()
+          if [ -n "${{ matrix.cxx }}" ]; then EXTRA+=("-DCMAKE_C_COMPILER=${{ matrix.cc }}" "-DCMAKE_CXX_COMPILER=${{ matrix.cxx }}"); fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF "${EXTRA[@]}"
           cmake --build build -j
       - name: Test (Unix)
         if: runner.os != 'Windows'
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --output-on-failure --no-tests=error --timeout 180
       - name: Configure & build (Windows)
         if: runner.os == 'Windows'
         run: cmake -S . -B build && cmake --build build --config Release
       - name: Test (Windows)
         if: runner.os == 'Windows'
-        run: ctest --test-dir build -C Release --output-on-failure
+        run: ctest --test-dir build -C Release --output-on-failure --no-tests=error --timeout 180
 
   # Visualizer dependencies must stay out of the tournament binaries.
-  viz:
-    name: viz · stream + dependency boundary
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build engine + visualizer
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF
-          cmake --build build --target ChessEngine ChessEngine-nnue ChessEngine-viz test_viz -j
-      - name: Telemetry is exact and the session drives legal games
-        run: |
-          $GITHUB_WORKSPACE/build/bin/test_viz frame
-          $GITHUB_WORKSPACE/build/bin/test_viz session
-      # Fixed openings expose missing move variety; resuming must not duplicate dataset rows.
-      - name: Self-play varies and datagen shards resume cleanly
-        run: |
-          $GITHUB_WORKSPACE/build/bin/test_viz variety
-          $GITHUB_WORKSPACE/build/bin/test_viz shards
-      - name: Stream, control surface, security posture, eval cross-check
-        run: bash tools/viz_smoke.sh build/bin/ChessEngine-viz build/bin/ChessEngine-nnue
-      - name: Tournament binaries stay dependency-free
-        run: |
-          # The whole point of keeping chess_viz separate: no httplib, no json,
-          # no viz code in the engines used for real play.
-          for t in ChessEngine ChessEngine-nnue; do
-            if grep -qE 'chess_viz|httplib|nlohmann' "build/CMakeFiles/$t.dir/link.txt"; then
-              echo "$t picked up a visualizer dependency:"; cat "build/CMakeFiles/$t.dir/link.txt"; exit 1
-            fi
-          done
-          echo "ChessEngine and ChessEngine-nnue link chess_core only"
-
   viz-ui:
     name: viz · ui types, wire contract, bundle
-    runs-on: ubuntu-latest
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       # Pinned to the major the committed bundle was produced with: bundler
       # output is only reproducible for a fixed toolchain, and this job diffs
       # the result byte for byte.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: { node-version: '24' }
       - run: npm ci --no-audit --no-fund
         working-directory: ui
       - run: npm run typecheck
         working-directory: ui
 
-      # Generate the wire fixture with the C++ encoder so decoder drift fails here.
-      - name: Build the fixture generator
-        run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DENGINE_NATIVE=OFF
-          cmake --build build --target test_viz -j
-      - name: C++ <-> TypeScript wire contract
-        # The binary is built at the repo root; npm runs in ui/. Use an absolute
-        # path so working-directory cannot make one of them look in the wrong place.
-        run: |
-          "$GITHUB_WORKSPACE/build/bin/test_viz" fixture "$RUNNER_TEMP/frame.bin"
-          VIZ_FIXTURE="$RUNNER_TEMP/frame.bin" npm test
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: viz-wire-fixture
+          path: ${{ runner.temp }}/wire
+      - name: C++ <-> TypeScript wire contract from the tested native build
+        env:
+          VIZ_FIXTURE: ${{ runner.temp }}/wire/viz_frame.bin
+        run: npm test
         working-directory: ui
 
       - name: Rebuild the bundle and diff it against the committed one
@@ -320,13 +158,15 @@ jobs:
 
   viz-wasm:
     name: viz · wasm build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      # Pin emsdk after validating a specific version; this build currently tracks latest.
-      - uses: emscripten-core/setup-emsdk@v16
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          version: latest
+          persist-credentials: false
+      - uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
+        with:
+          version: '6.0.12'
           actions-cache-folder: emsdk-cache
       - run: emcc --version
       - name: Build the WebAssembly engine
@@ -340,24 +180,30 @@ jobs:
           # The page must load the cross-origin-isolation shim before the engine,
           # or SharedArrayBuffer (and so pthreads) is unavailable.
           grep -q 'coi-serviceworker.js' index.html
-          [ "$(stat -c%s stk-vector-64.nnue)" = "$(stat -c%s ../../nets/stk-vector-64.nnue)" ]
+          cmp stk-vector-64.nnue ../../nets/stk-vector-64.nnue
           ls -la
 
   clang-format:
     name: lint · clang-format
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - name: Install clang-format
-        run: sudo apt-get update && sudo apt-get install -y clang-format
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install clang-format-18
+        run: sudo apt-get update && sudo apt-get install -y clang-format-18
       - name: Check formatting (whole tree, excluding vendored code)
-        run: git ls-files '*.cpp' '*.h' | grep -v '^third_party/fathom/' | xargs clang-format --dry-run --Werror
+        run: git ls-files '*.cpp' '*.h' | grep -v '^third_party/fathom/' | xargs clang-format-18 --dry-run --Werror
 
   clang-tidy:
     name: lint · clang-tidy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - name: Install clang-tidy-18
         run: sudo apt-get update && sudo apt-get install -y clang-tidy-18
       - name: Configure (export compile commands)
@@ -372,9 +218,12 @@ jobs:
 
   sanitizers:
     name: safety · asan + ubsan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - run: >
           cmake -S . -B build
           -DCMAKE_BUILD_TYPE=Debug -DENGINE_LTO=OFF -DENGINE_NATIVE=OFF
@@ -385,42 +234,92 @@ jobs:
 
   lint:
     name: python · ruff
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - run: python -m pip install -r requirements-dev.txt && python -m ruff check tools tests
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with: { python-version: '3.11' }
+      - run: python -m pip install -r requirements-dev.txt && python -m ruff check .
 
   types:
     name: python · mypy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - run: python -m pip install -r requirements-dev.txt && python -m mypy tools tests/python
-
-  unit:
-    name: python · unit (STK-HalfKA contracts)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with: { python-version: '3.x' }
-      - run: python -m pip install pytest numpy && python -m pytest tests/python/test_feature_encoding.py tests/python/test_nnue_data.py tests/python/test_nnue_match.py tests/python/test_benchmark.py tests/python/test_benchmark_matrix.py tests/python/test_benchmark_wrapper.py -v
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with: { python-version: '3.11' }
+      - run: python -m pip install -r requirements-dev.txt && python -m mypy tools tests/python tests/docs examples
 
   training-smoke:
-    name: python · STK-HalfKA training parity
-    runs-on: ubuntu-latest
+    name: python · full suite and STK-HalfKA parity
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with: { python-version: '3.11' }
       - run: python -m pip install pytest numpy && python -m pip install 'torch>=2.2,<2.6' --index-url https://download.pytorch.org/whl/cpu
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: engine-linux
+          path: tested-bin
+      - run: chmod +x tested-bin/* && command -v pwsh
       - name: Build standard engine without test targets
         run: |
           cmake -S . -B build -DENGINE_VIZ=OFF -DENGINE_VARIANTS=OFF -DENGINE_NATIVE=OFF -DBUILD_TESTING=OFF
           cmake --build build --target ChessEngine -j2
           ctest --test-dir build -N | grep -q 'Total Tests: 0'
-      - run: ENGINE_BIN=$PWD/build/bin/ChessEngine python -m pytest tests/python/test_nnue_training.py tests/python/test_perft_divide.py tests/python/test_tool_entrypoints.py -v
+      - name: Full Python and executable-documentation suite
+        env:
+          ENGINE_BIN: ${{ github.workspace }}/build/bin/ChessEngine
+          VALIDATOR_BIN: ${{ github.workspace }}/tested-bin/ChessEngine-validator
+          OMP_NUM_THREADS: '2'
+          MKL_NUM_THREADS: '2'
+        run: |
+          python -m pytest --junitxml=python-results.xml -v
+          python -c "import xml.etree.ElementTree as E; r=E.parse('python-results.xml'); assert not r.findall('.//skipped'), 'Applicable tests were skipped'"
+
+
+  workflow-lint:
+    name: lint · workflows
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install checksum-verified actionlint
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/actionlint.tar.gz" https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $RUNNER_TEMP/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP" actionlint
+      - run: '"$RUNNER_TEMP/actionlint" -pyflakes='
+
+  checks:
+    name: CI complete
+    if: always()
+    needs: [build, arm-neon-nnue, portability, viz-ui, viz-wasm, clang-format, clang-tidy, sanitizers, lint, types, training-smoke, workflow-lint]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every CI job to succeed
+        env:
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          jobs = json.loads(os.environ['JOB_RESULTS'])
+          failed = [name for name, job in jobs.items() if job['result'] != 'success']
+          if failed:
+              raise SystemExit('CI jobs failed, were cancelled or skipped: ' + ', '.join(failed))
+          PY

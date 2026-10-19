@@ -7,6 +7,7 @@
 | `bullet/` | External Bullet trainer integration and transfer checks. |
 | `experiments/` | SPRT experiment drivers, including historical reproductions. |
 | `docs/` | Documentation checks, site hooks and recording overlays. |
+| `release/` | Exact-commit check gates, binary staging, notices, checksums and verified draft publication. |
 
 The root keeps supported launchers such as `run_benchmarks.ps1`,
 `run_training.ps1`, `run_pipeline.py`, `benchmark.py` and the existing Bash/SPRT

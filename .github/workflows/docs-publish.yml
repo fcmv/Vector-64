@@ -13,28 +13,25 @@ concurrency:
 jobs:
   build:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       actions: read
       pages: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - name: Require successful checks for this exact commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for workflow in CI Documentation; do
-            verdict=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --workflow "$workflow" --limit 1 --json conclusion --jq '.[0].conclusion')
-            if [ "$verdict" != success ]; then
-              echo "$workflow must finish successfully for $GITHUB_SHA before publication"
-              exit 1
-            fi
-          done
-      - uses: actions/setup-python@v7
+          python3 tools/release/require_checks.py --commit "$GITHUB_SHA"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.11'
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - run: python -m pip install -r requirements-docs.txt
       - name: Record build identity
         run: |
@@ -52,13 +49,14 @@ jobs:
         run: |
           python tools/docs/check_punctuation.py
           python -m mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: artifacts/docs-site
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       pages: write
       id-token: write
@@ -68,4 +66,4 @@ jobs:
     steps:
       - name: Deploy checked site
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

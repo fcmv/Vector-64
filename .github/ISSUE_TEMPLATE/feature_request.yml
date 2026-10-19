@@ -1,0 +1,24 @@
+name: Feature proposal
+description: Explain a user problem and discuss a focused change before implementing it.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Check existing issues and ROADMAP.md first. The current NNUE architecture is fixed.
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Who needs this, and what is difficult with the current behavior?
+    validations: {required: true}
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and alternatives
+      description: Give a concrete example, alternatives considered, and any compatibility effects.
+    validations: {required: true}
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: How would we verify it?
+      description: Describe success, evidence needed, and likely maintenance cost. An implementation is optional.

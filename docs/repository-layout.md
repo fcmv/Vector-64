@@ -14,6 +14,7 @@ src/
   uci/                  Protocol handling
   viz/                  Telemetry, native viewer and WASM bindings
 third_party/fathom/     Vendored tablebase prober, revision record and license
+third_party/licenses/   Additional upstream distribution license texts
 cmake/                  Compiler options, targets, embedding and test registration
 tests/                  C++, Python and executable-documentation checks
 test_data/              Stable shared EPD workload
@@ -23,6 +24,7 @@ tools/
   bullet/               External trainer integration
   experiments/          SPRT drivers and historical experiment reproductions
   docs/                 Documentation validation and media rendering
+  release/              Exact-commit gates, release staging and checksums
 ui/                     React/TypeScript source and the embedded HTML bundle
 docs/                   Reference documentation and small presentation assets
 examples/               Integration and tiny training examples
@@ -30,6 +32,7 @@ nets/                   Shipped network and model card
 benchmarks/             Immutable identified measurement records
 out/build/              Ignored local build trees created by presets
 artifacts/              Ignored local outputs and recording masters
+.github/community/      Reviewable label and disabled repository-rule templates
 ```
 
 ## Build definitions

@@ -32,6 +32,13 @@ and browser distribution under their actual component boundaries; changing a
 package metadata field does not remove an upstream dependency's obligations.
 Verify assets and training inputs separately if adding new ones.
 
+The release workflow collects production UI license texts from the lockfile's
+installed packages and adds the native/helper texts in
+[`third_party/licenses/`](third_party/licenses/README.md). Download the resulting
+`release-notices.zip` with the executable and retain the corresponding source.
+Missing package texts fail packaging; this collection does not resolve unknown
+model-specific terms.
+
 Python training dependencies and the optional external Bullet checkout have
 their own terms. Installing them is distinct from incorporating them in a
 redistributed binary. This list is not a full transitive SBOM; use the exact

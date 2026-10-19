@@ -9,6 +9,9 @@ benchmarks/**/*.txt -text -whitespace
 benchmarks/**/results.json -text
 benchmarks/**/summary.md -text -whitespace
 
+# Preserve upstream license texts byte for byte, including their whitespace.
+third_party/licenses/*.txt -text -whitespace
+
 *.nnue binary
 *.npz binary
 *.pt binary

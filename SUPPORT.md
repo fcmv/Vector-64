@@ -5,6 +5,11 @@ Start with [getting started](docs/getting-started.md),
 For reproducible defects or usage questions, use the
 [repository issues](https://github.com/fcmv/Vector-64/issues).
 Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
+Use the issue chooser's relevant form: defect, feature, documentation, performance
+or question. Discussions is not currently enabled. For an unrelated private
+contact request, use the question form without incident details or attachments.
+Community responsibilities and behavior follow [governance](GOVERNANCE.md) and
+[the code of conduct](CODE_OF_CONDUCT.md).
 
 ## A useful engine report
 

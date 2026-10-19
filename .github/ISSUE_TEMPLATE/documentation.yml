@@ -1,0 +1,21 @@
+name: Documentation correction
+description: Report an incorrect, unclear or missing instruction.
+labels: [documentation]
+body:
+  - type: input
+    id: page
+    attributes:
+      label: Page or file
+      description: Link the affected page and identify its release or source revision if known.
+    validations: {required: true}
+  - type: textarea
+    id: correction
+    attributes:
+      label: Problem and suggested correction
+      description: Quote a short passage or command and describe what would make it accurate or clearer.
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Supporting output or example
+      description: Optional reproduction, expected output or reference. Remove private information.

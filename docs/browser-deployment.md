@@ -7,8 +7,9 @@ from running the native loopback HTTP viewer.
 ## Build and keep the output together
 
 Use Node 24 for UI changes, and activate an installed Emscripten SDK before
-building. Record its exact version with the experiment/deployment. CI currently
-uses `latest`; no pinned SDK/browser compatibility matrix is established here.
+building. Record its exact version with the experiment/deployment. CI pins
+Emscripten 6.0.12 for the build and file-set checks; a browser runtime
+compatibility matrix is not yet established.
 
 ```bash
 source /path/to/emsdk/emsdk_env.sh

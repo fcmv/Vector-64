@@ -5,6 +5,17 @@ integer inference parity, and explicit evidence for search changes are the
 project's review boundaries. The current NNUE architecture is STK-HalfKA as
 specified in [the network contract](docs/vector64-spec.md).
 
+For a first contribution, use a scoped documentation fix, a minimal reproduction,
+or an issue marked `good first issue`. Ask for clarification before reserving a
+large task. Draft pull requests are welcome; mention what is unfinished and
+which feedback would help. Maintainers mark beginner tasks only when scope and
+verification are clear.
+
+Project decisions and responsibilities are in [governance](GOVERNANCE.md).
+Participation follows the [code of conduct](CODE_OF_CONDUCT.md). Discuss large
+features in an issue before investing in implementation; acceptance depends on
+scope, evidence and ongoing maintenance, not only on a successful build.
+
 ## Set up
 
 Follow [building](docs/building.md) for your compiler, then run:

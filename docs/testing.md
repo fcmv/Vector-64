@@ -100,6 +100,26 @@ changes; CI compares the bundle against its source build using Node 24.
 
 The WASM job currently builds and checks the deployable file set; it does not
 prove browser startup or runtime integer parity. State those checks separately.
+Its Emscripten toolchain is pinned to 6.0.12, the version verified by CI.
+
+## Workflow validation
+
+CI runs `actionlint` 1.7.12 with ShellCheck against every workflow. The validator
+download is checksum-verified. Locally, install those tools and run `actionlint`
+from the repository root. This checks workflow expressions, job dependencies and
+embedded shell syntax; it does not execute hosted runners or publish anything.
+
+`CI complete` is the aggregate check for the CI job graph. It fails when any
+dependency fails, is cancelled or is skipped. It can be selected as a required
+repository check alongside `Documentation`; changing the workflow does not
+configure branch protection automatically. CI and documentation runs have
+concurrency cancellation and bounded job timeouts. The full Python job supplies
+both engine/validator binaries, PyTorch and PowerShell, and fails on skipped tests.
+The native Linux build runs the full CTest suite, both fingerprints, HTTP smoke
+and dependency-boundary checks together. Its generated wire fixture feeds the UI
+job, avoiding another native build. The portability matrix and ARM dot-product
+checks remain separate. Workflow actions are pinned to full commit hashes;
+CI and documentation also accept merge-group events if a merge queue is adopted.
 
 ## Sanitizers and documentation
 

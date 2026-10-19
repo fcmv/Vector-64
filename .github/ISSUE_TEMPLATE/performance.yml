@@ -1,0 +1,27 @@
+name: Performance regression
+description: Report measured speed or playing-strength changes with enough context to compare them.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read BENCHMARK.md. UI counters and total benchmark node signatures are not
+        controlled NPS measurements. Do not rerun a large matrix just to file a report.
+  - type: textarea
+    id: comparison
+    attributes:
+      label: What changed?
+      description: Identify both revisions/binary hashes, expected behavior, and observed difference.
+    validations: {required: true}
+  - type: textarea
+    id: method
+    attributes:
+      label: Hardware and test method
+      description: CPU/OS/compiler, NNUE hash, FEN/workload, depth or budget, threads/hash/MultiPV, warmups and repeats.
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and uncertainty
+      description: Attach existing raw results, canary/drift status and machine-load conditions. For strength, include match settings and SPRT verdict.
+    validations: {required: true}

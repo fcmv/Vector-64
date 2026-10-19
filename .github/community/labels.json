@@ -1,0 +1,15 @@
+[
+  {"name":"area:engine","color":"1d76db","description":"Rules, positions, move generation, search or UCI"},
+  {"name":"area:nnue","color":"5319e7","description":"Integer inference, feature encoding or network loading"},
+  {"name":"area:training","color":"7057ff","description":"Dataset, training, export or match tooling"},
+  {"name":"area:ui","color":"006b75","description":"Vector Scope, telemetry or browser engine"},
+  {"name":"area:docs","color":"0075ca","description":"Reference docs, examples or community guidance"},
+  {"name":"area:ci","color":"0052cc","description":"Builds, CI, packaging or release workflows"},
+  {"name":"status:needs-info","color":"fbca04","description":"A specific reproduction or decision is missing"},
+  {"name":"status:confirmed","color":"0e8a16","description":"A defect has been reproduced or independently established"},
+  {"name":"status:accepted","color":"0e8a16","description":"A proposal has agreed scope and acceptance criteria"},
+  {"name":"status:blocked","color":"d93f0b","description":"Waiting on a named dependency, decision or external condition"},
+  {"name":"priority:high","color":"b60205","description":"Maintainer-triaged serious impact or release blocker"},
+  {"name":"good first issue","color":"7057ff","description":"Small agreed scope, clear verification and a named contact for help"},
+  {"name":"help wanted","color":"008672","description":"Agreed work where outside help would be useful"}
+]

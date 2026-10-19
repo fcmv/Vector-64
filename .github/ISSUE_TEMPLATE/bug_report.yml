@@ -2,6 +2,25 @@ name: Engine bug
 description: Report a reproducible rules, search, integration, training or UI defect.
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues and read the known limitations first. Share the
+        smallest reproduction you can; remove credentials and private data.
+        Suspected vulnerabilities belong in the security reporting process.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Rules, moves or game state
+        - Search or UCI integration
+        - NNUE inference or model loading
+        - Training or data preparation
+        - Vector Scope or browser build
+        - Build, release or installation
+        - Other
+    validations: {required: true}
   - type: textarea
     id: problem
     attributes:

@@ -83,7 +83,10 @@ nav:
       - Telemetry boundary: adr/0003-telemetry-boundary.md
   - Project:
       - Contributing: contributing.md
+      - Governance: governance.md
+      - Code of conduct: code-of-conduct.md
       - Maintaining: maintaining.md
+      - Community management: community-management.md
       - Changelog: changelog.md
       - Media and capture notes: media.md
       - Compatibility: stability.md

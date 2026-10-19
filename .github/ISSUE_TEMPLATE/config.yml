@@ -1,5 +1,8 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Support and reporting guidance
-    url: https://github.com/soumik15630m/Vector-64/blob/main/SUPPORT.md
+    url: https://github.com/fcmv/Vector-64/blob/main/SUPPORT.md
     about: Information to include in an engine report; security reports need a private channel.
+  - name: Security reporting
+    url: https://github.com/fcmv/Vector-64/blob/main/SECURITY.md
+    about: Read the current private-reporting instructions before sharing vulnerability details.

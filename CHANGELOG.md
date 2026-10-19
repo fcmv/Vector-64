@@ -9,6 +9,14 @@ NNUE executable. See [version selection](docs/versions.md).
 
 ### Added
 
+- Release checks for all six platform capabilities, exact-commit CI gates,
+  corresponding source and dependency notices, build identity and SHA256 manifests.
+- A `CI complete` gate, workflow linting, full Python/CTest coverage and pinned
+  Emscripten validation; applicable skipped Python checks fail CI.
+- Community governance, conduct, issue forms and review ownership, with triage
+  guidance and disabled protection/label templates for maintainer review.
+- Draft-first release uploads with server-side hash verification and refusal
+  to replace public assets; immutable action pins and merge-group CI support.
 - `--perft-divide "<fen>" <depth>` for legal root-move counts and diagnostics.
 - A shared STK-HalfKA preparation, training, quantization, export and integer
   verification pipeline, with a small runnable CPU example.

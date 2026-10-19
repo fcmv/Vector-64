@@ -1,0 +1,21 @@
+name: Usage question or contact request
+description: Ask about building, integration, training or use; request a private contact without sharing details.
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with SUPPORT.md and the troubleshooting guide. Include commands and
+        version information when relevant. For a private contact request, provide
+        no incident details, exploit, personal data or private attachments.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Explain what you want to do and what is unclear, or ask only for a private contact.
+    validations: {required: true}
+  - type: textarea
+    id: context
+    attributes:
+      label: Relevant context
+      description: Optional binary/commit, platform, commands and documentation already consulted.

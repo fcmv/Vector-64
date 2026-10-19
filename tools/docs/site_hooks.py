@@ -15,6 +15,8 @@ DOCS = ROOT / "docs"
 CANONICAL = {
     "changelog.md": "CHANGELOG.md",
     "contributing.md": "CONTRIBUTING.md",
+    "governance.md": "GOVERNANCE.md",
+    "code-of-conduct.md": "CODE_OF_CONDUCT.md",
     "limitations.md": "LIMITATIONS.md",
     "stability.md": "STABILITY.md",
     "benchmark.md": "BENCHMARK.md",

@@ -4,16 +4,26 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   documentation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.11'
       - name: Install documentation and example dependencies
@@ -32,7 +42,9 @@ jobs:
         env:
           ENGINE_BIN: ${{ github.workspace }}/build-docs/bin/ChessEngine
           VALIDATOR_BIN: ${{ github.workspace }}/build-docs/bin/ChessEngine-validator
-        run: python -m pytest tests/docs -v
+        run: |
+          python -m pytest tests/docs -v --junitxml=docs-results.xml
+          python -c "import xml.etree.ElementTree as E; r=E.parse('docs-results.xml'); assert not r.findall('.//skipped'), 'Executable documentation tests were skipped'"
       - name: Run the tiny CPU training walkthrough
         env:
           OMP_NUM_THREADS: '2'

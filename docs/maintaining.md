@@ -4,6 +4,9 @@ Use [contributing](contributing.md) for implementation checks,
 [releasing](releasing.md) for publication and [roadmap](roadmap.md) for priority.
 This is a working review/triage guide, not a claim that repository protections,
 review ownership or response SLAs have already been configured.
+See [governance](governance.md), [conduct](code-of-conduct.md) and
+[community management](community-management.md) for responsibilities, triage
+labels, contributor onboarding and reviewable protection settings.
 
 ## Triage and ownership
 
@@ -16,8 +19,8 @@ details. Follow [security reporting](security.md).
 Review rules against independent positions/counts where possible. Review search
 and weights with separate consistency, speed and strength evidence. Confirm
 native/WASM source-list and C++/TypeScript contracts for visualization changes.
-The maintainer chooses reviewers and merges; no automatic approval or exclusive
-code owner is established by this page.
+The maintainer chooses reviewers and merges. CODEOWNERS records the current
+review owner; independent approval is enforced only by active repository rules.
 
 ## Documentation and media upkeep
 

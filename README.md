@@ -135,6 +135,8 @@ the corresponding tag when working with a released binary.
 Questions and reproducible bugs go through [SUPPORT.md](SUPPORT.md).
 Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). Compatibility boundaries
 are in [STABILITY.md](STABILITY.md).
+Review responsibilities and community standards are in [GOVERNANCE.md](GOVERNANCE.md)
+and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 [ROADMAP.md](ROADMAP.md) records priorities, completion criteria and candidate
 features within the released NNUE architecture.
