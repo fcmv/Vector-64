@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Resumable self-play, warm-start training and SPRT-gated net promotion.
 
-Accept a candidate only when SPRT accepts H1. Accumulation resamples every
-generation's data.txt on each run, so resume is idempotent. Mixing original
+Accept a candidate only when SPRT accepts H1. A restart before export can
+resample training input; RNG state is not checkpointed. Mixing original
 Lichess labels anchors training against self-play drift.
 """
 

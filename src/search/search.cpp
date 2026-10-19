@@ -492,8 +492,7 @@ int EngineSearch::eval_pos(const Core::Position &pos, int ply) {
 
     if (smallActive_ &&
         (simple > smallNetThreshold_ || simple < -smallNetThreshold_)) {
-      // On-demand small eval: a couple of finny diffs, and the big
-      // accumulator stays unresolved for this whole subtree branch.
+      // The big accumulator is already maintained; skip only its forward pass.
       PROF_T0;
       eval_->small().refresh_perspective(pos, Core::WHITE, smallScratch_,
                                          *smallRefreshTable_);
@@ -603,7 +602,7 @@ HOT_FN int EngineSearch::quiescence(Core::Position &pos, int alpha, int beta,
     Core::generate_pseudo_captures(pos, moves);
 #if defined(ENGINE_VARIANTS)
     // Checking drops expand the evasion tree. The measured default is off;
-    // CMakeLists.txt records the SPRTs behind ENGINE_DROP_CHECK_QDEPTH.
+    // cmake/Variants.cmake records the SPRTs behind ENGINE_DROP_CHECK_QDEPTH.
     if (qDepth < ENGINE_DROP_CHECK_QDEPTH && pos.has_drops() &&
         pos.has_any_in_hand(pos.side_to_move())) {
       Core::generate_drop_checks(pos, moves);
@@ -1118,9 +1117,8 @@ uint64_t EngineSearch::total_nodes() const {
 }
 
 // Lazy SMP: helper threads run the same iterative deepening on their own
-// move ordering state while sharing the transposition table. Entries may
-// tear under concurrent writes; the 32-bit key check plus legal-move
-// matching keeps a torn entry from doing more than costing a few nodes.
+// move ordering state while sharing the transposition table. TT accesses are
+// unsynchronized; key and move checks do not establish race freedom.
 Result EngineSearch::search(Core::Position root, const Limits &limits,
                             const Callbacks &callbacks) {
   tt_->new_search();
@@ -1379,8 +1377,8 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
       (unsigned long long)profUpds_, (unsigned long long)profSmallEvals_,
       (unsigned long long)profEvalCyc_, (unsigned long long)profUpdCyc_,
       (unsigned long long)profSmallCyc_);
-  // NNUE forward sub-stage breakdown (big net): where the dense eval spends its
-  // ticks. Ticks are arch-specific (x86 TSC / arm64 cntvct) -- read the %.
+  // Both network widths contribute to these forward-stage counters.
+  // Ticks are arch-specific (x86 TSC / arm64 cntvct) -- read the %.
   {
     const auto &f = prof::fwd;
     const uint64_t fwdTot = f.pairwiseCyc + f.l1Cyc + f.l2Cyc + f.outCyc;
@@ -1393,8 +1391,7 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
                  (unsigned long long)f.l1Cyc, (double)f.l1Cyc * fp,
                  (unsigned long long)f.l2Cyc, (double)f.l2Cyc * fp,
                  (unsigned long long)f.outCyc, (double)f.outCyc * fp);
-    // Accumulator update: incremental (acc_fused2) vs king-move refresh (the
-    // memory-heavy full FT gather) -- the classic NNUE memory bottleneck.
+    // King-move updates use cached placement diffs when a table is present.
     const uint64_t updTot = f.updIncrCyc + f.updKingCyc;
     const double up = updTot ? 100.0 / (double)updTot : 0.0;
     std::fprintf(

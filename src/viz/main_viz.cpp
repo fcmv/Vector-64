@@ -27,7 +27,7 @@ void usage() {
       "  --delay <ms>      pause between self-play moves (default 300)\n"
       "  --seed <n>        self-play opening seed\n"
       "  --net-b <file>    second net, evaluated alongside for comparison\n"
-      "  --record <file>   append every frame to a JSONL log\n"
+      "  --record <file>   write frame summaries to JSONL, replacing the file\n"
       "  --terminal        plain-text live view in the console, no browser\n"
       "  --no-browser      do not open a browser window\n"
       "  --headless        serve without opening a browser and exit on SIGINT\n"

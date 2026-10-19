@@ -45,8 +45,7 @@ inline uint64_t now() {
 struct Counters {
   uint64_t pairwiseCyc = 0, l1Cyc = 0, l2Cyc = 0, outCyc = 0;
   uint64_t forwards = 0;
-  // update() branches: incremental (acc_fused2) vs king-move refresh (the
-  // memory-heavy full FT gather).
+  // King-move refreshes include cached placement diffs and full cache misses.
   uint64_t updIncrCyc = 0, updKingCyc = 0;
   uint64_t updIncr = 0, updKing = 0;
   void reset() {

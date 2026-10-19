@@ -91,7 +91,7 @@ Clear `SyzygyPath` when that restriction is required. The DTZ wrapper passes
 
 These limitations follow the current call paths in `src/search/search.cpp`
 and `src/search/syzygy.cpp`; actual table-file probing is not covered by the
-documentation examples. See the [Syzygy reference](src/syzygy/README.md).
+documentation examples. See the [Syzygy reference](third_party/fathom/README.md).
 
 ## Platforms and browser use
 
@@ -119,8 +119,8 @@ reply does not guarantee that the requested state has already been published.
 
 The node/delay input fields initialize to UI defaults and may differ from CLI
 overrides until explicitly changed. Set those controls before recording a demo
-or interpreting the configured budget. The `--record` CLI help says append,
-but the native JSONL recorder opens with truncation; choose a fresh filename.
+or interpreting the configured budget. The native JSONL recorder opens with
+truncation; choose a fresh filename.
 Recordings contain summaries rather than full activation frames or screen video.
 
 ## Training and evidence

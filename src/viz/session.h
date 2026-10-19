@@ -184,7 +184,6 @@ public:
   // A second net, evaluated on the same positions so two nets can be compared
   // directly. Empty path clears it.
   bool load_compare_net(const std::string &path);
-  bool has_compare_net() const;
 
   bool start_recording(const std::string &path);
   void stop_recording();

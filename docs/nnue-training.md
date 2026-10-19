@@ -19,7 +19,7 @@ in `requirements.txt`:
 
 ```bash
 python -m pip install "torch>=2.2,<2.6" --index-url https://download.pytorch.org/whl/cpu
-python -m pip install "numpy>=1.23,<3" "tqdm>=4.60,<5" "zstandard>=0.22,<0.24" "datasets>=2.19,<3"
+python -m pip install "numpy>=1.23,<3" "tqdm>=4.70.1,<5" "zstandard>=0.22,<0.24" "datasets>=2.19,<3"
 ```
 
 For the configured CUDA 12.1 wheel path use

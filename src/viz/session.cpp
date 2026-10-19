@@ -151,8 +151,6 @@ bool Session::load_compare_net(const std::string &path) {
   return true;
 }
 
-bool Session::has_compare_net() const { return compareNet_ != nullptr; }
-
 bool Session::start_recording(const std::string &path) {
   {
     // Scoped: publish() reads the recorder under this same mutex, so holding

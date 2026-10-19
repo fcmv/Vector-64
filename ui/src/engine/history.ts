@@ -20,7 +20,7 @@ export interface IterRecord {
   ply: number;
 }
 
-/* The engine streams snapshots without history. Keep a bounded record here
+/* Snapshots omit past evaluations and iterations. Keep a bounded record here
    and reset it when the game or position changes. */
 export function useGameHistory(state: EngineState | null) {
   const [plies, setPlies] = useState<PlyRecord[]>([]);

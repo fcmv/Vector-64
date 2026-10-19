@@ -136,7 +136,7 @@ index/ply, depth/seldepth, nodes/NPS, search score/PV, neural eval/PSQT/position
 bucket when active, comparison score/name when active, and candidate move/score
 pairs. They do not contain the full binary activation arrays or a video.
 The native recorder opens with truncation; choose a new filename to preserve
-an old recording. The existing CLI help's append wording is inaccurate.
+an old recording.
 
 Filesystem paths resolve with the native process's permissions. WASM has its
 own virtual filesystem and cannot be assumed to write arbitrary host paths.

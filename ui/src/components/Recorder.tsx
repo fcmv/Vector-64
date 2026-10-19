@@ -78,7 +78,9 @@ export function Recorder({
           className={`btn${r.recording ? " on" : ""}`}
           disabled={locked}
           title={
-            locked ? "locked while generating data" : "append every frame"
+            locked
+              ? "locked while generating data"
+              : "write frame summaries; replaces the file"
           }
           onClick={() => void toggle()}
         >

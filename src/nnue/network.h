@@ -994,7 +994,6 @@ public:
   // (weight x activation) and the net inspector. Const only -- a loaded net is
   // immutable, and nothing here is reachable from the search hot path.
   const int16_t *ft_column(int feature) const { return ft_col(feature); }
-  const int32_t *ft_psqt_column(int feature) const { return ft_psqt(feature); }
   const std::array<int16_t, H> &ft_bias() const { return ftBias_; }
   const Bucket &bucket_weights(int b) const { return buckets_[b]; }
 
