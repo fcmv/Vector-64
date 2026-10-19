@@ -1,0 +1,1 @@
+info string bench depth 13 nodes 7374916 time 951ms nps 7754906

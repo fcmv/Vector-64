@@ -4,6 +4,11 @@
 *.sh text eol=lf
 *.ps1 text eol=crlf
 
+# Preserve benchmark evidence byte for byte for its published hashes.
+benchmarks/**/*.txt -text -whitespace
+benchmarks/**/results.json -text
+benchmarks/**/summary.md -text -whitespace
+
 *.nnue binary
 *.npz binary
 *.pt binary

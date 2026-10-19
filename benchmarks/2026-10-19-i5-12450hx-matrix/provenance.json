@@ -1,0 +1,96 @@
+{
+  "original_directory": "D:\\Soumik\\Cpp\\Chess\\artifacts\\benchmarks\\depth-matrix",
+  "original_files_preserved": true,
+  "metrics_recomputed_from_existing_output_only": true,
+  "started_at": "2026-10-19T13:04:25.598258+05:30",
+  "completed_at": "2026-10-19T13:29:38.418025+05:30",
+  "accepted_measured_samples": 145,
+  "raw_process_transcripts": 558,
+  "rejected_sample_attempts": {
+    "pre_canary_drift": 4,
+    "post_canary_drift": 6
+  },
+  "perft_suite_totals_from_raw_footer": [
+    {
+      "sample": "run1-perft",
+      "totals": [
+        {
+          "mode": "SINGLE",
+          "seconds": 1.56,
+          "reported_mnps": 300
+        },
+        {
+          "mode": "MULTI",
+          "seconds": 0.295,
+          "reported_mnps": 1589
+        }
+      ]
+    },
+    {
+      "sample": "run2-perft",
+      "totals": [
+        {
+          "mode": "SINGLE",
+          "seconds": 1.582,
+          "reported_mnps": 296
+        },
+        {
+          "mode": "MULTI",
+          "seconds": 0.284,
+          "reported_mnps": 1652
+        }
+      ]
+    },
+    {
+      "sample": "run3-perft",
+      "totals": [
+        {
+          "mode": "SINGLE",
+          "seconds": 1.565,
+          "reported_mnps": 299
+        },
+        {
+          "mode": "MULTI",
+          "seconds": 0.291,
+          "reported_mnps": 1610
+        }
+      ]
+    },
+    {
+      "sample": "run4-perft",
+      "totals": [
+        {
+          "mode": "SINGLE",
+          "seconds": 1.564,
+          "reported_mnps": 299
+        },
+        {
+          "mode": "MULTI",
+          "seconds": 0.278,
+          "reported_mnps": 1686
+        }
+      ]
+    },
+    {
+      "sample": "run5-perft",
+      "totals": [
+        {
+          "mode": "SINGLE",
+          "seconds": 1.566,
+          "reported_mnps": 299
+        },
+        {
+          "mode": "MULTI",
+          "seconds": 0.287,
+          "reported_mnps": 1632
+        }
+      ]
+    }
+  ],
+  "validated": [
+    "saved acceptance and drift brackets",
+    "all accepted payloads against raw stdout",
+    "all accepted canaries against raw stdout",
+    "current binary/net/collector hashes"
+  ]
+}

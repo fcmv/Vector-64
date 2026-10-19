@@ -1,0 +1,42 @@
+Starting Chess Engine Core...
+=========================================================
+    PRODUCTION PERFT SUITE (SINGLE VS MULTI-CORE)        
+=========================================================
+Detected Hardware Threads: 12
+---------------------------------------------------------
+Pos 1 (Depth 5)
+  Expected: 4865609
+  Single  : 4865609 nodes | 0.018s | 268 MNPS
+  Multi   : 4865609 nodes | 0.005s | 953 MNPS  [PASS] (Speedup: 3.56x)
+---------------------------------------------------------
+Pos 2 (Depth 5)
+  Expected: 193690690
+  Single  : 193690690 nodes | 0.620s | 312 MNPS
+  Multi   : 193690690 nodes | 0.109s | 1775 MNPS  [PASS] (Speedup: 5.69x)
+---------------------------------------------------------
+Pos 3 (Depth 5)
+  Expected: 674624
+  Single  : 674624 nodes | 0.004s | 155 MNPS
+  Multi   : 674624 nodes | 0.003s | 248 MNPS  [PASS] (Speedup: 1.60x)
+---------------------------------------------------------
+Pos 4 (Depth 5)
+  Expected: 15833292
+  Single  : 15833292 nodes | 0.067s | 237 MNPS
+  Multi   : 15833292 nodes | 0.018s | 899 MNPS  [PASS] (Speedup: 3.79x)
+---------------------------------------------------------
+Pos 5 (Depth 5)
+  Expected: 89941194
+  Single  : 89941194 nodes | 0.349s | 257 MNPS
+  Multi   : 89941194 nodes | 0.063s | 1433 MNPS  [PASS] (Speedup: 5.56x)
+---------------------------------------------------------
+Pos 6 (Depth 5)
+  Expected: 164075551
+  Single  : 164075551 nodes | 0.507s | 323 MNPS
+  Multi   : 164075551 nodes | 0.090s | 1821 MNPS  [PASS] (Speedup: 5.63x)
+---------------------------------------------------------
+RESULTS: 6 Passed, 0 Failed
+TOTAL NODES : 469080960
+SINGLE CORE : 1.566 seconds (299 MNPS)
+MULTI CORE  : 0.287 seconds (1632 MNPS)
+SPEEDUP     : 5.45x Faster
+=========================================================

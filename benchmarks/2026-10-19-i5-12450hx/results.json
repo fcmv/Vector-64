@@ -1,0 +1,2392 @@
+{
+  "identity": {
+    "schema": 2,
+    "collector_sha256": "a09d05d8a53ef087da64306bd1453f1f5d42d3980185171f3cede3b8333895b8",
+    "source_commit": "85369956e82b82f1bba57b15d67a654f7ec14012",
+    "depth": 13,
+    "threads": 1,
+    "hash_mb": 8,
+    "bench_source_sha256": "cc09844221bca2457885cb88a34555062f15a623a741e8317b9e789b09efe4aa",
+    "epd_sha256": "747d5ace1bcc35e6b8d3aa88ec763164f408ef0e76d604f9fe159bc28eb1efb1",
+    "net_sha256": "7b877e6bdefde3b41ef958e3270b3312806382a1e97d5e24f0c0c6217cd87ace",
+    "perft_counts": [
+      4865609,
+      193690690,
+      674624,
+      15833292,
+      89941194,
+      164075551
+    ],
+    "machine": {
+      "platform": "Windows-10-10.0.26300-SP0",
+      "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+      "logical_processors": 12,
+      "cpu": [
+        {
+          "Name": "12th Gen Intel(R) Core(TM) i5-12450HX",
+          "NumberOfCores": 8,
+          "NumberOfLogicalProcessors": 12
+        }
+      ],
+      "os": {
+        "Caption": "Microsoft Windows 11 Pro",
+        "Version": "10.0.26300"
+      }
+    },
+    "workloads": [
+      {
+        "label": "classical",
+        "kind": "search",
+        "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+        "sha256": "97a05256b7242aac1916350df2666fcb18620acfc3b7363d10b70b68e9f25f19",
+        "expected_nodes": 5935930
+      },
+      {
+        "label": "nnue",
+        "kind": "search",
+        "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+        "sha256": "72db2a1b6df0b911a3dd49de7c8dddc6f27d63bb3384f3e1d869782546c96928",
+        "expected_nodes": 2704705
+      },
+      {
+        "label": "perft",
+        "kind": "perft",
+        "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+        "sha256": "97a05256b7242aac1916350df2666fcb18620acfc3b7363d10b70b68e9f25f19"
+      }
+    ],
+    "canary": {
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "sha256": "97a05256b7242aac1916350df2666fcb18620acfc3b7363d10b70b68e9f25f19",
+      "expected_nodes": 5935930
+    },
+    "repeats": 5,
+    "warmups": 1,
+    "timeout": 300.0,
+    "drift_percent": 5.0,
+    "cooldown": 1.0,
+    "retry_delay": 10.0,
+    "retries": 2,
+    "canary_samples": 3
+  },
+  "environment": {
+    "captured_at": "2026-10-19T11:39:29.4812803+05:30",
+    "timezone": "India Standard Time",
+    "notes": "",
+    "logical_processors": 12,
+    "cpu_affinity_pinned": false,
+    "thermal_power_background_conditions": "User-managed; record conditions in -Notes",
+    "build_directory": "C:\\WINDOWS\\system32\\build-benchmark",
+    "cpu": [
+      {
+        "Name": "12th Gen Intel(R) Core(TM) i5-12450HX",
+        "NumberOfCores": 8,
+        "NumberOfLogicalProcessors": 12
+      }
+    ],
+    "os": {
+      "Caption": "Microsoft Windows 11 Pro",
+      "Version": "10.0.26300"
+    },
+    "cmake_settings": [
+      "CMAKE_BUILD_TYPE:STRING=Release",
+      "CMAKE_CXX_COMPILER:STRING=C:/msys64/ucrt64/bin/g++.exe",
+      "CMAKE_CXX_FLAGS:STRING=",
+      "CMAKE_CXX_FLAGS_DEBUG:STRING=-g",
+      "CMAKE_CXX_FLAGS_MINSIZEREL:STRING=-Os -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG",
+      "CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG",
+      "EMBED_NNUE:FILEPATH=D:/Soumik/Cpp/Chess/nets/stk-vector-64.nnue",
+      "ENGINE_DROP_CHECK_QDEPTH:STRING=0",
+      "ENGINE_HAND_VALUES:STRING=",
+      "ENGINE_KING_DANGER_SCALE:STRING=6",
+      "ENGINE_LTO:BOOL=ON",
+      "ENGINE_NATIVE:BOOL=ON",
+      "ENGINE_PGO:STRING=off",
+      "ENGINE_PIECE_VALUES:STRING=0,100,340,320,450,800,0",
+      "ENGINE_VARIANTS:BOOL=OFF",
+      "ENGINE_VARIANT_DROP_HISTORY:STRING=1",
+      "ENGINE_VARIANT_HAND_MATERIAL:STRING=1",
+      "ENGINE_VARIANT_NULLMOVE:STRING=1",
+      "ENGINE_VIZ:BOOL=OFF",
+      "OPT_KING_DANGER:BOOL=OFF",
+      "CMAKE_CXX_FLAGS-ADVANCED:INTERNAL=1",
+      "CMAKE_CXX_FLAGS_DEBUG-ADVANCED:INTERNAL=1",
+      "CMAKE_CXX_FLAGS_MINSIZEREL-ADVANCED:INTERNAL=1",
+      "CMAKE_CXX_FLAGS_RELEASE-ADVANCED:INTERNAL=1",
+      "CMAKE_CXX_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1",
+      "CMAKE_GENERATOR:INTERNAL=MinGW Makefiles"
+    ],
+    "compile_flags": [
+      "CXX_DEFINES = ",
+      "CXX_FLAGS = -O3 -DNDEBUG -std=gnu++20 -flto=auto -fno-fat-lto-objects -O3 -Wall -Wextra -march=native"
+    ],
+    "CXX_environment": null
+  },
+  "started_at": "2026-10-19T11:39:31.151607+05:30",
+  "status": "complete",
+  "events": [
+    {
+      "id": 1,
+      "at": "2026-10-19T11:39:31.151607+05:30",
+      "kind": "session_start"
+    },
+    {
+      "id": 2,
+      "at": "2026-10-19T11:39:32.170988+05:30",
+      "kind": "process",
+      "name": "canary-warmup",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00002-canary-warmup.txt",
+      "returncode": 0,
+      "wall_seconds": 1.0119531999989704
+    },
+    {
+      "id": 3,
+      "at": "2026-10-19T11:39:34.206726+05:30",
+      "kind": "process",
+      "name": "canary-calibration",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00003-canary-calibration.txt",
+      "returncode": 0,
+      "wall_seconds": 0.95620979999876
+    },
+    {
+      "id": 4,
+      "at": "2026-10-19T11:39:36.181802+05:30",
+      "kind": "process",
+      "name": "canary-calibration",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00004-canary-calibration.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9702268000000913
+    },
+    {
+      "id": 5,
+      "at": "2026-10-19T11:39:38.170549+05:30",
+      "kind": "process",
+      "name": "canary-calibration",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00005-canary-calibration.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9619440000024042
+    },
+    {
+      "id": 6,
+      "at": "2026-10-19T11:39:39.137667+05:30",
+      "kind": "calibration",
+      "attempt": 1,
+      "samples": [
+        {
+          "nodes": 5935930,
+          "elapsed_ms": 921,
+          "nps": 6445092
+        },
+        {
+          "nodes": 5935930,
+          "elapsed_ms": 932,
+          "nps": 6369023
+        },
+        {
+          "nodes": 5935930,
+          "elapsed_ms": 928,
+          "nps": 6396476
+        }
+      ],
+      "span_percent": 1.1892329463911067,
+      "accepted": true
+    },
+    {
+      "id": 7,
+      "at": "2026-10-19T11:39:40.155878+05:30",
+      "kind": "process",
+      "name": "warmup-1-classical-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00007-warmup-1-classical-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9773843000002671
+    },
+    {
+      "id": 8,
+      "at": "2026-10-19T11:39:42.144997+05:30",
+      "kind": "process",
+      "name": "warmup-1-classical",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00008-warmup-1-classical.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9637297999979637
+    },
+    {
+      "id": 9,
+      "at": "2026-10-19T11:39:44.128257+05:30",
+      "kind": "process",
+      "name": "warmup-1-classical-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00009-warmup-1-classical-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.968797599998652
+    },
+    {
+      "id": 10,
+      "at": "2026-10-19T11:39:45.113669+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "warmup-1-classical",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 943,
+        "nps": 6294729
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 936,
+        "nps": 6341805
+      },
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 931,
+        "nps": 6375864
+      },
+      "warmup": true,
+      "before_drift_percent": -1.5906727391770126,
+      "after_drift_percent": -0.8547049969389375,
+      "bracket_drift_percent": 0.7478638079574162
+    },
+    {
+      "id": 11,
+      "at": "2026-10-19T11:39:46.132954+05:30",
+      "kind": "process",
+      "name": "warmup-1-nnue-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00011-warmup-1-nnue-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9593332000004011
+    },
+    {
+      "id": 12,
+      "at": "2026-10-19T11:39:48.126732+05:30",
+      "kind": "process",
+      "name": "warmup-1-nnue",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+      "status": "ok",
+      "log": "00012-warmup-1-nnue.txt",
+      "returncode": 0,
+      "wall_seconds": 1.5644041999985348
+    },
+    {
+      "id": 13,
+      "at": "2026-10-19T11:39:50.726861+05:30",
+      "kind": "process",
+      "name": "warmup-1-nnue-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00013-warmup-1-nnue-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9619753999977547
+    },
+    {
+      "id": 14,
+      "at": "2026-10-19T11:39:51.682931+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "warmup-1-nnue",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 926,
+        "nps": 6410291
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 930,
+        "nps": 6382720
+      },
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1429,
+        "nps": 1892725
+      },
+      "warmup": true,
+      "before_drift_percent": 0.21597829805035662,
+      "after_drift_percent": -0.21505591516328693,
+      "bracket_drift_percent": -0.43010527915191554
+    },
+    {
+      "id": 15,
+      "at": "2026-10-19T11:39:52.712265+05:30",
+      "kind": "process",
+      "name": "warmup-1-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00015-warmup-1-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9560101999995823
+    },
+    {
+      "id": 16,
+      "at": "2026-10-19T11:39:54.676519+05:30",
+      "kind": "process",
+      "name": "warmup-1-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00016-warmup-1-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.8863130999998248
+    },
+    {
+      "id": 17,
+      "at": "2026-10-19T11:39:57.594799+05:30",
+      "kind": "process",
+      "name": "warmup-1-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00017-warmup-1-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9618891999998596
+    },
+    {
+      "id": 18,
+      "at": "2026-10-19T11:39:58.563536+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "warmup-1-perft",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 922,
+        "nps": 6438101
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 929,
+        "nps": 6389590
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 286
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.006,
+          "reported_mnps": 864
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.619,
+          "reported_mnps": 313
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.108,
+          "reported_mnps": 1785
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 167
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 341
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.066,
+          "reported_mnps": 239
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.017,
+          "reported_mnps": 928
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.352,
+          "reported_mnps": 255
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.059,
+          "reported_mnps": 1534
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.519,
+          "reported_mnps": 316
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.086,
+          "reported_mnps": 1901
+        }
+      ],
+      "warmup": true,
+      "before_drift_percent": 0.6507489436370806,
+      "after_drift_percent": -0.10765302644768493,
+      "bracket_drift_percent": -0.753498585996093
+    },
+    {
+      "id": 19,
+      "at": "2026-10-19T11:39:59.573499+05:30",
+      "kind": "process",
+      "name": "run1-classical-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00019-run1-classical-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.957132300001831
+    },
+    {
+      "id": 20,
+      "at": "2026-10-19T11:40:01.550064+05:30",
+      "kind": "process",
+      "name": "run1-classical",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00020-run1-classical.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9521173000030103
+    },
+    {
+      "id": 21,
+      "at": "2026-10-19T11:40:03.531109+05:30",
+      "kind": "process",
+      "name": "run1-classical-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00021-run1-classical-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9655015999996976
+    },
+    {
+      "id": 22,
+      "at": "2026-10-19T11:40:04.500477+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run1-classical",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 932,
+        "nps": 6369023
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 943,
+        "nps": 6294729
+      },
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 932,
+        "nps": 6369023
+      },
+      "warmup": false,
+      "before_drift_percent": -0.42918944743949305,
+      "after_drift_percent": -1.5906727391770126,
+      "bracket_drift_percent": -1.166489742618293
+    },
+    {
+      "id": 23,
+      "at": "2026-10-19T11:40:05.519771+05:30",
+      "kind": "process",
+      "name": "run1-nnue-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00023-run1-nnue-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9696719999992638
+    },
+    {
+      "id": 24,
+      "at": "2026-10-19T11:40:07.534129+05:30",
+      "kind": "process",
+      "name": "run1-nnue",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+      "status": "ok",
+      "log": "00024-run1-nnue.txt",
+      "returncode": 0,
+      "wall_seconds": 1.4878532999973686
+    },
+    {
+      "id": 25,
+      "at": "2026-10-19T11:40:10.055095+05:30",
+      "kind": "process",
+      "name": "run1-nnue-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00025-run1-nnue-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9513537000020733
+    },
+    {
+      "id": 26,
+      "at": "2026-10-19T11:40:11.012057+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run1-nnue",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 937,
+        "nps": 6335037
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 929,
+        "nps": 6389590
+      },
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1423,
+        "nps": 1900706
+      },
+      "warmup": false,
+      "before_drift_percent": -0.960513257612472,
+      "after_drift_percent": -0.10765302644768493,
+      "bracket_drift_percent": 0.8611315135176101
+    },
+    {
+      "id": 27,
+      "at": "2026-10-19T11:40:12.018297+05:30",
+      "kind": "process",
+      "name": "run1-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00027-run1-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9497808999985864
+    },
+    {
+      "id": 28,
+      "at": "2026-10-19T11:40:13.996160+05:30",
+      "kind": "process",
+      "name": "run1-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00028-run1-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.8790746000013314
+    },
+    {
+      "id": 29,
+      "at": "2026-10-19T11:40:16.905095+05:30",
+      "kind": "process",
+      "name": "run1-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00029-run1-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9711314000014681
+    },
+    {
+      "id": 30,
+      "at": "2026-10-19T11:40:17.882985+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run1-perft",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 929,
+        "nps": 6389590
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 938,
+        "nps": 6328283
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.018,
+          "reported_mnps": 275
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 1077
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.619,
+          "reported_mnps": 313
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.109,
+          "reported_mnps": 1774
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 168
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 365
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.067,
+          "reported_mnps": 237
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.016,
+          "reported_mnps": 982
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.354,
+          "reported_mnps": 254
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.059,
+          "reported_mnps": 1521
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.512,
+          "reported_mnps": 320
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.088,
+          "reported_mnps": 1874
+        }
+      ],
+      "warmup": false,
+      "before_drift_percent": -0.10765302644768493,
+      "after_drift_percent": -1.0661026477704283,
+      "bracket_drift_percent": -0.959482533308087
+    },
+    {
+      "id": 31,
+      "at": "2026-10-19T11:40:18.902137+05:30",
+      "kind": "process",
+      "name": "run2-nnue-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00031-run2-nnue-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9590916999986803
+    },
+    {
+      "id": 32,
+      "at": "2026-10-19T11:40:20.913154+05:30",
+      "kind": "process",
+      "name": "run2-nnue",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+      "status": "ok",
+      "log": "00032-run2-nnue.txt",
+      "returncode": 0,
+      "wall_seconds": 1.4895499000012933
+    },
+    {
+      "id": 33,
+      "at": "2026-10-19T11:40:23.422012+05:30",
+      "kind": "process",
+      "name": "run2-nnue-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00033-run2-nnue-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9879542000016954
+    },
+    {
+      "id": 34,
+      "at": "2026-10-19T11:40:24.409684+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run2-nnue",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 938,
+        "nps": 6328283
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 955,
+        "nps": 6215633
+      },
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1422,
+        "nps": 1902042
+      },
+      "warmup": false,
+      "before_drift_percent": -1.0661026477704283,
+      "after_drift_percent": -2.827228617757649,
+      "bracket_drift_percent": -1.780103702694713
+    },
+    {
+      "id": 35,
+      "at": "2026-10-19T11:40:25.439678+05:30",
+      "kind": "process",
+      "name": "run2-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00035-run2-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9546534999972209
+    },
+    {
+      "id": 36,
+      "at": "2026-10-19T11:40:27.409409+05:30",
+      "kind": "process",
+      "name": "run2-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00036-run2-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.8746051999987685
+    },
+    {
+      "id": 37,
+      "at": "2026-10-19T11:40:30.303613+05:30",
+      "kind": "process",
+      "name": "run2-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00037-run2-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9578084999993735
+    },
+    {
+      "id": 38,
+      "at": "2026-10-19T11:40:31.271700+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run2-perft",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 933,
+        "nps": 6362197
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 937,
+        "nps": 6335037
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 291
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 954
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.622,
+          "reported_mnps": 311
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.108,
+          "reported_mnps": 1791
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 163
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 342
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.066,
+          "reported_mnps": 238
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.017,
+          "reported_mnps": 928
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.351,
+          "reported_mnps": 256
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.061,
+          "reported_mnps": 1482
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.508,
+          "reported_mnps": 322
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.086,
+          "reported_mnps": 1911
+        }
+      ],
+      "warmup": false,
+      "before_drift_percent": -0.5359044573918559,
+      "after_drift_percent": -0.960513257612472,
+      "bracket_drift_percent": -0.4268965579028783
+    },
+    {
+      "id": 39,
+      "at": "2026-10-19T11:40:32.295785+05:30",
+      "kind": "process",
+      "name": "run2-classical-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00039-run2-classical-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9478553000008105
+    },
+    {
+      "id": 40,
+      "at": "2026-10-19T11:40:34.270534+05:30",
+      "kind": "process",
+      "name": "run2-classical",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00040-run2-classical.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9521691000009014
+    },
+    {
+      "id": 41,
+      "at": "2026-10-19T11:40:36.237584+05:30",
+      "kind": "process",
+      "name": "run2-classical-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00041-run2-classical-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9594785000008414
+    },
+    {
+      "id": 42,
+      "at": "2026-10-19T11:40:37.213627+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run2-classical",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 926,
+        "nps": 6410291
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 937,
+        "nps": 6335037
+      },
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 931,
+        "nps": 6375864
+      },
+      "warmup": false,
+      "before_drift_percent": 0.21597829805035662,
+      "after_drift_percent": -0.960513257612472,
+      "bracket_drift_percent": -1.1739560653330705
+    },
+    {
+      "id": 43,
+      "at": "2026-10-19T11:40:38.223899+05:30",
+      "kind": "process",
+      "name": "run3-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00043-run3-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9597632000004523
+    },
+    {
+      "id": 44,
+      "at": "2026-10-19T11:40:40.209617+05:30",
+      "kind": "process",
+      "name": "run3-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00044-run3-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.8785846999999194
+    },
+    {
+      "id": 45,
+      "at": "2026-10-19T11:40:43.120221+05:30",
+      "kind": "process",
+      "name": "run3-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00045-run3-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 1.0426628999994136
+    },
+    {
+      "id": 46,
+      "at": "2026-10-19T11:40:44.170775+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run3-perft",
+      "attempt": 1,
+      "accepted": false,
+      "reason": "post_canary_drift",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 920,
+        "nps": 6452097
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 1011,
+        "nps": 5871345
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 285
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 959
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.619,
+          "reported_mnps": 313
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.107,
+          "reported_mnps": 1812
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 158
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 381
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.066,
+          "reported_mnps": 240
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.021,
+          "reported_mnps": 759
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.348,
+          "reported_mnps": 258
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.06,
+          "reported_mnps": 1489
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.516,
+          "reported_mnps": 317
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.087,
+          "reported_mnps": 1883
+        }
+      ],
+      "warmup": false,
+      "before_drift_percent": 0.8695569247817003,
+      "after_drift_percent": -8.209692336842977,
+      "bracket_drift_percent": -9.000980611419818
+    },
+    {
+      "id": 47,
+      "at": "2026-10-19T11:40:55.179701+05:30",
+      "kind": "process",
+      "name": "run3-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00047-run3-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 1.0377228000033938
+    },
+    {
+      "id": 48,
+      "at": "2026-10-19T11:40:56.232432+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run3-perft",
+      "attempt": 2,
+      "accepted": false,
+      "reason": "pre_canary_drift",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 1004,
+        "nps": 5912280
+      },
+      "before_drift_percent": -7.569730582902212
+    },
+    {
+      "id": 49,
+      "at": "2026-10-19T11:41:07.254334+05:30",
+      "kind": "process",
+      "name": "run3-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00049-run3-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9708293000003323
+    },
+    {
+      "id": 50,
+      "at": "2026-10-19T11:41:09.249962+05:30",
+      "kind": "process",
+      "name": "run3-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00050-run3-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.8783158999976877
+    },
+    {
+      "id": 51,
+      "at": "2026-10-19T11:41:12.152304+05:30",
+      "kind": "process",
+      "name": "run3-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00051-run3-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9514659999986179
+    },
+    {
+      "id": 52,
+      "at": "2026-10-19T11:41:13.106473+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run3-perft",
+      "attempt": 3,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 934,
+        "nps": 6355385
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 929,
+        "nps": 6389590
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 282
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 977
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.62,
+          "reported_mnps": 312
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.106,
+          "reported_mnps": 1823
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 158
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 380
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.068,
+          "reported_mnps": 231
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.019,
+          "reported_mnps": 815
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.357,
+          "reported_mnps": 252
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.058,
+          "reported_mnps": 1541
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.508,
+          "reported_mnps": 322
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.085,
+          "reported_mnps": 1923
+        }
+      ],
+      "warmup": false,
+      "before_drift_percent": -0.6424005968286295,
+      "after_drift_percent": -0.10765302644768493,
+      "bracket_drift_percent": 0.5382050025293461
+    },
+    {
+      "id": 53,
+      "at": "2026-10-19T11:41:14.132453+05:30",
+      "kind": "process",
+      "name": "run3-classical-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00053-run3-classical-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9533764999978303
+    },
+    {
+      "id": 54,
+      "at": "2026-10-19T11:41:16.107635+05:30",
+      "kind": "process",
+      "name": "run3-classical",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00054-run3-classical.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9585962999990443
+    },
+    {
+      "id": 55,
+      "at": "2026-10-19T11:41:18.089576+05:30",
+      "kind": "process",
+      "name": "run3-classical-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00055-run3-classical-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9574001000000862
+    },
+    {
+      "id": 56,
+      "at": "2026-10-19T11:41:19.058027+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run3-classical",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 930,
+        "nps": 6382720
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 923,
+        "nps": 6431126
+      },
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 937,
+        "nps": 6335037
+      },
+      "warmup": false,
+      "before_drift_percent": -0.21505591516328693,
+      "after_drift_percent": 0.5417045260546649,
+      "bracket_drift_percent": 0.7583914067983644
+    },
+    {
+      "id": 57,
+      "at": "2026-10-19T11:41:20.077929+05:30",
+      "kind": "process",
+      "name": "run3-nnue-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00057-run3-nnue-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9407387999999628
+    },
+    {
+      "id": 58,
+      "at": "2026-10-19T11:41:22.079378+05:30",
+      "kind": "process",
+      "name": "run3-nnue",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+      "status": "ok",
+      "log": "00058-run3-nnue.txt",
+      "returncode": 0,
+      "wall_seconds": 1.4834582000003138
+    },
+    {
+      "id": 59,
+      "at": "2026-10-19T11:41:24.587498+05:30",
+      "kind": "process",
+      "name": "run3-nnue-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00059-run3-nnue-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.940758900000219
+    },
+    {
+      "id": 60,
+      "at": "2026-10-19T11:41:25.536273+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run3-nnue",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 920,
+        "nps": 6452097
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 920,
+        "nps": 6452097
+      },
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1417,
+        "nps": 1908754
+      },
+      "warmup": false,
+      "before_drift_percent": 0.8695569247817003,
+      "after_drift_percent": 0.8695569247817003,
+      "bracket_drift_percent": 0.0
+    },
+    {
+      "id": 61,
+      "at": "2026-10-19T11:41:26.558558+05:30",
+      "kind": "process",
+      "name": "run4-classical-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00061-run4-classical-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9597475000009581
+    },
+    {
+      "id": 62,
+      "at": "2026-10-19T11:41:28.529965+05:30",
+      "kind": "process",
+      "name": "run4-classical",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00062-run4-classical.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9434235000007902
+    },
+    {
+      "id": 63,
+      "at": "2026-10-19T11:41:30.510629+05:30",
+      "kind": "process",
+      "name": "run4-classical-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00063-run4-classical-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9499685000009777
+    },
+    {
+      "id": 64,
+      "at": "2026-10-19T11:41:31.469878+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run4-classical",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 927,
+        "nps": 6403376
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 929,
+        "nps": 6389590
+      },
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 922,
+        "nps": 6438101
+      },
+      "warmup": false,
+      "before_drift_percent": 0.10787189696326305,
+      "after_drift_percent": -0.10765302644768493,
+      "bracket_drift_percent": -0.215292683109658
+    },
+    {
+      "id": 65,
+      "at": "2026-10-19T11:41:32.491067+05:30",
+      "kind": "process",
+      "name": "run4-nnue-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00065-run4-nnue-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9500109000000521
+    },
+    {
+      "id": 66,
+      "at": "2026-10-19T11:41:34.496229+05:30",
+      "kind": "process",
+      "name": "run4-nnue",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+      "status": "ok",
+      "log": "00066-run4-nnue.txt",
+      "returncode": 0,
+      "wall_seconds": 1.470425499999692
+    },
+    {
+      "id": 67,
+      "at": "2026-10-19T11:41:36.989721+05:30",
+      "kind": "process",
+      "name": "run4-nnue-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00067-run4-nnue-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9551510000019334
+    },
+    {
+      "id": 68,
+      "at": "2026-10-19T11:41:37.958246+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run4-nnue",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 929,
+        "nps": 6389590
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 931,
+        "nps": 6375864
+      },
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1417,
+        "nps": 1908754
+      },
+      "warmup": false,
+      "before_drift_percent": -0.10765302644768493,
+      "after_drift_percent": -0.3222399333633108,
+      "bracket_drift_percent": -0.21481816517178176
+    },
+    {
+      "id": 69,
+      "at": "2026-10-19T11:41:38.975681+05:30",
+      "kind": "process",
+      "name": "run4-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00069-run4-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9443753000014112
+    },
+    {
+      "id": 70,
+      "at": "2026-10-19T11:41:40.949913+05:30",
+      "kind": "process",
+      "name": "run4-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00070-run4-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.9017453999986174
+    },
+    {
+      "id": 71,
+      "at": "2026-10-19T11:41:43.876788+05:30",
+      "kind": "process",
+      "name": "run4-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00071-run4-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9416916000009223
+    },
+    {
+      "id": 72,
+      "at": "2026-10-19T11:41:44.831713+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run4-perft",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 923,
+        "nps": 6431126
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 920,
+        "nps": 6452097
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 290
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 954
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.629,
+          "reported_mnps": 307
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.107,
+          "reported_mnps": 1805
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 151
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 376
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.068,
+          "reported_mnps": 232
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.019,
+          "reported_mnps": 816
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.359,
+          "reported_mnps": 250
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.063,
+          "reported_mnps": 1421
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.51,
+          "reported_mnps": 322
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.088,
+          "reported_mnps": 1871
+        }
+      ],
+      "warmup": false,
+      "before_drift_percent": 0.5417045260546649,
+      "after_drift_percent": 0.8695569247817003,
+      "bracket_drift_percent": 0.3260859762349577
+    },
+    {
+      "id": 73,
+      "at": "2026-10-19T11:41:45.842468+05:30",
+      "kind": "process",
+      "name": "run5-nnue-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00073-run5-nnue-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9706986999990477
+    },
+    {
+      "id": 74,
+      "at": "2026-10-19T11:41:47.872420+05:30",
+      "kind": "process",
+      "name": "run5-nnue",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine-nnue.exe",
+      "status": "ok",
+      "log": "00074-run5-nnue.txt",
+      "returncode": 0,
+      "wall_seconds": 1.4838987000002817
+    },
+    {
+      "id": 75,
+      "at": "2026-10-19T11:41:50.393205+05:30",
+      "kind": "process",
+      "name": "run5-nnue-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00075-run5-nnue-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9582315999978164
+    },
+    {
+      "id": 76,
+      "at": "2026-10-19T11:41:51.360640+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run5-nnue",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 939,
+        "nps": 6321544
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 934,
+        "nps": 6355385
+      },
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1419,
+        "nps": 1906064
+      },
+      "warmup": false,
+      "before_drift_percent": -1.171457533804554,
+      "after_drift_percent": -0.6424005968286295,
+      "bracket_drift_percent": 0.5353280780771241
+    },
+    {
+      "id": 77,
+      "at": "2026-10-19T11:41:52.385439+05:30",
+      "kind": "process",
+      "name": "run5-perft-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00077-run5-perft-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9550173999996332
+    },
+    {
+      "id": 78,
+      "at": "2026-10-19T11:41:54.369615+05:30",
+      "kind": "process",
+      "name": "run5-perft",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00078-run5-perft.txt",
+      "returncode": 0,
+      "wall_seconds": 1.8699760000017704
+    },
+    {
+      "id": 79,
+      "at": "2026-10-19T11:41:57.262969+05:30",
+      "kind": "process",
+      "name": "run5-perft-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00079-run5-perft-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9488357000009273
+    },
+    {
+      "id": 80,
+      "at": "2026-10-19T11:41:58.223594+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run5-perft",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 919,
+        "nps": 6459118
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 928,
+        "nps": 6396476
+      },
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.018,
+          "reported_mnps": 273
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.006,
+          "reported_mnps": 866
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.621,
+          "reported_mnps": 311
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.107,
+          "reported_mnps": 1812
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 161
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 375
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.066,
+          "reported_mnps": 240
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.017,
+          "reported_mnps": 951
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.352,
+          "reported_mnps": 255
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.06,
+          "reported_mnps": 1494
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.504,
+          "reported_mnps": 325
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.086,
+          "reported_mnps": 1908
+        }
+      ],
+      "warmup": false,
+      "before_drift_percent": 0.9793204883439044,
+      "after_drift_percent": 0.0,
+      "bracket_drift_percent": -0.9698228148177557
+    },
+    {
+      "id": 81,
+      "at": "2026-10-19T11:41:59.244944+05:30",
+      "kind": "process",
+      "name": "run5-classical-before",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00081-run5-classical-before.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9407389000007242
+    },
+    {
+      "id": 82,
+      "at": "2026-10-19T11:42:01.214433+05:30",
+      "kind": "process",
+      "name": "run5-classical",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00082-run5-classical.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9553178000023763
+    },
+    {
+      "id": 83,
+      "at": "2026-10-19T11:42:03.193890+05:30",
+      "kind": "process",
+      "name": "run5-classical-after",
+      "executable": "D:\\Soumik\\Cpp\\Chess\\build-benchmark\\bin\\ChessEngine.exe",
+      "status": "ok",
+      "log": "00083-run5-classical-after.txt",
+      "returncode": 0,
+      "wall_seconds": 0.9593020000029355
+    },
+    {
+      "id": 84,
+      "at": "2026-10-19T11:42:04.164896+05:30",
+      "kind": "sample_attempt",
+      "sample_id": "run5-classical",
+      "attempt": 1,
+      "accepted": true,
+      "reason": "ok",
+      "before": {
+        "nodes": 5935930,
+        "elapsed_ms": 919,
+        "nps": 6459118
+      },
+      "after": {
+        "nodes": 5935930,
+        "elapsed_ms": 938,
+        "nps": 6328283
+      },
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 933,
+        "nps": 6362197
+      },
+      "warmup": false,
+      "before_drift_percent": 0.9793204883439044,
+      "after_drift_percent": -1.0661026477704283,
+      "bracket_drift_percent": -2.025586155880721
+    }
+  ],
+  "accepted": {
+    "run1-classical": {
+      "label": "classical",
+      "kind": "search",
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 932,
+        "nps": 6369023
+      },
+      "event_id": 22
+    },
+    "run1-nnue": {
+      "label": "nnue",
+      "kind": "search",
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1423,
+        "nps": 1900706
+      },
+      "event_id": 26
+    },
+    "run1-perft": {
+      "label": "perft",
+      "kind": "perft",
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.018,
+          "reported_mnps": 275
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 1077
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.619,
+          "reported_mnps": 313
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.109,
+          "reported_mnps": 1774
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 168
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 365
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.067,
+          "reported_mnps": 237
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.016,
+          "reported_mnps": 982
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.354,
+          "reported_mnps": 254
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.059,
+          "reported_mnps": 1521
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.512,
+          "reported_mnps": 320
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.088,
+          "reported_mnps": 1874
+        }
+      ],
+      "event_id": 30
+    },
+    "run2-nnue": {
+      "label": "nnue",
+      "kind": "search",
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1422,
+        "nps": 1902042
+      },
+      "event_id": 34
+    },
+    "run2-perft": {
+      "label": "perft",
+      "kind": "perft",
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 291
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 954
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.622,
+          "reported_mnps": 311
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.108,
+          "reported_mnps": 1791
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 163
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 342
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.066,
+          "reported_mnps": 238
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.017,
+          "reported_mnps": 928
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.351,
+          "reported_mnps": 256
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.061,
+          "reported_mnps": 1482
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.508,
+          "reported_mnps": 322
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.086,
+          "reported_mnps": 1911
+        }
+      ],
+      "event_id": 38
+    },
+    "run2-classical": {
+      "label": "classical",
+      "kind": "search",
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 931,
+        "nps": 6375864
+      },
+      "event_id": 42
+    },
+    "run3-perft": {
+      "label": "perft",
+      "kind": "perft",
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 282
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 977
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.62,
+          "reported_mnps": 312
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.106,
+          "reported_mnps": 1823
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 158
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 380
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.068,
+          "reported_mnps": 231
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.019,
+          "reported_mnps": 815
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.357,
+          "reported_mnps": 252
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.058,
+          "reported_mnps": 1541
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.508,
+          "reported_mnps": 322
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.085,
+          "reported_mnps": 1923
+        }
+      ],
+      "event_id": 52
+    },
+    "run3-classical": {
+      "label": "classical",
+      "kind": "search",
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 937,
+        "nps": 6335037
+      },
+      "event_id": 56
+    },
+    "run3-nnue": {
+      "label": "nnue",
+      "kind": "search",
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1417,
+        "nps": 1908754
+      },
+      "event_id": 60
+    },
+    "run4-classical": {
+      "label": "classical",
+      "kind": "search",
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 922,
+        "nps": 6438101
+      },
+      "event_id": 64
+    },
+    "run4-nnue": {
+      "label": "nnue",
+      "kind": "search",
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1417,
+        "nps": 1908754
+      },
+      "event_id": 68
+    },
+    "run4-perft": {
+      "label": "perft",
+      "kind": "perft",
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.017,
+          "reported_mnps": 290
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.005,
+          "reported_mnps": 954
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.629,
+          "reported_mnps": 307
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.107,
+          "reported_mnps": 1805
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 151
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 376
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.068,
+          "reported_mnps": 232
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.019,
+          "reported_mnps": 816
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.359,
+          "reported_mnps": 250
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.063,
+          "reported_mnps": 1421
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.51,
+          "reported_mnps": 322
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.088,
+          "reported_mnps": 1871
+        }
+      ],
+      "event_id": 72
+    },
+    "run5-nnue": {
+      "label": "nnue",
+      "kind": "search",
+      "payload": {
+        "nodes": 2704705,
+        "elapsed_ms": 1419,
+        "nps": 1906064
+      },
+      "event_id": 76
+    },
+    "run5-perft": {
+      "label": "perft",
+      "kind": "perft",
+      "payload": [
+        {
+          "mode": "Single",
+          "nodes": 4865609,
+          "seconds": 0.018,
+          "reported_mnps": 273
+        },
+        {
+          "mode": "Multi",
+          "nodes": 4865609,
+          "seconds": 0.006,
+          "reported_mnps": 866
+        },
+        {
+          "mode": "Single",
+          "nodes": 193690690,
+          "seconds": 0.621,
+          "reported_mnps": 311
+        },
+        {
+          "mode": "Multi",
+          "nodes": 193690690,
+          "seconds": 0.107,
+          "reported_mnps": 1812
+        },
+        {
+          "mode": "Single",
+          "nodes": 674624,
+          "seconds": 0.004,
+          "reported_mnps": 161
+        },
+        {
+          "mode": "Multi",
+          "nodes": 674624,
+          "seconds": 0.002,
+          "reported_mnps": 375
+        },
+        {
+          "mode": "Single",
+          "nodes": 15833292,
+          "seconds": 0.066,
+          "reported_mnps": 240
+        },
+        {
+          "mode": "Multi",
+          "nodes": 15833292,
+          "seconds": 0.017,
+          "reported_mnps": 951
+        },
+        {
+          "mode": "Single",
+          "nodes": 89941194,
+          "seconds": 0.352,
+          "reported_mnps": 255
+        },
+        {
+          "mode": "Multi",
+          "nodes": 89941194,
+          "seconds": 0.06,
+          "reported_mnps": 1494
+        },
+        {
+          "mode": "Single",
+          "nodes": 164075551,
+          "seconds": 0.504,
+          "reported_mnps": 325
+        },
+        {
+          "mode": "Multi",
+          "nodes": 164075551,
+          "seconds": 0.086,
+          "reported_mnps": 1908
+        }
+      ],
+      "event_id": 80
+    },
+    "run5-classical": {
+      "label": "classical",
+      "kind": "search",
+      "payload": {
+        "nodes": 5935930,
+        "elapsed_ms": 933,
+        "nps": 6362197
+      },
+      "event_id": 84
+    }
+  },
+  "baseline": {
+    "nps": 6396476,
+    "samples": [
+      {
+        "nodes": 5935930,
+        "elapsed_ms": 921,
+        "nps": 6445092
+      },
+      {
+        "nodes": 5935930,
+        "elapsed_ms": 932,
+        "nps": 6369023
+      },
+      {
+        "nodes": 5935930,
+        "elapsed_ms": 928,
+        "nps": 6396476
+      }
+    ],
+    "established_at": "2026-10-19T11:39:39.137667+05:30"
+  },
+  "updated_at": "2026-10-19T11:42:04.169829+05:30",
+  "completed_at": "2026-10-19T11:42:04.169829+05:30"
+}

@@ -1,0 +1,54 @@
+{
+  "collection": "User-run benchmark, 2026-10-19, Asia/Calcutta",
+  "original_directory": "C:\\Windows\\System32\\artifacts\\benchmarks\\controlled-run",
+  "original_files_preserved": true,
+  "path_bug": "The PowerShell wrapper used the native process directory for Output and the build_directory metadata string. Actual executable paths and CMake file reads used the repository.",
+  "correct_build_directory": "D:\\Soumik\\Cpp\\Chess\\build-benchmark",
+  "metrics_recomputed_from_existing_output_only": true,
+  "perft_suite_totals_from_raw_footer": {
+    "Single": [
+      {
+        "seconds": 1.573,
+        "reported_mnps": 298
+      },
+      {
+        "seconds": 1.569,
+        "reported_mnps": 298
+      },
+      {
+        "seconds": 1.575,
+        "reported_mnps": 297
+      },
+      {
+        "seconds": 1.587,
+        "reported_mnps": 295
+      },
+      {
+        "seconds": 1.565,
+        "reported_mnps": 299
+      }
+    ],
+    "Multi": [
+      {
+        "seconds": 0.278,
+        "reported_mnps": 1685
+      },
+      {
+        "seconds": 0.279,
+        "reported_mnps": 1683
+      },
+      {
+        "seconds": 0.276,
+        "reported_mnps": 1699
+      },
+      {
+        "seconds": 0.285,
+        "reported_mnps": 1648
+      },
+      {
+        "seconds": 0.277,
+        "reported_mnps": 1693
+      }
+    ]
+  }
+}

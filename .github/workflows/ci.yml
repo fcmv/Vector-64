@@ -408,7 +408,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: '3.x' }
-      - run: python -m pip install pytest numpy && python -m pytest tests/python/test_feature_encoding.py tests/python/test_nnue_data.py tests/python/test_nnue_match.py -v
+      - run: python -m pip install pytest numpy && python -m pytest tests/python/test_feature_encoding.py tests/python/test_nnue_data.py tests/python/test_nnue_match.py tests/python/test_benchmark.py tests/python/test_benchmark_matrix.py tests/python/test_benchmark_wrapper.py -v
 
   training-smoke:
     name: python · STK-HalfKA training parity
