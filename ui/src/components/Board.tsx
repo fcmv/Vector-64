@@ -15,14 +15,14 @@ interface Props {
    Chessground measures lineWidth in tenths of a square. The ink halo supplies
    contrast against both square colours; the amber fill alone cannot. */
 const INTENT_BRUSHES: DrawBrushes = {
-  intent: { key: "vi", color: "#ffb545", opacity: 0.92, lineWidth: 5 },
+  intent: { key: "vi", color: "#ffc266", opacity: 0.92, lineWidth: 5 },
   // chessground requires its four standard brushes. Nothing draws with them
   // here, but leaving the stock colours in would let a default arrow appear in
   // a palette this UI never uses.
-  green: { key: "vg", color: "#4ade80", opacity: 0.9, lineWidth: 5 },
-  red: { key: "vr", color: "#f87171", opacity: 0.9, lineWidth: 5 },
-  blue: { key: "vb", color: "#4a90ff", opacity: 0.9, lineWidth: 5 },
-  yellow: { key: "vy", color: "#ffb545", opacity: 0.9, lineWidth: 5 },
+  green: { key: "vg", color: "#84c7a6", opacity: 0.9, lineWidth: 5 },
+  red: { key: "vr", color: "#ee9898", opacity: 0.9, lineWidth: 5 },
+  blue: { key: "vb", color: "#6aa8ff", opacity: 0.9, lineWidth: 5 },
+  yellow: { key: "vy", color: "#ffc266", opacity: 0.9, lineWidth: 5 },
 };
 
 export function Board({ state, highlight, onMove }: Props) {

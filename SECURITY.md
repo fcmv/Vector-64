@@ -13,6 +13,12 @@ reporting channel without publishing exploit details or sensitive data. This
 repository does not currently publish a dedicated security mailbox or a response
 SLA; this page does not invent one.
 
+Repository API verification on 2026-10-19 reported private vulnerability
+reporting disabled. Enabling it is a maintainer repository-setting action;
+this documentation does not announce an enabled channel. Recheck the current
+Security tab before reporting, because that setting can change independently
+of the source tree.
+
 Include the affected revision/platform, input type, impact, minimal reproduction,
 and whether the issue is reachable through UCI, a network file, training data,
 or the local visualizer. Share full exploit details only through the agreed

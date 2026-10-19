@@ -1,0 +1,71 @@
+name: Publish documentation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Require successful checks for this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for workflow in CI Documentation; do
+            verdict=$(gh run list --repo "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --workflow "$workflow" --limit 1 --json conclusion --jq '.[0].conclusion')
+            if [ "$verdict" != success ]; then
+              echo "$workflow must finish successfully for $GITHUB_SHA before publication"
+              exit 1
+            fi
+          done
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: actions/configure-pages@v5
+      - run: python -m pip install -r requirements-docs.txt
+      - name: Record build identity
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          Path('docs/build.json').write_text(json.dumps({
+              'commit': os.environ['GITHUB_SHA'],
+              'ref': os.environ['GITHUB_REF'],
+              'documentation': 'development with a verified v1.0.0 release guide'
+          }, indent=2) + '\n', encoding='utf-8')
+          PY
+      - name: Build the reviewed documentation
+        run: |
+          python tools/docs/check_punctuation.py
+          python -m mkdocs build --strict
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: artifacts/docs-site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy checked site
+        id: deployment
+        uses: actions/deploy-pages@v4

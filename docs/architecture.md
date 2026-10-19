@@ -54,6 +54,9 @@ have separate legality and reserve handling.
 
 ## Search and ownership
 
+The [search implementation guide](search.md) expands the algorithm, TT,
+pruning guards, time limits and verification boundaries.
+
 The UCI loop owns a resident position and an asynchronous search thread. A
 search receives a root copy. `stop` joins that search and permits its final
 `bestmove`; `quit` shuts it down. A worker process should serve one client

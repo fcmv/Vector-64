@@ -2,7 +2,7 @@
 
 ## Download and select an executable
 
-Download from the [releases](https://github.com/soumik15630m/Vector-64/releases).
+Download from the [releases](https://github.com/fcmv/Vector-64/releases).
 Choose the operating system and CPU profile first, then a capability suffix.
 
 | Profile | Requirement |
@@ -18,7 +18,7 @@ Select `-nnue` for standard chess with the embedded network, `-all` for standard
 chess plus drop variants, or `-viz` for the visualizer. `-validator` refuses
 search and is intended for integration workers. The unsuffixed binary uses
 classical evaluation until an external network is loaded. The README has the
-complete [binary table](https://github.com/soumik15630m/Vector-64#choose-a-binary).
+complete [binary table](https://github.com/fcmv/Vector-64#choose-a-binary).
 
 The release currently distributes bare executables. On Unix, make the file
 executable with `chmod +x <downloaded-file>`. If your CPU is unsupported, build

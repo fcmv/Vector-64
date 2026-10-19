@@ -1,43 +1,43 @@
 /* Panels keep fixed heights; lists scroll internally so accumulating moves cannot reflow the layout. */
 
 :root {
-  --bg: #05070b;
-  --bg-2: #080b11;
-  --panel: #0d131d;
-  --panel-2: #141d2b;
-  --line: #1a2333;
-  --line-soft: #131b27;
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-2: #08090a;
+  --panel: #111214;
+  --panel-2: #191a1d;
+  --line: #41444c;
+  --line-soft: #2c2e34;
 
-  /* Contrast targets on --panel (#0b1018): fg ~15:1, dim ~9:1, faint ~5.5:1. */
-  --fg: #f3f7fc;
-  --fg-dim: #bccbdd;
-  --fg-faint: #8b9db5;
+  --fg: #f1f0f4;
+  --fg-dim: #babac4;
+  --fg-faint: #93939f;
 
-  --accent: #4dd8ff;
-  --accent-deep: #12556b;
-  --accent-glow: rgba(77, 216, 255, 0.16);
+  --accent: #c7cbd1;
+  --accent-deep: #686c76;
+  --accent-glow: rgba(199, 203, 209, 0.12);
 
-  --neg: #4a90ff;
-  --pos: #ffb545;
+  /* Neural values retain a separate, brighter palette than interface controls. */
+  --signal: #6fe3ff;
+  --neg: #6aa8ff;
+  --pos: #ffc266;
 
-  --good: #4ade80;
-  --bad: #f87171;
+  --good: #84c7a6;
+  --bad: #ee9898;
 
-  /* --board-ink clears 5.17:1 against both squares. Bare cyan on a light square
-     is only 1.07:1, so ink outlines carry non-text indicator contrast. */
-  --board-light: #c6d2e2;
-  --board-dark: #7d92ad;
-  --board-ink: #04222e;
-  /* Use a neutral outline to avoid a blue rim around amber shapes. */
-  --mark-shadow: rgba(7, 11, 16, 0.95);
-  --board-edge: #24304a;
+  /* Dark outlines keep move indicators legible against both neutral squares. */
+  --board-light: #d0d1d5;
+  --board-dark: #878a92;
+  --board-ink: #17191d;
+  --board-mark: #dce0e6;
+  --mark-shadow: rgba(8, 9, 10, 0.95);
+  --board-edge: #41444c;
 
   --r: 12px;
   --r-sm: 8px;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo,
     Consolas, monospace;
-  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    sans-serif;
+  --sans: "Segoe UI", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -53,10 +53,7 @@ body,
 }
 
 body {
-  background:
-    radial-gradient(1200px 700px at 62% -10%, #0d1622 0%, transparent 62%),
-    radial-gradient(900px 600px at 100% 100%, #0a1119 0%, transparent 60%),
-    var(--bg);
+  background: var(--bg);
   color: var(--fg);
   font-family: var(--sans);
   font-size: 13px;
@@ -90,7 +87,7 @@ body {
   align-items: center;
   gap: 14px;
   padding: 0 14px;
-  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -98,7 +95,7 @@ body {
 
 .brand {
   font-weight: 600;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 11px;
 }
@@ -166,7 +163,7 @@ body {
   grid-area: center;
   min-width: 0;
   min-height: 0;
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.5), var(--panel));
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--r);
   position: relative;
@@ -175,7 +172,7 @@ body {
 }
 
 .panel {
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.55), var(--panel));
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 11px 13px;
@@ -189,7 +186,7 @@ body {
   margin: 0 0 9px;
   font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-dim);
   display: flex;
@@ -262,11 +259,9 @@ body {
 }
 .dot.live {
   background: var(--good);
-  box-shadow: 0 0 8px var(--good);
 }
 .dot.err {
   background: var(--bad);
-  box-shadow: 0 0 8px var(--bad);
 }
 
 .controls {
@@ -476,19 +471,19 @@ input[type="text"]:focus {
 /* Use a reticle for empty destinations and corner brackets for captures.
    Selection/last-move tints need an inset edge to stay visible on light squares. */
 .cg-wrap cg-board square.last-move {
-  background: rgba(77, 216, 255, 0.34);
-  box-shadow: inset 0 0 7px rgba(4, 34, 46, 0.45);
+  background: rgba(220, 224, 230, 0.34);
+  box-shadow: inset 0 0 0 2px var(--board-ink);
 }
 .cg-wrap cg-board square.selected {
-  background: rgba(77, 216, 255, 0.46);
-  box-shadow: inset 0 0 9px rgba(4, 34, 46, 0.5);
+  background: rgba(220, 224, 230, 0.46);
+  box-shadow: inset 0 0 0 2px var(--board-ink);
 }
 
 /* The ink ring makes an accent mark visible against either square colour. */
 .cg-wrap cg-board square.move-dest {
   background: radial-gradient(
     circle,
-    rgba(77, 216, 255, 0.95) 0 9%,
+    var(--board-mark) 0 9%,
     var(--board-ink) 9.5% 15%,
     rgba(0, 0, 0, 0) 15.5%
   );
@@ -497,7 +492,7 @@ input[type="text"]:focus {
 /* Eight gradient layers form four L-shaped capture brackets without covering the piece.
    The ink halo supplies contrast on light squares. */
 .cg-wrap cg-board square.oc.move-dest {
-  --b: #4dd8ff;
+  --b: var(--board-mark);
   background-image: linear-gradient(var(--b), var(--b)),
     linear-gradient(var(--b), var(--b)), linear-gradient(var(--b), var(--b)),
     linear-gradient(var(--b), var(--b)), linear-gradient(var(--b), var(--b)),
@@ -528,13 +523,11 @@ input[type="text"]:focus {
 
 .cg-wrap cg-board square.move-dest:hover,
 .cg-wrap cg-board square.oc.move-dest:hover {
-  background: rgba(77, 216, 255, 0.32);
-  box-shadow: inset 0 0 8px rgba(4, 34, 46, 0.45);
+  background: rgba(220, 224, 230, 0.32);
+  box-shadow: inset 0 0 0 2px var(--board-ink);
   filter: none;
 }
-/* Check is the one mark that must not be mistaken for anything else, so it
-   keeps its red -- but red on a blue board measures under 2:1 on its own, so
-   the ink ring is what actually delimits it. */
+/* Check keeps its red warning independently of the neutral selection marks. */
 .cg-wrap cg-board square.check {
   background: radial-gradient(
     ellipse at center,
@@ -545,8 +538,8 @@ input[type="text"]:focus {
 }
 .cg-wrap cg-board square.premove-dest,
 .cg-wrap cg-board square.current-premove {
-  background-color: rgba(255, 181, 69, 0.4);
-  box-shadow: inset 0 0 7px rgba(4, 34, 46, 0.45);
+  background-color: rgba(255, 194, 102, 0.4);
+  box-shadow: inset 0 0 0 2px var(--board-ink);
 }
 
 /* Chessground gives intent arrows an amber fill but no stroke;
@@ -565,7 +558,7 @@ input[type="text"]:focus {
 .orientation-black .files :nth-child(odd),
 coords.squares:nth-of-type(odd) :nth-child(even),
 coords.squares:nth-of-type(even) :nth-child(odd) {
-  color: rgba(20, 29, 43, 0.72);
+  color: rgba(23, 25, 29, 0.85);
 }
 .orientation-white .ranks :nth-child(even),
 .orientation-white .files :nth-child(odd),
@@ -573,7 +566,7 @@ coords.squares:nth-of-type(even) :nth-child(odd) {
 .orientation-black .files :nth-child(even),
 coords.squares:nth-of-type(odd) :nth-child(odd),
 coords.squares:nth-of-type(even) :nth-child(even) {
-  color: rgba(243, 247, 252, 0.82);
+  color: rgba(241, 240, 244, 0.95);
 }
 
 .field-host {
@@ -614,7 +607,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   position: absolute;
   z-index: 5;
   min-width: 178px;
-  background: rgba(9, 13, 20, 0.96);
+  background: rgba(17, 18, 20, 0.96);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   padding: 9px 11px;
@@ -627,7 +620,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--signal);
   font-weight: 600;
 }
 .field-tip > div {
@@ -654,7 +647,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   color: var(--fg-dim);
   font-family: var(--mono);
   pointer-events: none;
-  background: rgba(6, 9, 14, 0.72);
+  background: rgba(8, 9, 10, 0.88);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 6px 11px;
@@ -693,7 +686,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   top: 50%;
   transform: translateY(-50%);
   min-width: 176px;
-  background: rgba(6, 9, 14, 0.86);
+  background: rgba(17, 18, 20, 0.96);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px 12px;
@@ -715,7 +708,7 @@ coords.squares:nth-of-type(even) :nth-child(even) {
   font-size: 22px;
   font-weight: 400;
   letter-spacing: 0.02em;
-  color: var(--accent);
+  color: var(--signal);
   line-height: 1.15;
 }
 .decision .mv.pos {
@@ -959,7 +952,7 @@ textarea.pos-input:focus {
   display: flex;
   gap: 2px;
   padding: 2px;
-  background: rgba(6, 9, 14, 0.8);
+  background: rgba(8, 9, 10, 0.9);
   border: 1px solid var(--line);
   border-radius: 8px;
   backdrop-filter: blur(4px);
@@ -1018,7 +1011,7 @@ textarea.pos-input:focus {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(3, 5, 9, 0.76);
+  background: rgba(8, 9, 10, 0.76);
   backdrop-filter: blur(3px);
   display: grid;
   place-items: center;
@@ -1127,8 +1120,8 @@ input.numbox:focus {
   margin-top: 9px;
   padding: 8px 10px;
   border-radius: 7px;
-  background: rgba(255, 181, 69, 0.09);
-  border: 1px solid rgba(255, 181, 69, 0.28);
+  background: rgba(255, 194, 102, 0.09);
+  border: 1px solid rgba(255, 194, 102, 0.28);
   font-size: 11px;
   line-height: 1.5;
   color: var(--fg-dim);

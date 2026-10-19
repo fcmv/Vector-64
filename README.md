@@ -4,9 +4,21 @@ A C++20 chess engine with UCI search, an integer STK-HalfKA neural evaluator,
 crazyhouse and bughouse board support, and Vector Scope for inspecting the
 network while the engine plays.
 
-[Releases](https://github.com/soumik15630m/Vector-64/releases) ·
+[Releases](https://github.com/fcmv/Vector-64/releases) ·
 [Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md) ·
 [Known limitations](LIMITATIONS.md)
+
+![Vector Scope showing the chess board, live neural activations and search information](docs/assets/vector-scope-overview.jpg)
+
+**[Watch "It's thinking ...", the 1080p recording](docs/assets/it-thinks-1080p.mp4)**
+
+![A short live preview of the neural evaluation updating during self-play](docs/assets/vector-scope-live.gif)
+
+The colors and connections update as the sampled position changes. The trained
+weights stay fixed. This is a view of neural inference, not every search node
+or an explanation of the complete move decision.
+[Full-resolution live clip](docs/assets/vector-scope-live-1080p.mp4) ·
+[Illustrated UI tour](docs/visualizer-tour.md) · [Capture notes](docs/media.md)
 
 The standard engine uses bitboards, legal move generation, iterative-deepening
 alpha-beta search, a transposition table, and optional Syzygy tablebases.
@@ -129,6 +141,10 @@ are in [STABILITY.md](STABILITY.md).
 
 [ROADMAP.md](ROADMAP.md) records priorities, completion criteria and candidate
 features within the released NNUE architecture.
+
+[CHANGELOG.md](CHANGELOG.md) and [documentation versions](docs/versions.md)
+identify release differences. The [datagen guide](docs/datagen.md) follows
+self-play rows into the checked training pipeline.
 
 ## License
 

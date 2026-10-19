@@ -1,0 +1,51 @@
+{
+  "source_sha256": "5387fc57f3f584ca0a2c9fe8202b3a2b9ea4a8901e23bcbcc7378f3e54eb5cff",
+  "output_sha256": "fc39c15c9af3438c5d3829bf207e4fda75ef2bf1f40a580f94d366c717564035",
+  "raw_output_sha256": null,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "seconds": 100.0,
+  "audio": false,
+  "source": "user-provided Microsoft Game DVR window recording",
+  "source_average_fps": "152520000/3125611",
+  "source_start_seconds": 4.0,
+  "source_end_seconds": 104.0,
+  "source_playback_start_seconds": 8.7,
+  "editing": "continuous recording; centered animated title; architecture as the board closes; roadmap ending",
+  "frame_pacing": "60 fps constant output; source frames may repeat; no motion interpolation",
+  "branding": "fcmv/vector-64",
+  "title": "It's thinking ...",
+  "overlays": [
+    {
+      "name": "title",
+      "start": 0.25,
+      "end": 6.3,
+      "position": "screen center",
+      "typography": "84px Segoe UI Semilight or supplied title font",
+      "backing": null,
+      "ellipsis": "0 to 3 dots, 450ms per step, fixed punctuation-space advances"
+    },
+    {
+      "name": "architecture",
+      "start": 42.5,
+      "end": 49.5,
+      "position": "screen center",
+      "backing": "1360x420 opaque black panel, matched fades",
+      "font_sizes_px": [
+        64,
+        44,
+        54,
+        46
+      ],
+      "font": "regular body font",
+      "text": "STK-HalfKA NNUE\n22,528 features per perspective | 2 x 1024 accumulators\nPairwise > 1024 > 16 > 32 > 1\n8 output buckets + PSQT"
+    },
+    {
+      "name": "roadmap",
+      "start": 96.0,
+      "end": 99.85,
+      "text": "Next: engine correctness, reproducible training and search.\nROADMAP.md | fcmv/vector-64"
+    }
+  ]
+}

@@ -12,7 +12,7 @@ The downloaded executable's SHA256 is
 Its embedded 46,997,305-byte big net exactly matches the repository's shipped
 file, whose identity is in the [model card](model-card.md). The unsuffixed
 Windows `.exe` is the classical build; `-nnue.exe` is the embedded-network build.
-See the [v1.0.0 release](https://github.com/soumik15630m/Vector-64/releases/tag/v1.0.0).
+See the [v1.0.0 release](https://github.com/fcmv/Vector-64/releases/tag/v1.0.0).
 
 The former 81920-feature VECTOR64_NNUE format is unsupported by this release
 and the current engine.

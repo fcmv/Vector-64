@@ -16,6 +16,10 @@ the current STK-HalfKA implementation retains that contract.
 | Connect rules/AI workers to a host application | [Integration guide](engine-integration-response.md) |
 | Use crazyhouse or host-managed bughouse reserves | [Variants](variants.md) |
 | View inference, run analysis, or build the browser engine | [Vector Scope](visualizer.md) |
+| Learn the neural display from screenshots and recordings | [Illustrated tour](visualizer-tour.md) |
+| Generate checked self-play training inputs | [Data generation](datagen.md) |
+| Implement a visualization client | [Telemetry contract](spec/telemetry.md) |
+| Host the browser engine | [Browser deployment](browser-deployment.md) |
 | Diagnose a failed build, load, or integration | [Troubleshooting](troubleshooting.md) |
 
 ## Understand and contribute
@@ -38,6 +42,8 @@ the current STK-HalfKA implementation retains that contract.
 - [Compatibility](stability.md), [benchmark methodology](benchmark.md), and
   [release procedure](releasing.md).
 - [Roadmap](roadmap.md): priorities, acceptance conditions and feature candidates.
+- [Versions](versions.md) and [changelog](changelog.md): release/source differences.
+- [Maintaining](maintaining.md) and [media notes](media.md): review and capture upkeep.
 - [Third-party notices](third-party-notices.md) and
   [shipped model](model-card.md).
 

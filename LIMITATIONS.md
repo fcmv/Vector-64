@@ -108,6 +108,21 @@ The native visualizer binds loopback and is unauthenticated. Its control API can
 load network paths and write datasets/recordings with the process's permissions.
 Do not expose it through a public proxy as if it were a hosted multi-user service.
 
+## Visualizer state publication
+
+Pausing sets the session flag without immediately publishing a new snapshot.
+If no later publication occurs, the browser can keep showing the old pause
+button/status and disabled step control while play has actually paused. An
+explicit `pause` control with `value:false` can resume the native session;
+do not infer paused state solely from a stale button. A successful control
+reply does not guarantee that the requested state has already been published.
+
+The node/delay input fields initialize to UI defaults and may differ from CLI
+overrides until explicitly changed. Set those controls before recording a demo
+or interpreting the configured budget. The `--record` CLI help says append,
+but the native JSONL recorder opens with truncation; choose a fresh filename.
+Recordings contain summaries rather than full activation frames or screen video.
+
 ## Training and evidence
 
 Integer export parity and dataset integrity do not establish playing strength.

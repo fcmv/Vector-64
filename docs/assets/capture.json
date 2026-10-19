@@ -1,0 +1,94 @@
+{
+  "captured_date": "2026-10-19",
+  "viewport": [
+    1920,
+    1080
+  ],
+  "audio": false,
+  "asset_sha256": {
+    "it-thinks-1080p.json": "d9bc8c870452d515749be7c158b02930b13d781e5658a2cf252df4b8742dea06",
+    "it-thinks-1080p.mp4": "fc39c15c9af3438c5d3829bf207e4fda75ef2bf1f40a580f94d366c717564035",
+    "it-thinks-1080p.png": "cdf4fcc6a3c9682a07178fb70b5c1ea89323091ba03ec50e2a3f74f7117a5141",
+    "vector-scope-inspector.jpg": "0ff5d240bec0111b0fdc54eb7e48d3dfd7067f1fd83077b03276a69b2b983a7c",
+    "vector-scope-live-1080p.mp4": "b5209edd204071b8f800924f4a9a81a61c7a7b46fa5b41352435716e148acceb",
+    "vector-scope-live.gif": "e037ec3f29156a6c12c9e18c4b3350fd5c8deba44ab6a620c6b27a79e8f66dca",
+    "vector-scope-overview.jpg": "5fed3e14cb01c7988cca51a5b47a11bc32bd7559ae85e63b83e29ec0cd715fb8",
+    "vector-scope-tools.jpg": "526db095f752e6e499102e60943c1f9b70d93fd02ef4b9962a2303d9290f461f"
+  },
+  "video_capture": {
+    "method": "Maintainer-provided Microsoft Game DVR recording, normalized with FFmpeg",
+    "seconds": 104,
+    "frames": 6240,
+    "fps": 60,
+    "source_average_fps": "152520000/3125611",
+    "threads_visible": 1,
+    "delay_ms_visible": 350,
+    "requested_nodes_visible": 1000,
+    "cursor": true,
+    "audio": false,
+    "motion_interpolation": false,
+    "source_file": "Vector Scope \u2014 STK-Vector-64 2026-10-19 17-48-56.mp4",
+    "source_sha256": "5387fc57f3f584ca0a2c9fe8202b3a2b9ea4a8901e23bcbcc7378f3e54eb5cff",
+    "source_executable_and_network_hashes": "not independently established from this recording",
+    "inspection": "Continuous live play, board zooms and neuron hover inspection; original order and speed"
+  },
+  "screenshot_capture": {
+    "vector-scope-overview.jpg": "Frame at 12 seconds of maintainer-provided recording",
+    "vector-scope-inspector.jpg": "Earlier browser JPEG of the same network, before the theme refresh",
+    "vector-scope-tools.jpg": "Earlier browser JPEG of the same network, before the theme refresh"
+  },
+  "prior_native_capture": {
+    "source_checkout": "7545c5b307bf51dedeefaf4d45d69ebfebdf9daf",
+    "visualizer_executable_sha256": "8909553c4704f2cc043ed52e372246571ff887eb129edc568949ed6cd38b1566",
+    "embedded_net_sha256": "7b877e6bdefde3b41ef958e3270b3312806382a1e97d5e24f0c0c6217cd87ace",
+    "ui_bundle_sha256": "4ae844a5aa07ae8a88dd7aa8088cdf912d8cb10d9d63329dd2583a5c8a44bdd1",
+    "ui_source_sha256": {
+      "ui/src/theme.css": "3583761d4c9c929e5f6c97d71e6d921fe84e7ee558ae9773677a535005b3de9d",
+      "ui/src/field/renderer.ts": "2a03d5e7e7dfece2ff7374e13cd27bbf0e096720ce6918e7dcbe42323221f6a4",
+      "ui/src/components/Board.tsx": "c422551b3b7a5c18a949530ad4224ea8c9d0f4b3e525650ac6f40ae264b81bfb"
+    },
+    "raw_source_sha256": {
+      "board-retake-master.mp4": "ddd51d29794c7b5e74d7b8571dcdaa830e5b8b27e378a17b872f52c76ffd3c3f",
+      "vector-scope-calm-master.mp4": "848d9c649a4f0911c664901325a267f04f827f12e806bab60d1e0c6ecda38a71",
+      "calm-l1-master.mp4": "d06dcb1feb4d8313d8ec127da35d31610511096c3c56a6e75dc1b8e280dc706c",
+      "calm-l2-master.mp4": "ec4c898befd6d407405f398e1f47c41e706d6396d813dc5797b45b3ac0447cd4"
+    }
+  },
+  "edited_recording": {
+    "seconds": 100,
+    "frames": 6000,
+    "fps": 60,
+    "source_interval_seconds": [
+      4,
+      104
+    ],
+    "branding": "fcmv/vector-64",
+    "manifest": "it-thinks-1080p.json",
+    "title_position": "screen center",
+    "title_animation": "fixed-position cycling ellipsis and fade",
+    "architecture_source_interval_seconds": [
+      46.5,
+      53.5
+    ],
+    "architecture_edit_interval_seconds": [
+      42.5,
+      49.5
+    ],
+    "architecture_position": "screen center",
+    "readability": {
+      "architecture_font_sizes_px": [
+        64,
+        44,
+        54,
+        46
+      ],
+      "architecture_backing": "1360x420 fully opaque black, fades with text",
+      "preview_checked_widths_px": [
+        457,
+        640,
+        1920
+      ],
+      "title_and_roadmap": "Opening title has no backing; roadmap retains a fading dark backing"
+    }
+  }
+}

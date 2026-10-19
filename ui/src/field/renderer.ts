@@ -12,18 +12,15 @@ import type { Arch, Frame } from "../engine/types";
 /* Pin accumulator blocks to White/Black; raw us/them arrays swap every ply.
    Edges carry the engine's weight-times-activation attribution. */
 
-// Mirrors the CSS custom properties in theme.css so canvas and DOM chrome stay
-// one visual system.
+// Keep neural signals vivid against the neutral interface palette.
 const COL = {
   neg: 0x6aa8ff,
   pos: 0xffc266,
-  // The "off" colour is a visible slate rather than near-black, so an inactive
-  // neuron still reads as a neuron instead of disappearing into the panel.
-  zero: 0x24334a,
+  zero: 0x33363d,
   accent: 0x6fe3ff,
-  white: 0xf2f7fd,
-  black: 0x9db0c8,
-  label: 0x8b9db5,
+  white: 0xf1f0f4,
+  black: 0xbabac4,
+  label: 0x93939f,
 };
 
 export type HoverLayer =
@@ -103,7 +100,7 @@ const LABEL_STYLE = new TextStyle({
   fontFamily: "ui-monospace, Menlo, Consolas, monospace",
   fontSize: 9,
   letterSpacing: 1.6,
-  fill: COL.label,
+  fill: 0xffffff,
 });
 
 export class FieldRenderer {
@@ -414,9 +411,9 @@ export class FieldRenderer {
     const pad = 9;
     const panel = (x: number, y: number, w: number, h: number) => {
       g.roundRect(x - pad, y - pad, w + pad * 2, h + pad * 2, 8);
-      g.fill({ color: 0x0d131d, alpha: 0.55 });
+      g.fill({ color: 0x111214, alpha: 0.55 });
       g.roundRect(x - pad, y - pad, w + pad * 2, h + pad * 2, 8);
-      g.stroke({ width: 1, color: 0x1b2432, alpha: 0.8 });
+      g.stroke({ width: 1, color: 0x41444c, alpha: 1 });
     };
     panel(bx, by, boardSize, boardSize);
     for (const st of [acc, pair]) {
@@ -510,7 +507,7 @@ export class FieldRenderer {
     if (!this.arch) return;
     const arch = this.arch;
     const hov = this.selected ?? this.hover;
-    const dim = hov ? 0.2 : 1;
+    const dim = hov ? 0.28 : 1;
 
     const whiteIsUs = f.sideToMove === 0;
     // Returns null when that perspective is currently hidden, so edges which
@@ -613,15 +610,15 @@ export class FieldRenderer {
           if (onPath) {
             hi.moveTo(p.x, p.y);
             hi.lineTo(node.x, node.y);
-            hi.stroke({ width: 1 + t * 2.2, color: col, alpha: 0.45 + t * 0.5 });
+            hi.stroke({ width: 1.3 + t * 2.2, color: col, alpha: 0.65 + t * 0.35 });
             if (fPair.size) arrow(p.x, p.y, node.x, node.y, col, 0.85);
           } else {
             g.moveTo(p.x, p.y);
             g.lineTo(node.x, node.y);
             g.stroke({
-              width: 0.4 + t * 1.4,
+              width: 0.8 + t * 1.4,
               color: col,
-              alpha: (0.06 + t * 0.45) * dim,
+              alpha: (0.17 + t * 0.5) * dim,
             });
           }
         }
@@ -647,9 +644,9 @@ export class FieldRenderer {
             hi.moveTo(src.x, src.y);
             hi.lineTo(dst.x, dst.y);
             hi.stroke({
-              width: 0.8 + t * 1.8,
+              width: 1.2 + t * 1.8,
               color: col,
-              alpha: 0.3 + t * 0.55,
+              alpha: 0.55 + t * 0.4,
             });
             if (fL1.has(j) && t > 0.25)
               arrow(src.x, src.y, dst.x, dst.y, col, 0.8);
@@ -657,9 +654,9 @@ export class FieldRenderer {
             g.moveTo(src.x, src.y);
             g.lineTo(dst.x, dst.y);
             g.stroke({
-              width: 0.3 + t * 1,
+              width: 0.75 + t * 1,
               color: col,
-              alpha: (0.05 + t * 0.32) * dim,
+              alpha: (0.13 + t * 0.44) * dim,
             });
           }
         }
@@ -681,15 +678,15 @@ export class FieldRenderer {
         if (onPath) {
           hi.moveTo(src.x, src.y);
           hi.lineTo(this.out.x, this.out.y);
-          hi.stroke({ width: 1 + t * 2.6, color: col, alpha: 0.4 + t * 0.5 });
+          hi.stroke({ width: 1.4 + t * 2.6, color: col, alpha: 0.6 + t * 0.4 });
           if (t > 0.2) arrow(src.x, src.y, this.out.x, this.out.y, col, 0.85);
         } else {
           g.moveTo(src.x, src.y);
           g.lineTo(this.out.x, this.out.y);
           g.stroke({
-            width: 0.5 + t * 2,
+            width: 0.9 + t * 2,
             color: col,
-            alpha: (0.1 + t * 0.55) * dim,
+            alpha: (0.2 + t * 0.6) * dim,
           });
         }
       }
@@ -707,12 +704,12 @@ export class FieldRenderer {
           if (onPath) {
             hi.moveTo(d.x, d.y);
             hi.lineTo(tx, ty);
-            hi.stroke({ width: 1.4, color: COL.accent, alpha: 0.6 });
+            hi.stroke({ width: 1.7, color: COL.accent, alpha: 0.85 });
             arrow(d.x, d.y, tx, ty, COL.accent, 0.85);
           } else {
             g.moveTo(d.x, d.y);
             g.lineTo(tx, ty);
-            g.stroke({ width: 0.5, color: COL.accent, alpha: 0.1 * dim });
+            g.stroke({ width: 0.8, color: COL.accent, alpha: 0.24 * dim });
           }
         }
       }

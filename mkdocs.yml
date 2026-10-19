@@ -1,7 +1,8 @@
 site_name: Vector-64
 site_description: Chess engine use, integration, architecture and verification
-repo_url: https://github.com/soumik15630m/Vector-64
-repo_name: soumik15630m/Vector-64
+site_url: https://fcmv.github.io/Vector-64/
+repo_url: https://github.com/fcmv/Vector-64
+repo_name: fcmv/Vector-64
 edit_uri: edit/main/docs/
 site_dir: artifacts/docs-site
 strict: true
@@ -46,18 +47,26 @@ nav:
       - Building: building.md
       - Troubleshooting: troubleshooting.md
       - Runnable examples: examples.md
+      - Documentation versions: versions.md
+      - v1.0.0 guide: releases/v1.0.0.md
   - Engine interfaces:
       - UCI: uci.md
       - Validator: validator.md
       - Variants: variants.md
       - Vector Scope: visualizer.md
+      - Illustrated UI tour: visualizer-tour.md
+      - Browser deployment: browser-deployment.md
+      - Telemetry API: spec/telemetry.md
       - Host integration: engine-integration-response.md
   - Architecture and evaluation:
       - Architecture: architecture.md
       - Engineering guide: implementation/engineering.md
+      - Search internals: search.md
       - Engine contract: spec/engine-contract.md
       - STK-HalfKA contract: vector64-spec.md
       - Training: nnue-training.md
+      - Self-play data generation: datagen.md
+      - Dataset and checkpoint formats: spec/datasets.md
       - Bullet adapter: bullet.md
       - Shipped model: model-card.md
       - Syzygy vendoring: syzygy.md
@@ -73,6 +82,9 @@ nav:
       - Telemetry boundary: adr/0003-telemetry-boundary.md
   - Project:
       - Contributing: contributing.md
+      - Maintaining: maintaining.md
+      - Changelog: changelog.md
+      - Media and capture notes: media.md
       - Compatibility: stability.md
       - Release procedure: releasing.md
       - Roadmap: roadmap.md

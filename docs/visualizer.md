@@ -29,7 +29,7 @@ interrupt command. `--help` lists the executable's flags:
 | `--hash` | 32 MB. |
 | `--delay` | 300 ms between self-play moves. |
 | `--seed` | Opening seed. |
-| `--record` | Append frame summaries to a JSONL file. |
+| `--record` | Write frame summaries to JSONL, truncating an existing file; the CLI help's append wording is inaccurate. |
 | `--no-browser`, `--headless` | Serve without opening the browser. |
 | `--terminal` | Console view instead of HTTP. |
 
@@ -137,6 +137,14 @@ The same C++ telemetry encoder serves HTTP and WASM, but the WASM source list is
 maintained explicitly in `tools/build_wasm.sh`. Portable scalar NNUE is compiled
 with `-msimd128`; no separate handwritten WASM integer kernel is claimed. CI
 currently checks the generated files, not a complete browser/runtime parity run.
+
+## Walkthroughs and detailed contracts
+
+The [illustrated tour](visualizer-tour.md) explains actual screenshots and
+live recordings. [Telemetry and controls](spec/telemetry.md) specifies fields,
+buffer layout, errors and recording semantics. [Data generation](datagen.md)
+covers row labels and resume; [browser deployment](browser-deployment.md)
+covers hosting, isolation and cache updates.
 
 ## Verification
 

@@ -107,7 +107,7 @@ jobs:
             | Suffix | What it is |
             |---|---|
             | *(none)* | Classical evaluation, no net. Smallest, most portable. |
-            | `-nnue` | Standard chess, net embedded. Strongest at chess. |
+            | `-nnue` | Standard chess with the shipped network embedded. |
             | `-all` | `-nnue` plus crazyhouse and bughouse. **Use this for variants.** |
             | `-variants` | Drop variants on the classical evaluation, no net. Used for SPRT. |
             | `-validator` | Legality, terminal and FEN queries as one-line JSON. No search, no net. |

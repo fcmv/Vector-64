@@ -142,6 +142,11 @@ seed and environment. The shipped net's known/unknown provenance is in the
 
 ## Self-play
 
+For the native/UI commands, shard behavior and distinct resume contracts, use
+the [data-generation walkthrough](datagen.md). The
+[dataset/checkpoint reference](spec/datasets.md) defines stored shapes,
+perspective, manifests and trust boundaries.
+
 `tools/nnue/datagen_bulk.py` runs resumable, position-capped native datagen
 chunks and records their hashes and settings. `tools/nnue/rl_loop.py` accumulates
 native self-play, mixes optional Lichess anchor data, trains through the shared

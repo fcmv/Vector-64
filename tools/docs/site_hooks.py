@@ -13,6 +13,7 @@ from mkdocs.structure.pages import Page
 ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 CANONICAL = {
+    "changelog.md": "CHANGELOG.md",
     "contributing.md": "CONTRIBUTING.md",
     "limitations.md": "LIMITATIONS.md",
     "stability.md": "STABILITY.md",
@@ -37,7 +38,7 @@ def on_page_markdown(markdown: str, page: Page, config: MkDocsConfig, files: Fil
     if source_name is None:
         return markdown
     source = ROOT / source_name
-    page.edit_url = f"https://github.com/soumik15630m/Vector-64/edit/main/{source_name}"
+    page.edit_url = f"https://github.com/fcmv/Vector-64/edit/main/{source_name}"
     content = source.read_text(encoding="utf-8")
 
     def retarget(match: re.Match[str]) -> str:
@@ -54,7 +55,7 @@ def on_page_markdown(markdown: str, page: Page, config: MkDocsConfig, files: Fil
         else:
             relative = actual.relative_to(ROOT).as_posix()
             kind = "tree" if actual.is_dir() else "blob"
-            result = f"https://github.com/soumik15630m/Vector-64/{kind}/main/{quote(relative)}"
+            result = f"https://github.com/fcmv/Vector-64/{kind}/main/{quote(relative)}"
         if parsed.fragment:
             result += "#" + parsed.fragment
         return f"{match['label']}({result})"

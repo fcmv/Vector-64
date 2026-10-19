@@ -3,7 +3,7 @@
 Start with [getting started](docs/getting-started.md),
 [troubleshooting](docs/troubleshooting.md), and [known limitations](LIMITATIONS.md).
 For reproducible defects or usage questions, use the
-[repository issues](https://github.com/soumik15630m/Vector-64/issues).
+[repository issues](https://github.com/fcmv/Vector-64/issues).
 Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## A useful engine report
