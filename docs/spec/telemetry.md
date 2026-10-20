@@ -135,8 +135,9 @@ Recordings are newline-delimited JSON summaries containing sequence/mode, game
 index/ply, depth/seldepth, nodes/NPS, search score/PV, neural eval/PSQT/positional/
 bucket when active, comparison score/name when active, and candidate move/score
 pairs. They do not contain the full binary activation arrays or a video.
-The native recorder opens with truncation; choose a new filename to preserve
-an old recording. The existing CLI help's append wording is inaccurate.
+The native recorder appends to existing JSONL files and inserts a newline when
+needed between an existing final row and the next summary. A new session can
+restart its sequence numbers; they are not unique IDs across appended sessions.
 
 Filesystem paths resolve with the native process's permissions. WASM has its
 own virtual filesystem and cannot be assumed to write arbitrary host paths.

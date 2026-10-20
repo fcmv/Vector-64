@@ -28,6 +28,11 @@ depth 4. The initial margin is 25 cp; failure widens/repositions the window
 and researches. A move that looks good under a narrow bound is not necessarily
 an exact full-window score.
 
+The shared search limit is 256 plies, including selective work. Nominal depth
+is capped at 246 to reserve ten plies for extensions/quiescence. Ordering and
+search arrays derive their capacities from that same limit. The 257 by 257
+two-byte PV table occupies 132,098 bytes (about 129 KiB) per worker.
+
 MultiPV searches the best remaining root moves with full windows, removes each
 selected move and sorts the resulting exact search scores. This costs more
 work than single-PV. The visualizer requests multiple candidates; its low-budget
@@ -102,9 +107,12 @@ positions, ordering, counters, accumulator stacks and refresh tables. Helpers
 stagger iterative-deepening work. The master produces the public result and
 stops/joins helpers before final aggregate nodes are returned.
 
-Shared-table access and sampled helper counters are performance-oriented and
-are not a proven race-free synchronization contract. Scheduling changes trees
-and total work. A larger NPS can coexist with worse time to depth; the
+Striped locks protect TT replacement and coherent probe snapshots in SMP;
+single-worker search bypasses locking. Table clearing/resizing and lock-mode
+changes require stopped workers. Helper counters are published through atomic
+snapshots at polling/iteration boundaries and at completion. Every worker also
+applies the root's variant evaluation policy. Scheduling changes trees and total
+work. A larger NPS can coexist with worse time to depth; the
 [measured thread sweep](benchmark.md#search-threads) reports both.
 
 ## Time, node and cancellation limits

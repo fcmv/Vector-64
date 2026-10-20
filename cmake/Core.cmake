@@ -30,12 +30,14 @@ set(CORE_HEADERS
         src/cores/invariants.h
         src/uci/validator.h
         src/search/transposition_table.h
+        src/search/limits.h
         src/search/move_ordering.h
         src/search/evaluator.h
         src/search/search.h
         src/search/syzygy.h
         src/nnue/halfka.h
         src/nnue/network.h
+        src/nnue/accumulator_stack.h
         src/datagen/datagen.h
 )
 

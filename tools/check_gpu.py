@@ -1,40 +1,36 @@
+"""Check the training environment; installation is documented in docs/nnue-training.md."""
+
 import time
 
 import torch
 
 
-def check_gpu():
-    print(f"PyTorch Version: {torch.__version__}")
+def check_gpu() -> int:
+    print(f"PyTorch version: {torch.__version__}")
+    if not torch.cuda.is_available():
+        print("CUDA is unavailable; CPU training is supported.")
+        print("For CUDA setup, follow docs/nnue-training.md and requirements.txt.")
+        return 0
+    for index in range(torch.cuda.device_count()):
+        print(f"GPU {index}: {torch.cuda.get_device_name(index)}")
+    try:
+        device = torch.device("cuda")
+        x = torch.rand(2048, 2048, device=device)
+        y = torch.rand_like(x)
+        torch.matmul(x, y)
+        torch.cuda.synchronize(device)
+        start = time.perf_counter()
+        result = torch.matmul(x, y)
+        torch.cuda.synchronize(device)
+        elapsed = time.perf_counter() - start
+        if not bool(torch.isfinite(result).all()):
+            raise RuntimeError("GPU computation returned non-finite values")
+        print(f"2048 x 2048 matrix multiplication: {elapsed:.6f} seconds (synchronized)")
+        return 0
+    except (RuntimeError, MemoryError) as error:
+        print(f"GPU computation failed: {error}")
+        return 1
 
-    if torch.cuda.is_available():
-        device_count = torch.cuda.device_count()
-        print(f"CUDA is available! Found {device_count} GPU(s).")
-
-        for i in range(device_count):
-            gpu_name = torch.cuda.get_device_name(i)
-            print(f"   GPU {i}: {gpu_name}")
-
-
-        try:
-            print("\n Running a test computation on GPU...")
-            device = torch.device("cuda")
-            x = torch.rand(10000, 10000).to(device)
-            y = torch.rand(10000, 10000).to(device)
-
-            start_time = time.time()
-            torch.matmul(x, y)
-            end_time = time.time()
-
-            print(f"   Success! Computation took {end_time - start_time:.4f} seconds.")
-            print("   Your GPU is ready for training.")
-
-        except Exception as e:
-            print(f" Error during computation: {e}")
-
-    else:
-        print(" CUDA is NOT available. PyTorch is running on CPU.")
-        print("   Run this command to install the correct version:")
-        print("   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118")
 
 if __name__ == "__main__":
-    check_gpu()
+    raise SystemExit(check_gpu())

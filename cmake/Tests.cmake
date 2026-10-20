@@ -13,6 +13,11 @@ set_target_properties(test_zobrist PROPERTIES
 )
 
 add_executable(test_diagnostics tests/cpp/test_diagnostics.cpp)
+add_executable(test_search_robustness tests/cpp/test_search_robustness.cpp)
+target_link_libraries(test_search_robustness chess_core)
+set_target_properties(test_search_robustness PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+add_test(NAME "search.robustness" COMMAND test_search_robustness)
 target_link_libraries(test_diagnostics chess_core)
 set_target_properties(test_diagnostics PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -81,12 +86,14 @@ add_test(NAME "datagen.writer_boundaries" COMMAND test_diagnostics shards
 # perft anchor that crazyhouse must equal standard chess until drops exist.
 if(ENGINE_VARIANTS)
     add_test(NAME "variants.drops_state_and_perft" COMMAND test_variants)
+    add_test(NAME "variants.smp_evaluation_policy" COMMAND test_variants "${CMAKE_SOURCE_DIR}/nets/stk-vector-64.nnue")
 endif()
 
 # Unguarded, these report as "Not Run" in an ENGINE_VIZ=OFF tree.
 if(ENGINE_VIZ)
     # Layer attributions must sum to the same outputs as ordinary evaluation.
     add_test(NAME "viz.telemetry_exact" COMMAND test_viz frame)
+    add_test(NAME "viz.recording_append" COMMAND test_viz recording "${CMAKE_BINARY_DIR}/recording_append.jsonl")
     add_test(NAME "viz.session_selfplay" COMMAND test_viz session)
     # Disable random openings so they cannot hide missing root-move variety.
     add_test(NAME "viz.selfplay_variety" COMMAND test_viz variety)

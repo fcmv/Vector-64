@@ -71,6 +71,10 @@ The evaluator owns big and optional small weights. The primary accumulator stack
 and refresh state belong to each search worker. Move deltas update non-king
 features; king-orientation changes introduce refresh boundaries. Special moves
 must remove/add the actual affected pieces, not just the move endpoints.
+With a small net or lazy classical gate enabled, the big-net stack records move
+deltas without updating its vectors. A big-net evaluation resolves the pending
+deltas from a computed ancestor, or refreshes the perspective across a king
+barrier. Branches answered entirely by a cheaper evaluator never resolve it.
 
 Search `eval_pos` selects classical lazy evaluation, an on-demand small-net
 refresh, or the big-network path. The non-search `eval` route rebuilds its own

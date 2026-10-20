@@ -2,10 +2,14 @@
 #define SEARCH_TRANSPOSITION_TABLE_H
 
 #include "../cores/move.h"
+#include "limits.h"
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
+#include <thread>
 
 #if defined(_MSC_VER) && !defined(__clang__)
 #include <intrin.h>
@@ -26,7 +30,6 @@ namespace Search {
 
 constexpr int INF_SCORE = 1000000;
 constexpr int MATE_SCORE = 900000;
-constexpr int MAX_PLY = 128;
 constexpr int MATE_BOUND = MATE_SCORE - MAX_PLY;
 
 constexpr bool is_mate_score(int score) {
@@ -71,6 +74,27 @@ struct alignas(64) TTBucket {
 static_assert(sizeof(TTBucket) == 64, "one bucket per cache line");
 
 class TranspositionTable {
+  struct alignas(64) Lock {
+    std::atomic_flag busy = ATOMIC_FLAG_INIT;
+  };
+  class Guard {
+  public:
+    explicit Guard(Lock *lock) : lock_(lock) {
+      if (lock_)
+        while (lock_->busy.test_and_set(std::memory_order_acquire))
+          std::this_thread::yield();
+    }
+    ~Guard() {
+      if (lock_)
+        lock_->busy.clear(std::memory_order_release);
+    }
+    Guard(const Guard &) = delete;
+    Guard &operator=(const Guard &) = delete;
+
+  private:
+    Lock *lock_;
+  };
+
 public:
   explicit TranspositionTable(size_t mb = 8) { resize_mb(mb); }
 
@@ -102,9 +126,13 @@ public:
     generation_ = static_cast<uint8_t>((generation_ + 1) & 0x3F);
   }
 
+  // Change only while all search workers are stopped.
+  void set_concurrent(bool enabled) { concurrent_ = enabled; }
+
   void store(uint64_t key, int score, Core::Move move, int depth, TTBound bound,
              int ply, int eval) {
     TTBucket &bucket = buckets_[key & mask_];
+    Guard guard(concurrent_ ? &locks_[(key & mask_) % LOCK_COUNT] : nullptr);
     const uint32_t key32 = static_cast<uint32_t>(key >> 32);
 
     // Reuse the same-key or first empty slot; otherwise evict the
@@ -150,14 +178,17 @@ public:
     }
   }
 
-  const TTEntry *probe(uint64_t key) const {
+  bool probe(uint64_t key, TTEntry &snapshot) const {
     const TTBucket &bucket = buckets_[key & mask_];
+    Guard guard(concurrent_ ? &locks_[(key & mask_) % LOCK_COUNT] : nullptr);
     const uint32_t key32 = static_cast<uint32_t>(key >> 32);
     for (const TTEntry &e : bucket.entries) {
-      if (e.bound() != BOUND_NONE && e.key32 == key32)
-        return &e;
+      if (e.bound() != BOUND_NONE && e.key32 == key32) {
+        snapshot = e;
+        return true;
+      }
     }
-    return nullptr;
+    return false;
   }
 
   void prefetch(uint64_t key) const {
@@ -188,6 +219,9 @@ public:
   size_t size() const { return bucketCount_ * 4; }
 
 private:
+  static constexpr size_t LOCK_COUNT = 4096;
+  std::unique_ptr<Lock[]> locks_ = std::make_unique<Lock[]>(LOCK_COUNT);
+  bool concurrent_ = true;
   void alloc_buckets(size_t count) {
     const size_t bytes = count * sizeof(TTBucket);
     buckets_ = nullptr;

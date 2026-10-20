@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { connect } from "./engine/connect";
 import type { BootProgress } from "./engine/connect";
 import type { ConnectionState, EngineSource } from "./engine/source";
 import type {
   ControlCommand,
-  DatagenProbe,
   EngineState,
 } from "./engine/types";
 import { Board } from "./components/Board";
@@ -132,14 +131,10 @@ export default function App() {
   };
 
   // a crashed session is offered back instead of silently overwritten.
-  const probeDatagen = async (out: string) => {
-    const res = await fetch("/api/control", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cmd: "datagen", action: "probe", out }),
-    });
-    return (await res.json()) as DatagenProbe;
-  };
+  const probeDatagen = useCallback(async (out: string) => {
+    if (!source) throw new Error("Engine is not connected");
+    return source.probeDatagen(out);
+  }, [source]);
 
   if (bootError) return <BootScreen error={bootError} />;
   if (boot) return <BootScreen p={boot} />;

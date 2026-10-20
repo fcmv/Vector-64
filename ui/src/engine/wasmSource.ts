@@ -1,5 +1,6 @@
 import { decodeState } from "./decode";
 import type { EngineSource } from "./source";
+import { decodeDatagenProbe } from "./source";
 import type { ControlCommand, EngineState } from "./types";
 
 /* Use the native C++ encoder in WASM so both transports share the wire contract. */
@@ -149,5 +150,21 @@ export class WasmEngineSource implements EngineSource {
     if (!this.mod) return { loaded: false };
     const json = this.mod.ccall("stk_viz_net_info", "string", [], []) as string;
     return JSON.parse(json);
+  }
+
+  async probeDatagen(out: string) {
+    if (!this.mod) throw new Error("Browser engine is not ready");
+    const mod = this.mod;
+    const okPtr = mod._malloc(4);
+    try {
+      const json = mod.ccall("stk_viz_control", "string", ["string", "number"],
+        [JSON.stringify({ cmd: "datagen", action: "probe", out }), okPtr]) as string;
+      const response = JSON.parse(json);
+      if (new Int32Array(mod.HEAPU8.buffer, okPtr, 1)[0] !== 1)
+        throw new Error(response.error || "Recovery lookup failed");
+      return decodeDatagenProbe(response);
+    } finally {
+      mod._free(okPtr);
+    }
   }
 }

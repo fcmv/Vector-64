@@ -512,8 +512,10 @@ library and can also run on other platforms with their executable paths:
 python tools/benchmark.py --mode all --engine classical=build/bin/ChessEngine --engine nnue=build/bin/ChessEngine-nnue --perft-engine build/bin/ChessEngine --canary build/bin/ChessEngine --output artifacts/benchmarks/manual-run
 ```
 
-Source changes under `src/`, `app/`, `tests/cpp/` or `CMakeLists.txt` must be
+Tracked or untracked source changes under `src/`, `app/`, `tests/cpp/`, `nets/`,
+`cmake/`, `CMakeLists.txt`, `CMakePresets.json` or `CMakeUserPresets.json` must be
 committed before collection so the recorded source revision is identifiable.
+An ignored, untracked `CMakeUserPresets.json` is also rejected.
 Build the desired binaries before cooling the machine; the collector records
 their hashes but cannot prove that an arbitrary executable matches the checkout.
 

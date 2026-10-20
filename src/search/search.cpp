@@ -384,7 +384,7 @@ bool EngineSearch::load_syzygy(const std::string &path) {
 uint64_t EngineSearch::total_tb_hits() const {
   uint64_t sum = tbHits_;
   for (const EngineSearch *helper : helperViews_)
-    sum += helper->tbHits_;
+    sum += helper->reportedTbHits_.load(std::memory_order_relaxed);
   return sum;
 }
 
@@ -460,7 +460,7 @@ int EngineSearch::variant_eval(const Core::Position &pos) {
 // them.
 int EngineSearch::evaluate(const Core::Position &pos) {
 #if defined(ENGINE_VARIANTS)
-  if (!nnueEnabled_) {
+  if (!nnueEnabled_ || pos.has_drops()) {
     const int sign = pos.side_to_move() == Core::WHITE ? 1 : -1;
     return sign * (pos.material_wb() + pos.psqt_wb() + variant_eval(pos));
   }
@@ -493,7 +493,7 @@ int EngineSearch::eval_pos(const Core::Position &pos, int ply) {
     if (smallActive_ &&
         (simple > smallNetThreshold_ || simple < -smallNetThreshold_)) {
       // On-demand small eval: a couple of finny diffs, and the big
-      // accumulator stays unresolved for this whole subtree branch.
+      // accumulator stays unresolved while descendants also choose small eval.
       PROF_T0;
       eval_->small().refresh_perspective(pos, Core::WHITE, smallScratch_,
                                          *smallRefreshTable_);
@@ -504,7 +504,8 @@ int EngineSearch::eval_pos(const Core::Position &pos, int ply) {
       return v;
     }
     PROF_T0;
-    const int v = eval_->evaluate(pos, accStack_[ply]);
+    const auto &acc = accStack_.resolve(pos, ply, eval_->big(), *refreshTable_);
+    const int v = eval_->evaluate(pos, acc);
     PROF_ADD(profEvalCyc_, profEvals_);
     return v;
   }
@@ -513,6 +514,8 @@ int EngineSearch::eval_pos(const Core::Position &pos, int ply) {
 
 bool EngineSearch::check_stop(const Limits &limits,
                               const Callbacks &callbacks) {
+  reportedNodes_.store(nodes_, std::memory_order_relaxed);
+  reportedTbHits_.store(tbHits_, std::memory_order_relaxed);
   if (stopped_)
     return true;
   if ((callbacks.shouldStop && callbacks.shouldStop()) ||
@@ -548,7 +551,8 @@ HOT_FN int EngineSearch::quiescence(Core::Position &pos, int alpha, int beta,
     return evaluate(pos);
 
   const uint64_t key = pos.hash();
-  const TTEntry *tte = tt_->probe(key);
+  TTEntry entry;
+  const TTEntry *tte = tt_->probe(key, entry) ? &entry : nullptr;
   Core::Move ttMove = Core::Move::none();
 
   qProbes_++;
@@ -648,8 +652,7 @@ HOT_FN int EngineSearch::quiescence(Core::Position &pos, int alpha, int beta,
     pos.make_move(move, undo);
     if (nnueActive_) {
       PROF_T0;
-      eval_->big().update(accStack_[ply], accStack_[ply + 1], pos, move, undo,
-                          refreshTable_.get());
+      accStack_.push(ply, pos, move, undo, eval_->big(), refreshTable_.get());
       PROF_ADD(profUpdCyc_, profUpds_);
     }
     const int score =
@@ -708,7 +711,8 @@ HOT_FN int EngineSearch::negamax(Core::Position &pos, int depth, int alpha,
   const bool isPVNode = (beta - alpha) > 1;
 
   const uint64_t key = pos.hash();
-  const TTEntry *tte = tt_->probe(key);
+  TTEntry entry;
+  const TTEntry *tte = tt_->probe(key, entry) ? &entry : nullptr;
   Core::Move ttMove = Core::Move::none();
 
   nProbes_++;
@@ -797,7 +801,7 @@ HOT_FN int EngineSearch::negamax(Core::Position &pos, int depth, int alpha,
     Core::UndoInfo undo;
     pos.make_null_move(undo);
     if (nnueActive_)
-      accStack_[ply + 1] = accStack_[ply];
+      accStack_.push_null(ply);
     ssPiece_[ply] = Core::NO_PIECE_TYPE;
     const int nullScore = -negamax(pos, depth - 1 - R, -beta, -beta + 1,
                                    ply + 1, limits, callbacks);
@@ -897,8 +901,7 @@ HOT_FN int EngineSearch::negamax(Core::Position &pos, int depth, int alpha,
     pos.make_move(move, undo);
     if (nnueActive_) {
       PROF_T0;
-      eval_->big().update(accStack_[ply], accStack_[ply + 1], pos, move, undo,
-                          refreshTable_.get());
+      accStack_.push(ply, pos, move, undo, eval_->big(), refreshTable_.get());
       PROF_ADD(profUpdCyc_, profUpds_);
     }
     ssPiece_[ply] = movedPt;
@@ -1034,7 +1037,8 @@ int EngineSearch::search_root(Core::Position &root, Core::MoveList &rootMoves,
                               const Callbacks &callbacks) {
   pvLen_[0] = 0;
 
-  const TTEntry *tte = tt_->probe(root.hash());
+  TTEntry entry;
+  const TTEntry *tte = tt_->probe(root.hash(), entry) ? &entry : nullptr;
   const Core::Move ttMove = tte ? tte->move() : Core::Move::none();
   ordering_.sort_moves(root, rootMoves, prevBest.is_ok() ? prevBest : ttMove,
                        0);
@@ -1056,8 +1060,7 @@ int EngineSearch::search_root(Core::Position &root, Core::MoveList &rootMoves,
     root.make_move(move, undo);
     if (nnueActive_) {
       PROF_T0;
-      eval_->big().update(accStack_[0], accStack_[1], root, move, undo,
-                          refreshTable_.get());
+      accStack_.push(0, root, move, undo, eval_->big(), refreshTable_.get());
       PROF_ADD(profUpdCyc_, profUpds_);
     }
     ssPiece_[0] = movedPt;
@@ -1111,19 +1114,18 @@ int EngineSearch::search_root(Core::Position &root, Core::MoveList &rootMoves,
 
 uint64_t EngineSearch::total_nodes() const {
   uint64_t total = nodes_;
-  // Helper counters are read racily; this is a reporting statistic.
   for (const EngineSearch *h : helperViews_)
-    total += h->nodes_;
+    total += h->reportedNodes_.load(std::memory_order_relaxed);
   return total;
 }
 
 // Lazy SMP: helper threads run the same iterative deepening on their own
-// move ordering state while sharing the transposition table. Entries may
-// tear under concurrent writes; the 32-bit key check plus legal-move
-// matching keeps a torn entry from doing more than costing a few nodes.
+// move ordering state while sharing the transposition table. Bucket locks
+// protect replacement and probe snapshots, including bounds used for cutoffs.
 Result EngineSearch::search(Core::Position root, const Limits &limits,
                             const Callbacks &callbacks) {
   tt_->new_search();
+  tt_->set_concurrent(threadCount_ > 1);
   helperViews_.clear();
 
   if (threadCount_ <= 1) {
@@ -1140,6 +1142,9 @@ Result EngineSearch::search(Core::Position root, const Limits &limits,
     helpers.back()->smallNetThreshold_ = smallNetThreshold_;
     helpers.back()->lazyEvalMargin_ = lazyEvalMargin_;
     helpers.back()->threadId_ = i;
+#if defined(ENGINE_VARIANTS)
+    helpers.back()->nnueEnabled_ = nnueEnabled_;
+#endif
     helperViews_.push_back(helpers.back().get());
   }
 
@@ -1173,11 +1178,13 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
                                      const Callbacks &callbacks) {
   Result out{};
   nodes_ = 0;
+  reportedNodes_.store(0, std::memory_order_relaxed);
+  reportedTbHits_.store(0, std::memory_order_relaxed);
   seldepth_ = 0;
   stopped_ = false;
   started_ = Clock::now();
   tbHits_ = 0;
-  syzygyActive_ = Syzygy::active();
+  syzygyActive_ = !root.has_drops() && Syzygy::active();
   syzygyPieces_ = Syzygy::max_pieces();
 
   // History is kept warm across the searches of one game: the ordering learned
@@ -1231,13 +1238,13 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
   }
 
 #if defined(ENGINE_VARIANTS)
-  nnueActive_ = nnueEnabled_ && eval_->nnue_active();
+  nnueActive_ = nnueEnabled_ && !root.has_drops() && eval_->nnue_active();
 #else
   nnueActive_ = eval_->nnue_active();
 #endif
   smallActive_ = nnueActive_ && eval_->small_active();
   if (nnueActive_)
-    eval_->big().refresh(root, accStack_[0]);
+    accStack_.reset(root, eval_->big(), smallActive_ || lazyEvalMargin_ > 0);
 
   // Helpers stagger depths to diversify the shared TT; the master searches
   // every depth.
@@ -1246,7 +1253,7 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
   static constexpr int kSkipPhase[16] = {0, 1, 0, 1, 2, 0, 1, 2,
                                          0, 1, 2, 3, 0, 1, 2, 3};
 
-  for (int depth = 1; depth <= limits.maxDepth; ++depth) {
+  for (int depth = 1; depth <= std::min(limits.maxDepth, MAX_DEPTH); ++depth) {
     if (check_stop(limits, callbacks))
       break;
 
@@ -1342,6 +1349,8 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
       out.bestMove = pvTable_[0][0];
     out.scoreCp = score;
     out.completedDepth = depth;
+    reportedNodes_.store(nodes_, std::memory_order_relaxed);
+    reportedTbHits_.store(tbHits_, std::memory_order_relaxed);
     out.nodes = nodes_;
     prevScore = score;
 
@@ -1408,6 +1417,8 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
   profEvals_ = profUpds_ = profSmallEvals_ = 0;
 #endif
   out.nodes = nodes_;
+  reportedNodes_.store(nodes_, std::memory_order_relaxed);
+  reportedTbHits_.store(tbHits_, std::memory_order_relaxed);
 
   return out;
 }

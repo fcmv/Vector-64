@@ -1,5 +1,6 @@
 import { decodeState } from "./decode";
 import type { EngineSource } from "./source";
+import { decodeDatagenProbe } from "./source";
 import type { ControlCommand, EngineState } from "./types";
 
 /**
@@ -93,5 +94,15 @@ export class HttpEngineSource implements EngineSource {
     const res = await fetch(`${this.base}/api/net`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
+  }
+
+  async probeDatagen(out: string) {
+    const res = await fetch(`${this.base}/api/control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cmd: "datagen", action: "probe", out }),
+    });
+    if (!res.ok) throw new Error(`Recovery lookup failed: HTTP ${res.status}`);
+    return decodeDatagenProbe(await res.json());
   }
 }

@@ -360,10 +360,23 @@ def arguments(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+def require_clean_sources(root: Path) -> None:
+    paths = ("CMakeLists.txt", "CMakePresets.json", "CMakeUserPresets.json", "cmake",
+             "src", "app", "tests/cpp", "nets")
+    dirty = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all", "--", *paths],
+                                    cwd=root, text=True).strip()
+    if dirty:
+        raise InvalidResult(f"commit build/search sources before collection:\n{dirty}")
+    user_presets = root / "CMakeUserPresets.json"
+    if user_presets.exists():
+        tracked = subprocess.check_output(["git", "ls-files", "--", "CMakeUserPresets.json"], cwd=root, text=True)
+        if not tracked.strip():
+            raise InvalidResult("untracked CMakeUserPresets.json is outside the recorded source revision")
+
+
 def make_identity(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
     environment = json.loads(args.environment.read_text(encoding="utf-8-sig")) if args.environment else {}
-    subprocess.run(["git", "diff", "--exit-code", "HEAD", "--", "CMakeLists.txt", "src", "app", "tests/cpp"],
-                   cwd=ROOT, check=True, capture_output=True)
+    require_clean_sources(ROOT)
     signature = dict(re.findall(r"^(DEPTH|NODES|NODES_NNUE)=(\d+)$",
                                (ROOT / "tools/bench_signature.txt").read_text(), re.M))
     overrides = {}

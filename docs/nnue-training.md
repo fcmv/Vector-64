@@ -27,6 +27,19 @@ For the configured CUDA 12.1 wheel path use
 Python/platform. A PyTorch wheel alone is not the full CUDA toolkit needed by
 Bullet. Training is FP32 in the shared supervised path.
 
+Run `python tools/check_gpu.py` to inspect CUDA availability and time a warmed,
+synchronized matrix multiplication. This diagnostic does not measure training
+throughput or require CUDA for CPU training.
+
+The RL loop writes a generation-local sampling manifest (`train_input.json`)
+beside its immutable `train_input.txt`. Restarting validates input/source hashes
+and sampling settings; it does not overwrite an interrupted trainer's input.
+Sampling uses a generation-local seed, so publication interrupted before the
+input rename can be reconstructed. Legacy input without a manifest is preserved
+and rejected for automatic reuse; retain that run and validate its provenance
+before migration, or start a separate workdir. These guarantees concern input
+preparation, not identical GPU training or stochastic match outcomes.
+
 ## Tiny CPU walkthrough
 
 Build `ChessEngine` first. The committed `examples/training_positions.txt` is a

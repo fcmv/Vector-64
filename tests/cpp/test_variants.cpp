@@ -9,7 +9,9 @@
 #include "cores/position.h"
 #include "cores/zobrist.h"
 #include "perft/perft.h"
+#include "search/search.h"
 #include "uci/validator.h"
+#include <memory>
 
 #include <cstdio>
 #include <random>
@@ -549,9 +551,47 @@ bool run_validator_checks() {
 
 } // namespace
 
-int main() {
+int main(int argc, char **argv) {
   Attacks::init();
   Zobrist::init();
+
+  if (argc == 2) {
+    auto search = std::make_unique<Search::EngineSearch>(8);
+    Position pos;
+    pos.set_variant(VARIANT_CRAZYHOUSE);
+    if (!pos.setFromFEN("7k/8/8/8/8/8/8/K7[Q] w - - 0 1")) {
+      std::printf("FAIL: evaluation-policy FEN rejected\n");
+      return 1;
+    }
+    search->set_nnue_enabled(false);
+    const int classical = search->evaluate(pos);
+    if (classical < 500 || !search->load_nnue(argv[1])) {
+      std::printf("FAIL: evaluation-policy baseline=%d, net=%s\n", classical,
+                  argv[1]);
+      return 1;
+    }
+    search->set_nnue_enabled(true);
+    if (search->evaluate(pos) != classical) {
+      std::printf("FAIL: loaded net changed variant static evaluation\n");
+      return 1;
+    }
+    search->set_threads(2);
+    Search::Limits limits;
+    limits.maxDepth = 3;
+    limits.maxNodes = 20000;
+    for (const auto variant : {VARIANT_CRAZYHOUSE, VARIANT_BUGHOUSE}) {
+      pos.set_variant(variant);
+      search->clear();
+      const auto result = search->search(pos, limits, {});
+      if (!result.bestMove.is_ok() || result.scoreCp < 500) {
+        std::printf("FAIL: variant=%d SMP score=%d depth=%d nodes=%llu\n",
+                    int(variant), result.scoreCp, result.completedDepth,
+                    (unsigned long long)result.nodes);
+        return 1;
+      }
+    }
+    return 0;
+  }
 
   if (!check_fen_isolation())
     return 1;

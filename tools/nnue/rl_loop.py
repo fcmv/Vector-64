@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Resumable self-play, warm-start training and SPRT-gated net promotion.
 
-Accept a candidate only when SPRT accepts H1. Accumulation resamples every
-generation's data.txt on each run, so resume is idempotent. Mixing original
+Accept a candidate only when SPRT accepts H1. Generation-local sampling and
+validated immutable training input make input preparation idempotent. Mixing original
 Lichess labels anchors training against self-play drift.
 """
 
@@ -17,12 +17,50 @@ if __name__ == "__main__" and not __package__:
 
 import argparse
 import json
+import os
 import random
 import subprocess
 import sys
 import time
 
 HERE = Path(__file__).resolve().parent
+
+
+def generation_input(gdir: Path, self_files: list[Path], lichess_pool: Path | None,
+                     mix_frac: float, max_train: int, seed: int, gen: int) -> Path:
+    from .contracts import sha256, write_json
+
+    output = gdir / "train_input.txt"
+    manifest = gdir / "train_input.json"
+    files = self_files + ([lichess_pool] if lichess_pool else [])
+    identity = {"schema": 1, "seed": seed, "generation": gen, "mix_frac": mix_frac,
+                "max_train": max_train,
+                "sources": [{"path": str(p.resolve()), "sha256": sha256(p)} for p in files]}
+    saved = json.loads(manifest.read_text()) if manifest.exists() else None
+    if saved is not None and saved["identity"] != identity:
+        raise ValueError("generation sampling configuration or source data changed")
+    if output.exists():
+        if saved is None:
+            raise ValueError("existing train_input.txt has no sampling manifest; "
+                             "preserve it and validate before migration")
+        if sha256(output) != saved["sha256"]:
+            raise ValueError("generation training input changed")
+        return output
+
+    rng = random.Random(f"stk-rl-v1:{seed}:{gen}")
+    cap = round((1 - mix_frac) * max_train) if lichess_pool else max_train
+    lines = reservoir_sample(self_files, cap, rng)
+    count = round(len(lines) * mix_frac / (1 - mix_frac)) if lichess_pool else 0
+    combined = lines + reservoir_sample([lichess_pool], count, rng) if lichess_pool else lines
+    rng.shuffle(combined)
+    temporary = output.with_suffix(".txt.tmp")
+    temporary.write_text("\n".join(combined) + ("\n" if combined else ""), encoding="utf-8", newline="\n")
+    digest = sha256(temporary)
+    if saved is not None and saved["sha256"] != digest:
+        raise ValueError("generation input cannot be reconstructed from its manifest")
+    write_json(manifest, {"identity": identity, "sha256": digest})
+    os.replace(temporary, output)
+    return output
 
 def reservoir_sample(paths: list[Path], k: int, rng: random.Random) -> list[str]:
     """Reservoir-sample up to k lines from the concatenation of `paths`
@@ -133,7 +171,6 @@ def main() -> int:
         p.error("engine and arbiter must exist")
     from .contracts import check_net, write_json
     check_net(Path(args.init_net))
-    rng = random.Random(args.seed)
 
     root = Path(args.root)
     root.mkdir(parents=True, exist_ok=True)
@@ -187,18 +224,8 @@ def main() -> int:
         train_input = gdir / "train_input.txt"
         if not new_net.exists():
             self_files = [root / f"gen{g:03d}" / "data.txt" for g in range(gen + 1)]
-            n_self_cap = (round((1 - args.mix_frac) * args.max_train)
-                          if mixing else args.max_train)
-            self_lines = reservoir_sample(self_files, n_self_cap, rng)
-            s = len(self_lines)
-            n_lich = round(s * args.mix_frac / (1 - args.mix_frac)) if mixing else 0
-            lich_lines = reservoir_sample([lichess_pool], n_lich, rng)
-            combined = self_lines + lich_lines
-            rng.shuffle(combined)
-            train_input.write_text("\n".join(combined) + ("\n" if combined else ""),
-                                   encoding="utf-8")
-            print(f"[rl] train set: {s} self-play (from {gen + 1} gens) + "
-                  f"{len(lich_lines)} lichess = {len(combined)} positions", flush=True)
+            train_input = generation_input(gdir, self_files, lichess_pool if mixing else None,
+                                           args.mix_frac if mixing else 0, args.max_train, args.seed, gen)
             cmd = [py, str(HERE / "make_net.py"), "--input", str(train_input),
                    "--workdir", str(gdir), "--init", state["best_float"],
                    "--epochs", str(args.epochs), "--lr", str(args.lr),

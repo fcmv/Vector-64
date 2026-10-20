@@ -2,10 +2,12 @@
 #define SEARCH_SEARCH_H
 
 #include "../cores/movegen.h"
+#include "../nnue/accumulator_stack.h"
 #include "evaluator.h"
 #include "move_ordering.h"
 #include "transposition_table.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -16,7 +18,7 @@
 namespace Search {
 
 struct Limits {
-  int maxDepth = 246;
+  int maxDepth = MAX_DEPTH;
   uint64_t maxNodes = 0;
   bool hasDeadline = false;
   std::chrono::steady_clock::time_point deadline{};
@@ -111,7 +113,7 @@ private:
   void update_pv(int ply, Core::Move move);
   uint64_t total_tb_hits() const;
 
-  // Evaluate `pos` at `ply` from the eagerly maintained big accumulator.
+  // Resolve the big accumulator only when evaluation selects that network.
   // When the small net is loaded and the O(1) material+psqt estimate calls
   // the position clearly decided, the small net answers on demand instead
   // (a finny-cached refresh; no per-make maintenance), skipping the big
@@ -143,6 +145,7 @@ private:
   int threadCount_ = 1;
   int threadId_ = 0; // 0 = master; 1..N-1 = lazy-SMP helpers
   uint64_t nodes_ = 0;
+  std::atomic<uint64_t> reportedNodes_{0}, reportedTbHits_{0};
   int seldepth_ = 0;
   bool stopped_ = false;
   Clock::time_point started_{};
@@ -176,7 +179,7 @@ private:
   // Per-thread NNUE accumulator stack, indexed by ply, plus the king-square
   // refresh cache. Active only while a net is loaded; the classical path
   // never touches them.
-  std::vector<NNUE::Accumulator> accStack_;
+  NNUE::AccumulatorStack accStack_;
   std::unique_ptr<NNUE::RefreshTable> refreshTable_;
   NNUE::SmallAccumulator smallScratch_;
   std::unique_ptr<NNUE::SmallRefreshTable> smallRefreshTable_;

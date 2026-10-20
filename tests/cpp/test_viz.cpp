@@ -448,12 +448,45 @@ bool write_fixture(const char *path) {
   return true;
 }
 
+bool recording_append_test(const std::string &path) {
+  const std::string previous = "{\"previous\":true}";
+  {
+    std::ofstream seed(path, std::ios::binary);
+    seed << previous;
+  }
+  auto session = std::make_unique<Viz::Session>(Viz::Config{});
+  std::string contents = previous;
+  for (int run = 0; run < 2; ++run) {
+    if (!session->start_recording(path))
+      return false;
+    session->start();
+    const auto until =
+        std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (std::filesystem::file_size(path) <= contents.size() + 1 &&
+           std::chrono::steady_clock::now() < until)
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    session->stop();
+    session->stop_recording();
+    std::ifstream input(path, std::ios::binary);
+    const std::string appended((std::istreambuf_iterator<char>(input)), {});
+    if (appended.size() <= contents.size() ||
+        appended.compare(0, contents.size(), contents) != 0)
+      return false;
+    contents = appended;
+  }
+  const auto boundary = contents.find('\n', previous.size());
+  return boundary != std::string::npos && boundary + 1 < contents.size() &&
+         contents[boundary + 1] == '{' && contents.back() == '\n';
+}
+
 int main(int argc, char **argv) {
   Core::Attacks::init();
   Core::Zobrist::init();
 
   //   test_viz [all|frame|session|fixture <path>]
   const std::string which = argc > 1 ? argv[1] : "all";
+  if (which == "recording" && argc == 3)
+    return recording_append_test(argv[2]) ? 0 : 1;
   if (which == "fixture") {
     if (argc < 3) {
       std::printf("usage: test_viz fixture <path>\n");

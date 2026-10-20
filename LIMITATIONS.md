@@ -73,16 +73,15 @@ Scalar/SIMD equality applies to integer evaluation, not all timed search results
 
 The node limit is checked periodically. A requested node count is a stopping
 budget, not a promise that the final counter equals that count exactly.
-Shared-TT search is performance-oriented; passing the current sanitizer suite
-does not establish race freedom for every SMP interleaving.
+TT replacement and probe snapshots use striped locks in multithreaded search;
+sampled helper counters use atomics. Passing the current tests does not establish
+race freedom for unrelated shared engine/session state or every SMP interleaving.
 
 ## Tablebase search
 
-Syzygy tables describe standard chess, but the current search enables probing
-from global Fathom availability without an explicit runtime-variant check.
-Switching to crazyhouse or bughouse does not clear the tables. Keep
-`SyzygyPath` empty for drop-variant search; a low on-board piece count does not
-make a reserve position a valid standard-chess tablebase position.
+Syzygy probing is disabled for drop-variant roots on every search worker.
+A low on-board piece count does not make a reserve position a valid
+standard-chess tablebase position.
 
 Root ranking also replaces the candidate list after UCI `searchmoves`
 filtering, so loaded tables can defeat a caller's requested root restriction.
@@ -119,8 +118,8 @@ reply does not guarantee that the requested state has already been published.
 
 The node/delay input fields initialize to UI defaults and may differ from CLI
 overrides until explicitly changed. Set those controls before recording a demo
-or interpreting the configured budget. The `--record` CLI help says append,
-but the native JSONL recorder opens with truncation; choose a fresh filename.
+or interpreting the configured budget. The native JSONL recorder appends to an
+existing file; choose a fresh filename when a separate recording is needed.
 Recordings contain summaries rather than full activation frames or screen video.
 
 ## Training and evidence

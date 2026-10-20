@@ -36,19 +36,33 @@ export function DatagenPanel({
   const [seed, setSeed] = useState(String(def.seed));
   const [more, setMore] = useState(false);
   const [found, setFound] = useState<DatagenProbe | null>(null);
+  const [probeError, setProbeError] = useState("");
+  const [probing, setProbing] = useState(true);
+  const [probedOut, setProbedOut] = useState("");
 
   // Look for a recoverable run whenever the path changes, so a crashed session
   // is offered back instead of being silently overwritten.
   useEffect(() => {
     let alive = true;
+    setFound(null);
+    setProbeError("");
+    setProbing(!d.running && !!out.trim());
     if (d.running || !out.trim()) {
       setFound(null);
       return;
     }
     const t = setTimeout(() => {
       probe(out.trim())
-        .then((r) => alive && setFound(r.resumable ? r : null))
-        .catch(() => alive && setFound(null));
+        .then((r) => {
+          if (alive) {
+            setFound(r.resumable ? r : null);
+            setProbedOut(out.trim());
+          }
+        })
+        .catch((error: unknown) => {
+          if (alive) setProbeError(error instanceof Error ? error.message : "Recovery lookup failed");
+        })
+        .finally(() => { if (alive) setProbing(false); });
     }, 400);
     return () => {
       alive = false;
@@ -187,6 +201,7 @@ export function DatagenPanel({
       <h3>
         Datagen <i>native generator</i>
       </h3>
+      {probeError && <p role="alert">{probeError}</p>}
       <label className="lbl">output directory</label>
       <input
         type="text"
@@ -389,11 +404,11 @@ export function DatagenPanel({
       )}
 
       <div className="controls" style={{ marginTop: 9 }}>
-        <button className="btn on" onClick={() => start(false)}>
+        <button className="btn on" disabled={probing || !!probeError || !out.trim() || probedOut !== out.trim()} onClick={() => start(false)}>
           {found ? "start fresh" : "start"}
         </button>
         {found && (
-          <button className="btn" onClick={() => start(true)}>
+          <button className="btn" disabled={probing || !!probeError || probedOut !== out.trim()} onClick={() => start(true)}>
             resume
           </button>
         )}

@@ -4,11 +4,12 @@
 #
 # Usage: source /path/to/emsdk/emsdk_env.sh
 #        bash tools/build_wasm.sh [output-dir]
+# WASM_BUILD_DIR selects a separate CMake tree for another toolchain.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$ROOT/ui/dist-wasm}"
-BUILD="$ROOT/build-wasm"
+BUILD="${WASM_BUILD_DIR:-$ROOT/build-wasm}"
 NET="$ROOT/nets/stk-vector-64.nnue"
 
 command -v emcmake >/dev/null 2>&1 || {

@@ -158,9 +158,20 @@ bool Session::start_recording(const std::string &path) {
     std::lock_guard<std::mutex> lk(recMu_);
     rec_.close();
     rec_.clear();
-    rec_.open(path, std::ios::out | std::ios::trunc);
+    bool needsNewline = false;
+    std::ifstream existing(path, std::ios::binary | std::ios::ate);
+    if (existing && existing.tellg() > 0) {
+      existing.seekg(-1, std::ios::end);
+      char last = '\n';
+      existing.get(last);
+      needsNewline = last != '\n';
+    }
+    existing.close();
+    rec_.open(path, std::ios::out | std::ios::app);
     if (!rec_)
       return false;
+    if (needsNewline)
+      rec_ << '\n';
     recPath_ = path;
     recFrames_ = 0;
   }
@@ -230,7 +241,7 @@ void Session::set_move_delay(int ms) { moveDelayMs_.store(std::max(0, ms)); }
 
 void Session::set_nodes(int nodes) { nodes_.store(std::max(0, nodes)); }
 
-int Session::max_depth() { return 246; }
+int Session::max_depth() { return Search::MAX_DEPTH; }
 
 void Session::set_depth(int d) { depth_.store(std::clamp(d, 0, max_depth())); }
 
