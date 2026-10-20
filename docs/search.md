@@ -32,6 +32,9 @@ The shared search limit is 256 plies, including selective work. Nominal depth
 is capped at 246 to reserve ten plies for extensions/quiescence. Ordering and
 search arrays derive their capacities from that same limit. The 257 by 257
 two-byte PV table occupies 132,098 bytes (about 129 KiB) per worker.
+Windows binaries reserve a 32 MiB thread stack. The browser build uses 8 MiB
+per thread with overflow checks; Emscripten's 64 KiB default is insufficient
+for the recursive move buffers at this search capacity.
 
 MultiPV searches the best remaining root moves with full windows, removes each
 selected move and sorts the resulting exact search scores. This costs more

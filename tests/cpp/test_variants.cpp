@@ -590,6 +590,22 @@ int main(int argc, char **argv) {
         return 1;
       }
     }
+    Position standard;
+    if (!standard.setFromFEN(
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"))
+      return 1;
+    if (search->evaluate(standard) != search->evaluator().evaluate(standard)) {
+      std::printf("FAIL: standard chess did not restore NNUE evaluation\n");
+      return 1;
+    }
+    search->clear();
+    const auto result = search->search(standard, limits, {});
+    MoveList legal;
+    generate_legal_moves(standard, legal);
+    if (!list_contains(legal, result.bestMove) || result.nodes == 0) {
+      std::printf("FAIL: standard SMP search did not return a legal result\n");
+      return 1;
+    }
     return 0;
   }
 

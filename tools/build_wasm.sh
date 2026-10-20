@@ -30,6 +30,10 @@ FLAGS=(
   -msimd128
   -pthread
   -sPTHREAD_POOL_SIZE=4
+  # Recursive move buffers must fit the shared 256-ply search capacity.
+  -sSTACK_SIZE=8388608
+  -sDEFAULT_PTHREAD_STACK_SIZE=8388608
+  -sSTACK_OVERFLOW_CHECK=2
   -sALLOW_MEMORY_GROWTH=1
   -sINITIAL_MEMORY=268435456
   -sMAXIMUM_MEMORY=2147483648
