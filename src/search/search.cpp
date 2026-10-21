@@ -20,7 +20,8 @@
 #endif
 
 #if defined(ENGINE_VARIANTS)
-// Drop-variant knobs. cmake/Variants.cmake carries the SPRT behind each default.
+// Drop-variant knobs. cmake/Variants.cmake carries the SPRT behind each
+// default.
 #ifndef ENGINE_DROP_CHECK_QDEPTH
 #define ENGINE_DROP_CHECK_QDEPTH 0
 #endif
