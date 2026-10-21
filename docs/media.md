@@ -2,6 +2,13 @@
 
 ## It's thinking ...
 
+The README preview opens the [final platform-card edit](assets/it-thinks-v1.1.0-platforms.mp4).
+It adds Windows, macOS and Linux availability and the repository link at seconds
+85.0 through 95.2, after the architecture overlay and before the roadmap ending.
+The card notes that further macOS/Linux performance tuning is planned. Its
+[edit manifest](assets/it-thinks-v1.1.0-platforms.json) records the source and
+output hashes, timing and overlay text. The recording below is the earlier edit.
+
 A silent, 100-second recording of Vector Scope, with `fcmv/vector-64` branding.
 It keeps the recorded play, board zooms and neuron inspection in their original
 order and at normal speed. Four seconds are trimmed from the initial pause.

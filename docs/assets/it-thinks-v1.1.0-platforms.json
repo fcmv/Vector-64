@@ -1,0 +1,59 @@
+{
+  "source_sha256": "b5209edd204071b8f800924f4a9a81a61c7a7b46fa5b41352435716e148acceb",
+  "output_sha256": "85ca49473c87d806b4aa0df10844a82e3c70fa49d659ca5c97aba10b7d6f79dd",
+  "raw_output_sha256": null,
+  "width": 1920,
+  "height": 1080,
+  "fps": 60,
+  "seconds": 100.0,
+  "audio": false,
+  "source": "user-provided Microsoft Game DVR window recording",
+  "source_average_fps": "60/1",
+  "source_start_seconds": 4.0,
+  "source_end_seconds": 104.0,
+  "source_playback_start_seconds": 8.7,
+  "editing": "continuous recording; centered animated title; architecture as the board closes; roadmap ending; platform availability and repository card before ending",
+  "frame_pacing": "60 fps constant output; source frames may repeat; no motion interpolation",
+  "branding": "fcmv/vector-64",
+  "title": "It's thinking ...",
+  "overlays": [
+    {
+      "name": "title",
+      "start": 0.25,
+      "end": 6.3,
+      "position": "screen center",
+      "typography": "84px Segoe UI Semilight or supplied title font",
+      "backing": null,
+      "ellipsis": "0 to 3 dots, 450ms per step, fixed punctuation-space advances"
+    },
+    {
+      "name": "architecture",
+      "start": 42.5,
+      "end": 49.5,
+      "position": "screen center",
+      "backing": "1360x420 opaque black panel, matched fades",
+      "font_sizes_px": [
+        64,
+        44,
+        54,
+        46
+      ],
+      "font": "regular body font",
+      "text": "STK-HalfKA NNUE\n22,528 features per perspective | 2 x 1024 accumulators\nPairwise > 1024 > 16 > 32 > 1\n8 output buckets + PSQT"
+    },
+    {
+      "name": "roadmap",
+      "start": 96.0,
+      "end": 99.85,
+      "text": "Next: engine correctness, reproducible training and search.\nROADMAP.md | fcmv/vector-64"
+    },
+    {
+      "name": "platforms",
+      "start": 85.0,
+      "end": 95.2,
+      "text": "Available on\nWindows  |  macOS*  |  Linux*\n*Further macOS/Linux performance tuning is planned.\ngithub.com/fcmv/Vector-64",
+      "position": "center",
+      "backing": "1440x440 opaque black with matched fades"
+    }
+  ]
+}

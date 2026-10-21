@@ -8,9 +8,7 @@ network while the engine plays.
 [Documentation](docs/index.md) · [Contributing](CONTRIBUTING.md) ·
 [Known limitations](LIMITATIONS.md)
 
-**[Watch "It's thinking ...", the 1080p recording](docs/assets/it-thinks-1080p.mp4)**
-
-![A short live preview of the neural evaluation updating during self-play](docs/assets/vector-scope-live.gif)
+[![A short live preview of the neural evaluation updating during self-play](docs/assets/vector-scope-live.gif)](docs/assets/it-thinks-v1.1.0-platforms.mp4)
 
 The colors and connections update as the sampled position changes. The trained
 weights stay fixed. This is a view of neural inference, not every search node
