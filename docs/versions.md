@@ -6,6 +6,7 @@ here is not automatically present in the latest downloadable release.
 | Version | Source identity | Documentation |
 |---|---|---|
 | Development | The commit built by the docs workflow; current source is `main` | This site's main reference, walkthroughs and examples. |
+| v1.1.0 | The `v1.1.0` tag identifies the release commit | [Release guide](releases/v1.1.0.md), including robustness fixes and verified asset manifests. |
 | v1.0.0 | `b301d4fea0faf08fa2cf774438b532b027503fd7` | [Verified release guide](releases/v1.0.0.md), with commands limited to that release. |
 
 The v1.0.0 page is a release-specific guide maintained alongside development

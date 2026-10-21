@@ -7,6 +7,10 @@ NNUE executable. See [version selection](docs/versions.md).
 
 ## Unreleased
 
+No changes recorded yet.
+
+## v1.1.0 - 2026-10-21
+
 ### Added
 
 - Release checks for all six platform capabilities, exact-commit CI gates,
@@ -29,6 +33,8 @@ NNUE executable. See [version selection](docs/versions.md).
 
 ### Changed
 
+- Big-network accumulator updates can be deferred when small-network or lazy
+  evaluation skips the big network. The shipped weights and topology are unchanged.
 - Shared perft diagnostics now live in `src/perft/`, vendored Fathom in
   `third_party/fathom/`, and build definitions in focused `cmake/` modules.
   Presets place new builds under `out/build/`; `BUILD_TESTING=OFF` omits tests.
@@ -46,6 +52,18 @@ NNUE executable. See [version selection](docs/versions.md).
 
 ### Fixed
 
+- Drop-variant search workers consistently suppress standard NNUE evaluation
+  and updates, including when a standard network is loaded.
+- Transposition-table stores and probes use coherent synchronized snapshots
+  in threaded search; sampled node and tablebase counters publish atomically.
+- Search, UCI and visualizer share depth limits. Browser builds reserve 8 MiB
+  stacks for main and worker threads and enable stack overflow checks.
+- Datagen recovery validates HTTP/WASM replies, reports failures and prevents
+  a stale output-path probe from authorizing a different destination.
+- Recording appends preserve existing bytes and separate an unterminated last
+  record. RL input preparation validates deterministic inputs and source manifests.
+- Benchmark provenance checks include staged and untracked source inputs.
+- Unused helpers and stale implementation comments were removed or corrected.
 - `ENGINE_VIZ=OFF` configures without creating visualization targets or tests.
 - Relative benchmark build/output paths resolve from the repository, including
   when PowerShell's native process directory differs from its shell location.
