@@ -183,6 +183,52 @@ def test_release_api_errors_are_not_treated_as_absent(monkeypatch):
         publish.get_release("owner/repo", "v1.1.0")
 
 
+def test_public_release_lookup_uses_tag_endpoint(monkeypatch):
+    release = {"id": 1, "tag_name": "v1.1.1", "draft": False}
+    monkeypatch.setattr(publish.subprocess, "run",
+                        lambda *a, **k: subprocess.CompletedProcess(a, 0, json.dumps(release), ""))
+    calls = []
+    monkeypatch.setattr(publish, "gh", lambda *a: calls.append(a))
+    assert publish.get_release("owner/repo", "v1.1.1") == release
+    assert not calls
+
+
+@pytest.mark.parametrize("matching", [False, True])
+def test_release_lookup_finds_draft_in_paginated_listing(monkeypatch, matching):
+    draft = {"id": 2, "tag_name": "v1.1.1", "draft": True, "target_commitish": COMMIT}
+    monkeypatch.setattr(publish.subprocess, "run",
+                        lambda *a, **k: subprocess.CompletedProcess(a, 1, "", "HTTP 404"))
+    calls = []
+
+    def gh(*arguments):
+        calls.append(arguments)
+        return json.dumps([[{"tag_name": "v1.1.0"}], [draft] if matching else []])
+
+    monkeypatch.setattr(publish, "gh", gh)
+    assert publish.get_release("owner/repo", "v1.1.1") == (draft if matching else None)
+    assert calls == [("api", "--paginate", "--slurp", "repos/owner/repo/releases?per_page=100")]
+
+
+def test_release_lookup_rejects_duplicate_tag_drafts(monkeypatch):
+    monkeypatch.setattr(publish.subprocess, "run",
+                        lambda *a, **k: subprocess.CompletedProcess(a, 1, "", "HTTP 404"))
+    monkeypatch.setattr(publish, "gh", lambda *a: json.dumps([[{"tag_name": "v1.1.1"}] * 2]))
+    with pytest.raises(ValueError, match="Multiple releases"):
+        publish.get_release("owner/repo", "v1.1.1")
+
+
+def test_release_lookup_listing_failure_is_not_treated_as_absent(monkeypatch):
+    monkeypatch.setattr(publish.subprocess, "run",
+                        lambda *a, **k: subprocess.CompletedProcess(a, 1, "", "HTTP 404"))
+
+    def gh(*arguments):
+        raise subprocess.CalledProcessError(1, arguments)
+
+    monkeypatch.setattr(publish, "gh", gh)
+    with pytest.raises(subprocess.CalledProcessError):
+        publish.get_release("owner/repo", "v1.1.1")
+
+
 @pytest.mark.parametrize("digest", [None, "sha256:short", "sha1:" + "a" * 40])
 def test_release_remote_assets_require_complete_sha256(monkeypatch, digest):
     monkeypatch.setattr(publish, "gh", lambda *a, **k: json.dumps([[{"name": "asset", "state": "uploaded",

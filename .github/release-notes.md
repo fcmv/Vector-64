@@ -1,24 +1,26 @@
-## STK-Vector-64 v1.1.0
+## STK-Vector-64 v1.1.1
 
-Vector Scope, shared NNUE training tools and release provenance join fixes for
-threaded search, deferred NNUE accumulators, datagen recovery and append-safe
-recording. The shipped STK-HalfKA topology and weights are unchanged.
+Syzygy root ranking now respects UCI `searchmoves` and passes earlier repetition
+history to DTZ probing. The shipped STK-HalfKA topology, weights and standard
+search fingerprints with tablebases disabled are unchanged.
 
-Highlights since v1.0.0:
+Changes since v1.1.0:
 
-- Coherent transposition-table snapshots and consistent classical evaluation
-  in drop-variant helper threads.
-- Deferred big-network accumulator updates when optional evaluation gates skip
-  the big network; shared search/depth limits and explicit browser worker stacks.
-- Validated HTTP/WASM dataset recovery, append-preserving recordings and
-  deterministic, integrity-checked RL input preparation.
-- Shared training/export/parity tools, perft divide, guarded benchmark matrix,
-  refreshed Vector Scope UI and current architecture/protocol documentation.
-- Six-platform release checks with exact-commit CI gates and verified assets.
+- DTZ and WDL fallback rank only allowed legal root moves, including when all
+  globally optimal moves are excluded by the caller.
+- DTZ receives repetitions since the last capture or pawn move, including an
+  earlier cycle when the current root has not repeated. A FEN alone cannot
+  reconstruct game history; supply the moves in the UCI position command.
+- Adapter regression tests and optional real-table tests cover restricted
+  search, repetition history, fallback and the fifty-move boundary.
+- Release publication finds authenticated drafts omitted by GitHub's tag
+  endpoint while retaining source, checksum and upload verification.
+- Corrected stale Syzygy documentation and updated the README video preview.
 
 Known material-adjudication, network-replacement and Syzygy boundaries remain;
-read `LIMITATIONS.md` in the tagged source. Browser recovery does not add durable
-storage across reloads. There is no absolute Elo or general speedup claim.
+read `LIMITATIONS.md` in the tagged source. Matching external WDL/DTZ files are
+required for tablebase coverage and are not bundled. There is no absolute Elo
+or general speedup claim.
 
 Download `release-notices.zip` with the executable. `release-source.tar.gz`
 contains the corresponding source. Verify downloads with `SHA256SUMS`.

@@ -22,7 +22,12 @@ def get_release(repo: str, tag: str) -> dict | None:
                             text=True, capture_output=True, timeout=60)
     if result.returncode:
         if "HTTP 404" in result.stderr:
-            return None
+            # The tag endpoint omits drafts; authenticated release listings include them.
+            pages = json.loads(gh("api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100"))
+            matching = [release for page in pages for release in page if release["tag_name"] == tag]
+            if len(matching) > 1:
+                raise ValueError("Multiple releases use the requested tag; inspect them before retrying")
+            return matching[0] if matching else None
         raise RuntimeError(result.stderr)
     return json.loads(result.stdout)
 

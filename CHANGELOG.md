@@ -9,6 +9,32 @@ NNUE executable. See [version selection](docs/versions.md).
 
 No changes recorded yet.
 
+## v1.1.1 - 2026-10-24
+
+### Fixed
+
+- Syzygy root ranking respects UCI `searchmoves`, including when the allowed
+  set excludes every globally optimal move. DTZ and WDL fallback rank only
+  the caller's legal candidates.
+- DTZ receives repetition history since the last capture or pawn move,
+  including earlier cycles when the current root has not repeated.
+- Draft release lookup uses the authenticated release list when GitHub's
+  tag endpoint omits drafts, allowing verified uploads to resume normally.
+- Stale Syzygy documentation now describes the existing variant guards,
+  root restrictions, repetition handling and optional real-file verification.
+
+### Added
+
+- Adapter regressions for restricted ranking, tied moves, underpromotions,
+  repetition propagation and missing-table fallback. Optional external-file
+  tests cover real DTZ/WDL probing, the fifty-move boundary and threaded search.
+- The README preview opens the final video with the platform and repository card.
+
+The shipped NNUE topology and weights are unchanged, as are both standard
+search fingerprints with tablebases disabled. Material adjudication and failed
+network-replacement limitations remain; see [LIMITATIONS.md](LIMITATIONS.md).
+No absolute Elo or general performance improvement is claimed.
+
 ## v1.1.0 - 2026-10-21
 
 ### Added

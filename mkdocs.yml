@@ -48,6 +48,7 @@ nav:
       - Troubleshooting: troubleshooting.md
       - Runnable examples: examples.md
       - Documentation versions: versions.md
+      - v1.1.1 guide: releases/v1.1.1.md
       - v1.1.0 guide: releases/v1.1.0.md
       - v1.0.0 guide: releases/v1.0.0.md
   - Engine interfaces:
