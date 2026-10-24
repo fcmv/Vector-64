@@ -812,6 +812,20 @@ bool Position::is_repetition() const {
   return false;
 }
 
+bool Position::has_repeated() const {
+  if (!standard_draws() || halfmoveClock < 4)
+    return false;
+  const int start = std::max(0, gamePly - halfmoveClock);
+  const int end = std::min(gamePly, MAX_GAME_PLY - 1);
+  for (int i = end; i >= start + 4; --i) {
+    for (int j = i - 4; j >= start; j -= 2) {
+      if (history[i] == history[j])
+        return true;
+    }
+  }
+  return false;
+}
+
 Bitboard Position::attackers_to(Square s, Bitboard occupied) const {
   return (Attacks::pawn_attacks(s, BLACK) & byColor[WHITE] & byType[PAWN]) |
          (Attacks::pawn_attacks(s, WHITE) & byColor[BLACK] & byType[PAWN]) |

@@ -7,8 +7,8 @@
 // CMake.
 #include "tbprobe.h"
 
-#include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <memory>
 
 namespace Search::Syzygy {
@@ -87,7 +87,8 @@ Wdl probe_wdl(const Core::Position &pos) {
   return res == TB_RESULT_FAILED ? Wdl::FAIL : wdl_of(res);
 }
 
-int probe_root_moves(Core::Position &pos, Core::MoveList &out) {
+int probe_root_moves(const Core::Position &pos,
+                     const Core::MoveList &candidates, Core::MoveList &out) {
   // TbRootMoves is large (~100 KB); keep it off the stack.
   auto results = std::make_unique<TbRootMoves>();
   const uint64_t white = pos.pieces(Core::WHITE);
@@ -105,10 +106,10 @@ int probe_root_moves(Core::Position &pos, Core::MoveList &out) {
 
   // DTZ ranking accounts for the 50-move rule; fall back to WDL ranking when
   // the DTZ tables are incomplete.
-  int ok = tb_probe_root_dtz(white, black, kings, queens, rooks, bishops,
-                             knights, pawns, rule50, castling, ep, turn,
-                             /*hasRepeated=*/false, /*useRule50=*/true,
-                             results.get());
+  int ok =
+      tb_probe_root_dtz(white, black, kings, queens, rooks, bishops, knights,
+                        pawns, rule50, castling, ep, turn, pos.has_repeated(),
+                        /*useRule50=*/true, results.get());
   if (!ok)
     ok = tb_probe_root_wdl(white, black, kings, queens, rooks, bishops, knights,
                            pawns, rule50, castling, ep, turn,
@@ -116,25 +117,23 @@ int probe_root_moves(Core::Position &pos, Core::MoveList &out) {
   if (!ok || results->size == 0)
     return 0;
 
-  int32_t bestRank = results->moves[0].tbRank;
-  for (unsigned i = 1; i < results->size; ++i)
-    bestRank = std::max(bestRank, results->moves[i].tbRank);
-
-  Core::MoveList legal;
-  Core::generate_legal_moves(pos, legal);
-  int count = 0;
+  int32_t bestRank = std::numeric_limits<int32_t>::min();
+  Core::MoveList ranked;
   for (unsigned i = 0; i < results->size; ++i) {
-    if (results->moves[i].tbRank != bestRank)
-      continue;
     const TbMove tm = results->moves[i].move;
-    const Core::Move m = match_legal(legal, TB_MOVE_FROM(tm), TB_MOVE_TO(tm),
-                                     TB_MOVE_PROMOTES(tm));
-    if (m.is_ok()) {
-      out.push_back(m);
-      ++count;
+    const Core::Move m = match_legal(candidates, TB_MOVE_FROM(tm),
+                                     TB_MOVE_TO(tm), TB_MOVE_PROMOTES(tm));
+    if (!m.is_ok() || results->moves[i].tbRank < bestRank)
+      continue;
+    if (results->moves[i].tbRank > bestRank) {
+      bestRank = results->moves[i].tbRank;
+      ranked.clear();
     }
+    ranked.push_back(m);
   }
-  return count;
+  for (Core::Move m : ranked)
+    out.push_back(m);
+  return ranked.size();
 }
 
 } // namespace Search::Syzygy

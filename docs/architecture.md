@@ -92,8 +92,9 @@ accumulator and prefers the loaded big net, then small net, then classical eval.
 Drop variants suppress NNUE without unloading it. Their classical evaluation
 includes board material/PSQT, reserve material, and variant evaluation terms.
 Returning to standard chess restores the loaded network. Syzygy uses external
-standard-chess tables; root DTZ ranking is master-only. The current probing path
-lacks a runtime-variant guard, so keep `SyzygyPath` empty for drop-variant search.
+standard-chess tables; root DTZ ranking is master-only. Every worker disables
+probing for drop variants. Root ranking preserves `searchmoves` and passes
+repetition history to DTZ; a FEN alone cannot restore earlier positions.
 See the [tablebase limitations](limitations.md#tablebase-search).
 
 ## Training and visualization

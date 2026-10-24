@@ -27,6 +27,11 @@ cmake -S . -B build-ucrt -DBASH_EXECUTABLE="C:/Program Files/Git/bin/bash.exe"
 A failed or Not Run test is not a successful suite. Fix the environment or state
 which check remains unverified; do not exclude it just to report a green run.
 
+Syzygy adapter regressions run without table files. For actual WDL/DTZ probing,
+configure with `-DSTK_SYZYGY_TEST_PATH=/absolute/path/three-piece-tables` to
+register the external-file integration test. See the
+[Syzygy verification instructions](syzygy.md#build-and-maintenance).
+
 ## Perft and divide
 
 ```bash

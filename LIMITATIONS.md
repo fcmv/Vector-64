@@ -83,14 +83,17 @@ Syzygy probing is disabled for drop-variant roots on every search worker.
 A low on-board piece count does not make a reserve position a valid
 standard-chess tablebase position.
 
-Root ranking also replaces the candidate list after UCI `searchmoves`
-filtering, so loaded tables can defeat a caller's requested root restriction.
-Clear `SyzygyPath` when that restriction is required. The DTZ wrapper passes
-`hasRepeated=false` rather than the actual root repetition history.
+Root ranking preserves UCI `searchmoves` and selects the best-ranked moves
+within that allowed set, even when the caller excludes all globally optimal
+moves. DTZ receives whether any position repeated since the last capture or
+pawn move. A FEN alone cannot reconstruct that history; supply the game moves
+when repetition matters.
 
-These limitations follow the current call paths in `src/search/search.cpp`
-and `src/search/syzygy.cpp`; actual table-file probing is not covered by the
-documentation examples. See the [Syzygy reference](third_party/fathom/README.md).
+Missing DTZ files fall back to WDL ranking, which does not provide DTZ progress
+guidance. Missing WDL coverage falls back to normal search. The external-file
+regression test is opt-in through `STK_SYZYGY_TEST_PATH`; a test run without
+that data does not establish real table-file coverage. See the
+[Syzygy reference](third_party/fathom/README.md).
 
 ## Platforms and browser use
 

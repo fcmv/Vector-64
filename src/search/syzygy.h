@@ -35,12 +35,13 @@ bool active();
 Wdl probe_wdl(const Core::Position &pos);
 
 // DTZ root ranking (NOT thread-safe -- master thread only, once per search).
-// Appends every root move that preserves the best tablebase outcome -- all
+// Appends every best-ranked move from the caller's legal `candidates` -- all
 // equally-optimal moves, so the search still chooses naturally among them --
 // to `out`. Returns the number appended; 0 means the root could not be ranked
 // (leave the move list untouched). Falls back to WDL ranking when DTZ tables
 // are missing.
-int probe_root_moves(Core::Position &pos, Core::MoveList &out);
+int probe_root_moves(const Core::Position &pos,
+                     const Core::MoveList &candidates, Core::MoveList &out);
 
 } // namespace Search::Syzygy
 

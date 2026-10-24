@@ -1231,7 +1231,7 @@ Result EngineSearch::search_internal(Core::Position &root, const Limits &limits,
   if (syzygyActive_ && threadId_ == 0 &&
       Core::popcount(root.occupancy()) <= syzygyPieces_) {
     Core::MoveList tbRoot;
-    if (Syzygy::probe_root_moves(root, tbRoot) > 0) {
+    if (Syzygy::probe_root_moves(root, rootMoves, tbRoot) > 0) {
       rootMoves = tbRoot;
       out.bestMove = rootMoves[0];
       ++tbHits_;

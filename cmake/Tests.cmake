@@ -18,6 +18,24 @@ target_link_libraries(test_search_robustness chess_core)
 set_target_properties(test_search_robustness PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 add_test(NAME "search.robustness" COMMAND test_search_robustness)
+
+add_executable(test_syzygy_adapter tests/cpp/test_syzygy_adapter.cpp
+        src/search/syzygy.cpp)
+target_include_directories(test_syzygy_adapter PRIVATE third_party/fathom)
+target_link_libraries(test_syzygy_adapter chess_core)
+set_target_properties(test_syzygy_adapter PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+add_test(NAME "search.syzygy_adapter" COMMAND test_syzygy_adapter)
+
+set(STK_SYZYGY_TEST_PATH "" CACHE PATH "External three-piece WDL/DTZ files for Syzygy integration tests")
+if(STK_SYZYGY_TEST_PATH)
+    add_executable(test_syzygy_tables tests/cpp/test_syzygy_tables.cpp)
+    target_link_libraries(test_syzygy_tables chess_core)
+    set_target_properties(test_syzygy_tables PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+    add_test(NAME "search.syzygy_tables"
+            COMMAND test_syzygy_tables "${STK_SYZYGY_TEST_PATH}")
+endif()
 target_link_libraries(test_diagnostics chess_core)
 set_target_properties(test_diagnostics PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)

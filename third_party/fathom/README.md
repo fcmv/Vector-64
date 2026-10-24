@@ -20,10 +20,9 @@ supports directory lists separated by `;` on Windows and `:` on Unix. An empty
 path or `<empty>` clears the loaded set. The engine reports whether tables were
 found; `readyok` alone does not establish coverage of a particular position.
 
-These are standard-chess tables. Keep `SyzygyPath` empty in a process doing
-crazyhouse or bughouse search: the current engine does not explicitly guard
-its probing path by runtime variant. Switching `UCI_Variant` does not clear
-loaded tables. See [the documented limitation](../../LIMITATIONS.md#tablebase-search).
+These are standard-chess tables. Root and interior probing are disabled for
+crazyhouse and bughouse on every search worker. Switching `UCI_Variant` does
+not unload the files; returning to standard chess can use them again.
 
 ## Search behavior
 
@@ -39,14 +38,17 @@ to internal scores of +/-800000, below the mate band.
 
 At the root, the master thread tries DTZ ranking with the current halfmove
 counter and fifty-move handling. It falls back to WDL ranking when DTZ ranking
-fails. The wrapper supplies `hasRepeated=false`; it does not pass the actual
-repetition history to that DTZ call. All equally best-ranked legal moves remain
-for normal search. Root probing is master-only; interior WDL calls are the
-thread-safe path.
+fails. The wrapper passes whether any position repeated since the last capture
+or pawn move, including an earlier cycle when the current root has not repeated.
+Fathom then prefers DTZ progress after repetition. FEN input alone has no prior
+position history; use `position ... moves ...` to preserve it. Root probing is
+master-only; interior WDL calls are the thread-safe path.
 
-Root tablebase ranking currently replaces the root candidate list after
-`searchmoves` filtering. Do not combine a required root restriction with loaded
-tables until that interaction is fixed. Clear `SyzygyPath` for such a request.
+Root tablebase ranking considers only the caller's legal candidates after
+`searchmoves` filtering. Every equally best-ranked allowed move remains for
+normal search, even if that restricted set excludes every globally optimal
+move. Probe failure leaves the candidate list unchanged. WDL fallback preserves
+the same restriction but lacks DTZ progress guidance.
 
 ## Build and maintenance
 
@@ -63,3 +65,18 @@ For a change to probing, run the normal [engine checks](../../docs/testing.md)
 and an endgame search with identified table files, expected WDL/DTZ behavior,
 clock state and missing-file fallback. A build without external table data does
 not verify actual probing coverage.
+
+`search.syzygy_adapter` checks root restrictions, underpromotion identity,
+repetition propagation and DTZ-to-WDL/failure handling without external files.
+To register `search.syzygy_tables` against real three-piece WDL and DTZ files:
+
+```bash
+cmake -S . -B build -DSTK_SYZYGY_TEST_PATH=/absolute/path/three-piece-tables
+cmake --build build -j
+ctest --test-dir build -R search.syzygy --output-on-failure
+```
+
+The real-file test covers all singleton root restrictions in a KQvK position,
+one- and two-thread searches, the fifty-move boundary, and progress selection
+after an earlier repetition. Keep table files and their provenance separately;
+they are not fetched during configure or included in the repository.

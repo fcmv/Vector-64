@@ -143,6 +143,10 @@ public:
   // fifty-move window (twofold: standard draw convention inside search).
   bool is_repetition() const;
 
+  // Any repeated position since the last zeroing move, not just this root.
+  // DTZ ranking needs this to prefer progress after an earlier cycle.
+  bool has_repeated() const;
+
   Bitboard attackers_to(Square s, Bitboard occupied) const;
   Bitboard attackers_to(Square s) const { return attackers_to(s, occupancy()); }
 
